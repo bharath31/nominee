@@ -20,7 +20,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: d493f93f37fc3d5ec62dc4d8f078f3e3
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy site --project-name=nominee-dev --branch=main
       - name: Note missing token
         if: ${{ env.CF_TOKEN == '' }}
