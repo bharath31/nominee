@@ -27,11 +27,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          pnpm changeset version
-          git add .
-          git commit -m "chore: version packages" || echo "No changes to commit"
+          pnpm changeset version || echo "No changesets to version"
           pnpm release
-          git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
