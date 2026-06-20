@@ -11,11 +11,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - name: Publish to Cloudflare Pages
+        if: ${{ env.CF_TOKEN != '' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: d493f93f37fc3d5ec62dc4d8f078f3e3
           command: pages deploy site --project-name=nominee-dev --branch=main
+      - name: Note missing token
+        if: ${{ env.CF_TOKEN == '' }}
+        run: echo "::warning::Set the CLOUDFLARE_API_TOKEN repo secret to enable auto-deploy to Cloudflare Pages."
