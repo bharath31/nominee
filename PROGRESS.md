@@ -30,20 +30,20 @@ Verified vs real `eve@0.11.7` (`defineTool` from `eve/tools`, branded, ESM-only)
 Hand-rolled HTTP from verified `@auth0/ai` source; zero heavy deps. 6 tests (mocked HTTP). Dual build.
 ⚠️ **Not yet validated against a live Auth0 tenant** — do before 1.0. `can()`/`exchange()` = v0.2.
 
-## Phase 4 — Examples + docs 🟦
+## Phase 4 — Examples + docs ✅
 - ✅ `AGENTS.md` (repo + AX guide) · ✅ `CLAUDE.md`
-- ⬜ `examples/standalone-node` — Nominee with a function/OAuth2 strategy, show token refresh + approve()/resolveApproval() + audit. NO Auth0.
-- ⬜ `examples/vercel-ai-github` — AI SDK agent, `nomineeTool` with `connection:'github'` + `approval:true`; prints audit chain. Sample app.
-- ⬜ `examples/eve-agent` — minimal Eve `agent/tools/*.ts` using `@nominee/eve`.
-- ⬜ `README.md` — **the compelling "why" for every agent dev.** Cold-open pain
+- ✅ `examples/standalone-node` — Nominee with a function/OAuth2 strategy, show token refresh + approve()/resolveApproval() + audit. NO Auth0.
+- ✅ `examples/vercel-ai-github` — AI SDK agent, `nomineeTool` with `connection:'github'` + `approval:true`; prints audit chain. Sample app.
+- ✅ `examples/eve-agent` — minimal Eve `agent/tools/*.ts` using `@nominee/eve`.
+- ✅ `README.md` — **the compelling "why" for every agent dev.** Cold-open pain
   (auth'd at 9am, dead by 3pm / silent 401s in durable runs) → 6-line install-and-go
   quickstart (NO signup) → approval demo → audit → "Auth0 optional" → adapters table
   (Eve/AI/Cloudflare/standalone) → "doesn't AI SDK v6 already do approval?" rebuttal
   (we add token vault + refresh + provider-neutral + cross-framework audit) →
   affiliation disclosure (built by Bharath @ Auth0; neutral by design, PRs for other
   providers welcome). Keep it simple + straightforward (explicit user ask).
-- ⬜ `CONTRIBUTING.md` — invite provider strategies (Clerk/Supabase); document the `Strategy` contract.
-- ⬜ (nice-to-have) `llms.txt` at root for AX.
+- ✅ `CONTRIBUTING.md` — invite provider strategies (Clerk/Supabase); document the `Strategy` contract.
+- ✅ (nice-to-have) `llms.txt` at root for AX.
 
 ## Phase 5 — Verify, version, publish ⬜
 - ⬜ `npm pack` each package; check tarball `exports`/`files`/dual outputs.
@@ -68,9 +68,7 @@ Dedicated `@nominee/cloudflare` (Durable Object approval storage) = post-launch 
 - Read **AGENTS.md** for architecture, conventions, and gotchas (type casts, ESM-only eve, Auth0 contract).
 
 ## Immediate next steps (in order)
-1. `git status` — see uncommitted work; commit it (single clean message) if not already.
-2. Write `examples/standalone-node` (fastest proof; no Auth0) + run it.
-3. Write `README.md` (the "why" — highest leverage for adoption).
-4. `examples/vercel-ai-github` sample app + `examples/eve-agent`.
-5. `CONTRIBUTING.md`.
-6. Phase 5 publish (needs user for npm org + token).
+1. Phase 5 publish (needs user for npm org + token).
+   - Create npm org `nominee`.
+   - Setup npm Automation token.
+   - Run `pnpm changeset` and publish.
