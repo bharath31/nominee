@@ -1,100 +1,221 @@
-# nominee
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.jpg" alt="nominee" width="100%" />
+</p>
 
-[![npm](https://img.shields.io/npm/v/nominee?label=nominee)](https://www.npmjs.com/package/nominee)
-[![npm](https://img.shields.io/npm/v/nominee-ai?label=nominee-ai)](https://www.npmjs.com/package/nominee-ai)
-[![npm](https://img.shields.io/npm/v/nominee-eve?label=nominee-eve)](https://www.npmjs.com/package/nominee-eve)
-[![npm](https://img.shields.io/npm/v/nominee-auth0?label=nominee-auth0)](https://www.npmjs.com/package/nominee-auth0)
-[![license](https://img.shields.io/npm/l/nominee)](LICENSE)
+<p align="center">
+  <a href="https://www.npmjs.com/package/nominee"><img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0a0a0f&colorB=7c3aed&label=nominee" alt="npm nominee" /></a>
+  <a href="https://www.npmjs.com/package/nominee-ai"><img src="https://img.shields.io/npm/v/nominee-ai?style=flat-square&colorA=0a0a0f&colorB=3b82f6&label=nominee-ai" alt="npm nominee-ai" /></a>
+  <a href="https://www.npmjs.com/package/nominee-eve"><img src="https://img.shields.io/npm/v/nominee-eve?style=flat-square&colorA=0a0a0f&colorB=10b981&label=nominee-eve" alt="npm nominee-eve" /></a>
+  <a href="https://www.npmjs.com/package/nominee-auth0"><img src="https://img.shields.io/npm/v/nominee-auth0?style=flat-square&colorA=0a0a0f&colorB=f59e0b&label=nominee-auth0" alt="npm nominee-auth0" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/nominee?style=flat-square&colorA=0a0a0f&colorB=555" alt="license" /></a>
+</p>
 
-**Identity and token delegation for AI agents.**
+<p align="center">
+  <strong>Identity and token delegation for AI agents.</strong><br />
+  The provider-neutral auth layer for agents that act on your behalf.
+</p>
 
-You authorized the agent at 9am. By 3pm, the GitHub token has expired, but the agent is still running in a Durable Object, or pausing for human input, or looping over a massive codebase. Suddenly: silent `401 Unauthorized` errors.
+---
 
-An agent acting on behalf of a user needs a *fresh* third-party access token at the exact moment of a tool call. Sometimes that action is sensitive and needs human approval. It always needs an audit trail.
+## The Problem
 
-**nominee** is the provider-neutral layer that solves this — the "Passport.js of agent auth."
+You authorized the agent at **9am**. By **3pm**, the GitHub token has expired — but the agent is still running in a Durable Object, pausing for human input, or looping over a massive codebase.
 
-```bash
-npm install nominee
+```
+❌ 401 Unauthorized — silent failures in long-running agents
 ```
 
-## Quickstart (No Signup Required)
+An agent acting on behalf of a user needs a **fresh** third-party token at the exact moment of a tool call. Sometimes that action is sensitive and needs human approval. It always needs an audit trail.
 
-Nominee is "install-and-go" by default. You don't need a SaaS account. You pass a function that returns a token (from your DB, env vars, etc.), and Nominee handles caching, freshness, and audit logging.
+**nominee** is the provider-neutral layer that solves this — the *"Passport.js of agent auth."*
+
+---
+
+## How It Works
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Nominee
+    participant Cache
+    participant Strategy
+    participant API as Third-party API
+
+    Agent->>Nominee: nominee.token({ user, connection })
+    Nominee->>Cache: check cache (user + connection)
+    alt token is fresh
+        Cache-->>Nominee: return cached token
+    else token expired or missing
+        Nominee->>Strategy: getToken(user, connection)
+        Strategy-->>Nominee: fresh token + expiry
+        Nominee->>Cache: store until near-expiry
+    end
+    Nominee-->>Agent: fresh token
+    Agent->>API: make API call with token
+```
+
+---
+
+## Installation
+
+```bash
+npm i nominee
+```
+
+No signup. No SaaS account. No vendor lock-in.
+
+---
+
+## Quickstart
 
 ```ts
 import { Nominee, tokens } from 'nominee'
 
 const nominee = new Nominee({
-  // 1. Give it a way to fetch tokens
-  strategy: tokens(async ({ user, connection }) => db.getFreshToken(user, connection)),
-  
-  // 2. See what the agent is doing
-  onAudit: (e) => console.log(`[Audit] ${e.agent} requested ${e.action}`),
-  
-  agent: 'triage-bot'
+  // Provide a function that fetches tokens — from your DB, env vars, anywhere
+  strategy: tokens(async ({ user, connection }) =>
+    db.getFreshToken(user, connection)
+  ),
+
+  // Optional: audit every token fetch and approval
+  onAudit: (e) => console.log(`[${e.type}] agent=${e.agent} user=${e.user}`),
+
+  agent: 'triage-bot',
 })
 
-// 3. Get a fresh token. It's cached until just before expiry.
+// Always call at request time — nominee handles caching & refresh automatically
 const token = await nominee.token({ user: 'alice', connection: 'github' })
 ```
 
-## Built for your AI framework
+> **Design rule:** never cache the token yourself. Call `nominee.token()` at call time, every time. nominee handles freshness transparently.
 
-Nominee plugs directly into your AI framework's tool system.
-
-| Adapter | Package | Status |
-|---|---|---|
-| **Vercel AI SDK** | `nominee-ai` | ✅ Available |
-| **Vercel Eve** | `nominee-eve` | ✅ Available |
-| **Cloudflare Agents** | `nominee-ai` | ✅ Available |
-| **Standalone Node** | `nominee` | ✅ Available |
+---
 
 ## Human-in-the-Loop Approvals
 
-Some actions are too sensitive for an AI to perform autonomously (like deleting a repo). Nominee lets you gate actions behind a human approval layer, independent of the LLM or framework.
+Gate any agent action behind a real-time human approval — independent of the LLM or framework.
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Nominee
+    participant User
+
+    Agent->>Nominee: nominee.approve({ user, action, detail })
+    Nominee->>User: onApprovalRequest fires → push notification / Slack / UI
+    Note over Nominee,User: Execution is paused ⏸
+
+    alt User approves
+        User->>Nominee: resolveApproval(id, 'approved')
+        Nominee-->>Agent: ✅ resolves — agent continues
+    else User denies / timeout
+        User->>Nominee: resolveApproval(id, 'denied')
+        Nominee-->>Agent: ❌ throws ApprovalDeniedError
+    end
+```
 
 ```ts
-// 1. The agent requests approval (blocks execution)
+// Gate an action — blocks until user responds
 await nominee.approve({
   user: 'alice',
   action: 'repo.delete',
-  detail: 'Delete repo: alice/old-project'
+  detail: 'Delete repo: alice/old-project',
 })
-// 2. The agent resumes if approved!
+
+// From your webhook (Slack button, push notification, UI)
+nominee.resolveApproval(approvalId, 'approved') // or 'denied'
 ```
 
-Nominee fires `onApprovalRequest` which you can use to send a Slack notification or push a UI update. When the user clicks "Approve", your webhook calls `nominee.resolveApproval(id, 'approved')`.
+---
 
-## "Doesn't the Vercel AI SDK already have approvals?"
+## Framework Adapters
 
-Yes, AI SDK v6 introduced tool approvals. But Nominee brings three crucial additions:
-1. **Token Vault + Refresh**: Tool calls happen hours after authorization. We manage token lifecycle so you don't pass expired tokens into the tool.
-2. **Provider-neutral**: Use it with Cloudflare Agents, Eve, or custom standalone agent loops, not just the AI SDK.
-3. **Cross-framework Audit**: A unified audit trail across all your agents, regardless of what framework they were written in.
+Nominee plugs directly into your AI framework's tool system.
 
-## Upgrading to Auth0 (Optional)
+| Adapter | Package | Links |
+|---|---|---|
+| **Vercel AI SDK** | `nominee-ai` | [![npm](https://img.shields.io/npm/v/nominee-ai?style=flat-square&colorA=0a0a0f&colorB=3b82f6)](https://www.npmjs.com/package/nominee-ai) |
+| **Vercel Eve** | `nominee-eve` | [![npm](https://img.shields.io/npm/v/nominee-eve?style=flat-square&colorA=0a0a0f&colorB=10b981)](https://www.npmjs.com/package/nominee-eve) |
+| **Cloudflare Agents** | `nominee-ai` | Uses the AI SDK adapter |
+| **Standalone Node** | `nominee` | Built-in |
 
-If you don't want to manage refresh tokens in your database, you can plug in `nominee-auth0`. This strategy uses Auth0's Token Vault and CIBA (Client-Initiated Backchannel Authentication) to manage tokens and push approvals directly to the user's phone.
+---
+
+## Strategies
+
+| Strategy | Use case |
+|---|---|
+| `tokens(fn)` | Simple function — env vars, your DB, a literal string |
+| `OAuth2({ connections })` | Generic OAuth2 refresh-token flow, zero deps |
+| `Memory({ tokens })` | Dev & test in-memory store |
+| [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA push approvals *(optional)* |
+
+---
+
+## Auth0 — Optional Managed Upgrade
+
+Don't want to manage refresh tokens yourself? `nominee-auth0` uses Auth0's Token Vault and CIBA (Client-Initiated Backchannel Authentication) to handle everything automatically.
 
 ```bash
-npm install nominee nominee-auth0
+npm i nominee nominee-auth0
 ```
 
 ```ts
+import { Nominee } from 'nominee'
 import { Auth0 } from 'nominee-auth0'
 
 const nominee = new Nominee({
   strategy: Auth0({
     domain: 'your-tenant.us.auth0.com',
-    clientId: '...',
-    clientSecret: '...'
-  })
+    clientId: process.env.AUTH0_CLIENT_ID,
+    clientSecret: process.env.AUTH0_CLIENT_SECRET,
+    subjectToken: ({ user }) => sessionStore.getRefreshToken(user),
+    ciba: { bindingMessage: (req) => `Approve: ${req.action}` },
+  }),
 })
 ```
 
-*Note: Nominee is entirely decoupled from Auth0. Auth0 is an optional strategy package.*
+> Auth0 is entirely optional. The core has zero dependencies and zero lock-in.
 
-## Affiliation & Open Source
+---
 
-Nominee is built by Bharath @ Auth0. However, it is an independent, **neutral by design** library. The core has zero dependencies and zero proprietary lock-in. PRs for other providers (Clerk, Supabase, WorkOS, etc.) are enthusiastically welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to build a strategy.
+## Full API
+
+```ts
+// Fetch a fresh token (cached, auto-refreshed)
+await nominee.token({ user, connection })
+
+// Gate on human approval — throws ApprovalDeniedError if denied/expired
+await nominee.approve({ user, action, detail })
+
+// Settle an approval from your webhook
+nominee.resolveApproval(id, 'approved' | 'denied')
+
+// Fine-grained authorization (throws unless strategy implements it)
+await nominee.can({ user, action, resource })
+
+// Subscribe to all audit events
+const unsub = nominee.on((event) => console.log(event))
+```
+
+---
+
+## "Doesn't the AI SDK already have approvals?"
+
+Yes — AI SDK v6 added tool approvals. Nominee adds three things it doesn't cover:
+
+1. **Token lifecycle** — tool calls happen hours after authorization. Nominee manages refresh so you never pass a stale token.
+2. **Provider-neutral** — works with Cloudflare Agents, Eve, standalone loops — not just the AI SDK.
+3. **Unified audit trail** — one stream across all agents, all frameworks.
+
+---
+
+## Contributing
+
+PRs for community strategies (Clerk, Supabase, WorkOS, etc.) are enthusiastically welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to build a strategy.
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/bharath31">Bharath</a> · MIT License · Neutral by design
+</p>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nominee - identity and token delegation for AI agents</title>
+    <meta
+      name="description"
+      content="nominee gives AI agents fresh third-party tokens at tool-call time, with optional human approval and audit trails."
+    />
+    <meta name="theme-color" content="#07080c" />
+    <meta property="og:title" content="nominee" />
+    <meta
+      property="og:description"
+      content="The provider-neutral auth layer for agents that act on behalf of users."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nominee.dev" />
+    <meta property="og:image" content="https://nominee.dev/assets/banner.jpg" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#packages">Packages</a>
+        <a href="/docs/">Docs</a>
+        <a href="#approval">Approval</a>
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Provider-neutral agent auth</p>
+          <h1>Fresh user tokens at the exact moment an agent acts.</h1>
+          <p class="lede">
+            nominee is the identity and token delegation layer for AI agents:
+            fetch fresh third-party access tokens, pause for human approval when
+            needed, and keep an audit trail across frameworks.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://www.npmjs.com/package/nominee">npm i nominee</a>
+            <a class="button secondary" href="/docs/">Read the docs</a>
+          </div>
+        </div>
+
+        <aside class="terminal-card" aria-label="nominee quickstart">
+          <div class="terminal-top">
+            <span></span><span></span><span></span>
+            <strong>tool-call.ts</strong>
+          </div>
+          <pre><code>import { Nominee, tokens } from 'nominee'
+
+const nominee = new Nominee({
+  strategy: tokens(({ user, connection }) =>
+    db.getFreshToken(user, connection)
+  ),
+  agent: 'triage-bot',
+})
+
+const token = await nominee.token({
+  user: 'alice',
+  connection: 'github',
+})</code></pre>
+        </aside>
+      </section>
+
+      <section class="strip" aria-label="Core promise">
+        <div>
+          <strong>No signup by default</strong>
+          <span>Bring a function, env var, database lookup, or OAuth refresh flow.</span>
+        </div>
+        <div>
+          <strong>Zero runtime deps in core</strong>
+          <span>Provider and framework dependencies live in optional packages.</span>
+        </div>
+        <div>
+          <strong>Built for long-running agents</strong>
+          <span>Call `nominee.token()` at execution time instead of capturing stale tokens.</span>
+        </div>
+      </section>
+
+      <section class="section" id="packages">
+        <div class="section-heading">
+          <p class="eyebrow">Packages</p>
+          <h2>Use nominee anywhere your agent runs.</h2>
+        </div>
+        <div class="package-grid">
+          <a class="package-card violet" href="https://www.npmjs.com/package/nominee">
+            <span>Core</span>
+            <h3>nominee</h3>
+            <p>Engine, strategies, token cache, approvals, and audit stream.</p>
+            <code>npm i nominee</code>
+          </a>
+          <a class="package-card blue" href="https://www.npmjs.com/package/nominee-ai">
+            <span>AI SDK</span>
+            <h3>nominee-ai</h3>
+            <p>Inject fresh tokens and approvals into Vercel AI SDK tools.</p>
+            <code>npm i nominee nominee-ai</code>
+          </a>
+          <a class="package-card amber" href="https://www.npmjs.com/package/nominee-auth0">
+            <span>Managed strategy</span>
+            <h3>nominee-auth0</h3>
+            <p>Auth0 Token Vault for federated tokens and CIBA approvals.</p>
+            <code>npm i nominee nominee-auth0</code>
+          </a>
+          <a class="package-card green" href="https://www.npmjs.com/package/nominee-eve">
+            <span>Eve</span>
+            <h3>nominee-eve</h3>
+            <p>Wrap Eve tools with nominee token injection and approval gates.</p>
+            <code>npm i nominee nominee-eve</code>
+          </a>
+        </div>
+      </section>
+
+      <section class="section flow-section">
+        <div class="section-heading narrow">
+          <p class="eyebrow">Token flow</p>
+          <h2>Never hand a captured token to a durable agent.</h2>
+          <p>
+            Agents ask nominee for a token at the moment of a tool call.
+            nominee returns the cached token only when it is still fresh; otherwise
+            it asks your strategy for a new one.
+          </p>
+        </div>
+        <div class="flow" aria-label="Token lifecycle diagram">
+          <div class="node">Agent tool call</div>
+          <div class="line"></div>
+          <div class="node active">nominee.token()</div>
+          <div class="line"></div>
+          <div class="node">Strategy refresh</div>
+          <div class="line"></div>
+          <div class="node">Third-party API</div>
+        </div>
+      </section>
+
+      <section class="section approval" id="approval">
+        <div>
+          <p class="eyebrow">Human approval</p>
+          <h2>Pause sensitive actions before the tool runs.</h2>
+          <p>
+            Gate actions such as deleting repositories, sending email, or changing
+            billing state. Use the built-in approval engine or a native strategy
+            such as Auth0 CIBA.
+          </p>
+        </div>
+        <div class="approval-card">
+          <span class="status">Waiting for approval</span>
+          <h3>repo.delete</h3>
+          <p>Delete repository: alice/old-project</p>
+          <div class="approval-actions">
+            <span>Deny</span>
+            <strong>Approve</strong>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Built for agents that act on behalf of users.</span>
+      <div>
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+      </div>
+    </footer>
+  </body>
+</html>

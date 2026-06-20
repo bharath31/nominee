@@ -1,23 +1,24 @@
 # CLAUDE.md
 
-This repo's guidance for coding agents lives in **[AGENTS.md](./AGENTS.md)** —
-read it first. It covers what nominee is, the two non-negotiable design
-commitments (install-and-go default; dependency-free core), the monorepo layout,
-the public API, commands, conventions, and gotchas.
+This repository also includes [AGENTS.md](./AGENTS.md), which is the canonical
+guide for coding agents and contributors.
 
-## Quick orientation
+## Quick Orientation
 
-- **What it is:** provider-neutral identity + token delegation for AI agents.
-  Fresh third-party tokens at call time, human-in-the-loop approval, audit.
-- **Default path = no signup:** `new Nominee({ strategy: ({connection}) => process.env[...] })`.
-  Auth0 (`nominee-auth0`) is the optional managed upgrade (Token Vault + CIBA).
-- **Packages:** `nominee` (core, zero deps) · `nominee-ai` (Vercel AI SDK, also
-  Cloudflare) · `nominee-eve` (Vercel Eve) · `nominee-auth0` (optional).
+- `nominee` is the dependency-free core package.
+- `nominee-ai` adapts nominee to Vercel AI SDK tools and Cloudflare Agents.
+- `nominee-eve` adapts nominee to Vercel Eve tools.
+- `nominee-auth0` is the optional Auth0 strategy.
+- `site/` contains the static Cloudflare Pages microsite for nominee.dev.
 
-## Before you commit
+## Before Opening a PR
 
 ```bash
-pnpm -r build && pnpm -r test && pnpm -r typecheck && pnpm biome check .
+pnpm -r build
+pnpm -r test
+pnpm -r typecheck
+pnpm check
 ```
 
-All four must be green. Keep the core dependency-free and the public API tiny — DX/AX is a stated product priority.
+Keep examples, package READMEs, and the microsite consistent with the TypeScript
+API. Internal planning notes should stay in gitignored local files.

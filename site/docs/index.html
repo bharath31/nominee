@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nominee docs - fresh tokens for AI agent tools</title>
+    <meta
+      name="description"
+      content="Install nominee, fetch fresh tokens at tool-call time, add human approval gates, and wire nominee into AI SDK or Eve tools."
+    />
+    <meta name="theme-color" content="#07080c" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="/">Home</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#adapters">Adapters</a>
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="docs-layout">
+      <aside class="docs-nav" aria-label="Documentation navigation">
+        <a href="#install">Install</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#strategies">Strategies</a>
+        <a href="#approval">Approval</a>
+        <a href="#adapters">Adapters</a>
+        <a href="#api">API</a>
+      </aside>
+
+      <article class="docs">
+        <header class="docs-hero">
+          <p class="eyebrow">Documentation</p>
+          <h1>Build agent tools that never run on stale credentials.</h1>
+          <p class="lede">
+            nominee sits between your agent framework and your user’s third-party
+            accounts. Ask for a token at execution time; nominee handles caching,
+            refresh, approval, and audit events.
+          </p>
+        </header>
+
+        <section id="install" class="doc-section">
+          <h2>Install</h2>
+          <pre><code>npm i nominee</code></pre>
+          <p>
+            The core package has zero runtime dependencies. Start with a plain
+            token resolver, then add adapters or managed strategies when you need
+            them.
+          </p>
+        </section>
+
+        <section id="quickstart" class="doc-section">
+          <h2>Quickstart</h2>
+          <pre><code>import { Nominee, tokens } from 'nominee'
+
+const nominee = new Nominee({
+  strategy: tokens(async ({ user, connection }) =>
+    db.getFreshToken(user, connection)
+  ),
+  onAudit: (event) => auditDb.insert(event),
+  agent: 'triage-bot',
+})
+
+const token = await nominee.token({
+  user: 'alice',
+  connection: 'github',
+})</code></pre>
+          <p>
+            Do not store the returned access token in your own agent state. Call
+            <code>nominee.token()</code> at the moment the tool runs.
+          </p>
+        </section>
+
+        <section id="strategies" class="doc-section">
+          <h2>Strategies</h2>
+          <div class="docs-grid">
+            <div>
+              <h3>tokens(fn)</h3>
+              <p>Wrap an env var, database lookup, or any function that returns a token.</p>
+            </div>
+            <div>
+              <h3>OAuth2()</h3>
+              <p>Use a generic refresh-token flow without adding provider dependencies.</p>
+            </div>
+            <div>
+              <h3>Memory()</h3>
+              <p>Seed tokens in memory for development, examples, and tests.</p>
+            </div>
+            <div>
+              <h3>Auth0()</h3>
+              <p>Optional managed strategy for Token Vault and CIBA approval flows.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="approval" class="doc-section">
+          <h2>Human approval</h2>
+          <pre><code>await nominee.approve({
+  user: 'alice',
+  action: 'repo.delete',
+  detail: 'Delete repository: alice/old-project',
+})
+
+nominee.resolveApproval(approvalId, 'approved')</code></pre>
+          <p>
+            If the active strategy implements native approval, nominee delegates
+            to it. Otherwise the built-in approval engine pauses until your
+            webhook resolves the request.
+          </p>
+        </section>
+
+        <section id="adapters" class="doc-section">
+          <h2>Framework adapters</h2>
+          <pre><code>npm i nominee nominee-ai</code></pre>
+          <pre><code>import { nomineeTool } from 'nominee-ai'
+import { z } from 'zod'
+
+const starRepo = nomineeTool({
+  nominee,
+  user: 'alice',
+  connection: 'github',
+  description: 'Star a GitHub repository',
+  inputSchema: z.object({ repo: z.string() }),
+  execute: async ({ repo }, ctx) => {
+    await fetch(`https://api.github.com/user/starred/${repo}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${ctx.token}` },
+    })
+    return `Starred ${repo}`
+  },
+})</code></pre>
+          <p>
+            Use <code>nominee-ai</code> for Vercel AI SDK and Cloudflare Agents.
+            Use <code>nominee-eve</code> for Vercel Eve.
+          </p>
+        </section>
+
+        <section id="api" class="doc-section">
+          <h2>Core API</h2>
+          <div class="api-list">
+            <code>await nominee.token({ user, connection })</code>
+            <code>await nominee.approve({ user, action, detail })</code>
+            <code>nominee.resolveApproval(id, 'approved' | 'denied')</code>
+            <code>await nominee.can({ user, action, resource })</code>
+            <code>nominee.on((event) => auditDb.insert(event))</code>
+          </div>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>
