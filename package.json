@@ -1,0 +1,13 @@
+{
+  "name": "nominee",
+  "version": "0.0.1",
+  "description": "Identity and token delegation for AI agents",
+  "main": "index.js",
+  "keywords": ["ai", "agents", "auth", "oauth", "token", "identity", "delegation"],
+  "author": "Bharath",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bharath31/nominee"
+  }
+}
