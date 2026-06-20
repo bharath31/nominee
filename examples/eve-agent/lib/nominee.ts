@@ -5,7 +5,7 @@ export const nominee = new Nominee({
     // Return a mock token for this demo
     return {
       token: `mock-${connection}-token-for-${user}`,
-      expiresAt: Date.now() + 3600 * 1000
+      expiresAt: Date.now() + 3600 * 1000,
     }
   }),
   onApprovalRequest: (req) => {
@@ -13,12 +13,12 @@ export const nominee = new Nominee({
     console.log(`Approval ID: ${req.id}`)
     // Simulate user approving via dashboard after 2s
     setTimeout(() => {
-      console.log(`[Webhook] Simulating external approval...`)
+      console.log('[Webhook] Simulating external approval...')
       nominee.resolveApproval(req.id, 'approved')
     }, 2000)
   },
   onAudit: (e) => {
     console.log(`[Audit] ${e.agent} | Action: ${e.action} | Status: ${e.status || 'success'}`)
   },
-  agent: 'eve-demo-agent'
+  agent: 'eve-demo-agent',
 })

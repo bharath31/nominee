@@ -3,7 +3,7 @@ import { Nominee, tokens } from 'nominee'
 async function main() {
   console.log('--- Nominee Standalone Node Example ---\n')
 
-  let pendingApprovalId: string | undefined;
+  let pendingApprovalId: string | undefined
 
   // 1. Initialize Nominee with a simple function strategy.
   const nominee = new Nominee({
@@ -12,10 +12,10 @@ async function main() {
       // Return a mock token with an expiry for this demo so it gets cached
       return {
         token: `mock-${connection}-token-${Date.now()}`,
-        expiresAt: Date.now() + 1000 * 60 * 60 // 1 hour
+        expiresAt: Date.now() + 1000 * 60 * 60, // 1 hour
       }
     }),
-    
+
     // Triggered when an agent requires approval for a sensitive action
     onApprovalRequest: async (req) => {
       console.log(`\n[Approval Required] Action: ${req.action}`)
@@ -26,10 +26,12 @@ async function main() {
 
     // Global audit sink for all events
     onAudit: (event) => {
-      console.log(`[Audit Log] ${event.action} | Status: ${event.status || 'success'} | Agent: ${event.agent || 'N/A'}`)
+      console.log(
+        `[Audit Log] ${event.action} | Status: ${event.status || 'success'} | Agent: ${event.agent || 'N/A'}`,
+      )
     },
-    
-    agent: 'example-bot'
+
+    agent: 'example-bot',
   })
 
   const user = 'alice'
@@ -38,7 +40,7 @@ async function main() {
   console.log('1. Requesting token...')
   const token1 = await nominee.token({ user, connection })
   console.log(`Token received: ${token1}\n`)
-  
+
   console.log('2. Requesting token again (should be cached)...')
   const token2 = await nominee.token({ user, connection })
   console.log(`Token received: ${token2}\n`)
@@ -48,12 +50,12 @@ async function main() {
   // 3. Example of an approval flow
   console.log('\n--- Approval Example ---')
   console.log('An agent wants to delete a repository. We need human approval.')
-  
+
   // Create an approval request. This returns a Promise that resolves when approved.
   const approvalPromise = nominee.approve({
     user,
     action: 'repo.delete',
-    detail: 'Delete repo: alice/old-project'
+    detail: 'Delete repo: alice/old-project',
   })
 
   // We wait a bit to simulate a user receiving a Slack notification,

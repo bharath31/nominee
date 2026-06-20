@@ -1,7 +1,7 @@
-import { Nominee, tokens } from 'nominee'
+import { openai } from '@ai-sdk/openai'
 import { nomineeTool } from '@nominee/ai'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { Nominee, tokens } from 'nominee'
 import { z } from 'zod'
 import 'dotenv/config'
 
@@ -14,7 +14,7 @@ async function main() {
     process.exit(1)
   }
 
-  let pendingApprovalId: string | undefined;
+  let pendingApprovalId: string | undefined
 
   // 1. Setup Nominee
   const nominee = new Nominee({
@@ -22,7 +22,7 @@ async function main() {
       // In a real app, fetch from database.
       return {
         token: `mock-${connection}-token-for-${user}`,
-        expiresAt: Date.now() + 3600 * 1000
+        expiresAt: Date.now() + 3600 * 1000,
       }
     }),
     onApprovalRequest: (req) => {
@@ -33,7 +33,7 @@ async function main() {
     onAudit: (e) => {
       console.log(`[Audit] ${e.agent} | Action: ${e.action} | Status: ${e.status || 'success'}`)
     },
-    agent: 'github-agent'
+    agent: 'github-agent',
   })
 
   // 2. Define an AI SDK Tool wrapped with Nominee
@@ -43,7 +43,7 @@ async function main() {
     user: 'alice',
     // Inject a fresh token for 'github' into the execute `ctx`
     connection: 'github',
-    
+
     description: 'Get recent issues for a GitHub repository',
     parameters: z.object({
       repo: z.string().describe('The repository name, e.g. "vercel/ai"'),
@@ -52,7 +52,7 @@ async function main() {
       // ctx.token is guaranteed fresh and valid
       console.log(`[Tool: getIssues] Fetching issues for ${args.repo} with token ${ctx.token}...`)
       return `Found 3 open issues in ${args.repo}.`
-    }
+    },
   })
 
   const starRepo = nomineeTool({
@@ -62,7 +62,7 @@ async function main() {
     // This action requires human approval before `execute` is called
     approval: true,
     action: 'github.star',
-    
+
     description: 'Star a GitHub repository',
     parameters: z.object({
       repo: z.string().describe('The repository name'),
@@ -70,12 +70,12 @@ async function main() {
     execute: async (args, ctx) => {
       console.log(`[Tool: starRepo] Starring ${args.repo} with token ${ctx.token}...`)
       return `Successfully starred ${args.repo}.`
-    }
+    },
   })
 
   // 3. We run the generation. We don't await immediately so we can handle the webhook.
   console.log('\n[Agent] Asking LLM to get issues and then star the repo...\n')
-  
+
   const generatePromise = generateText({
     model: openai('gpt-4o-mini'),
     tools: { getIssues, starRepo },
@@ -93,7 +93,7 @@ async function main() {
 
   // 4. Wait for the agent to finish
   const { text } = await generatePromise
-  
+
   console.log('\n--- Final Agent Response ---')
   console.log(text)
 }
