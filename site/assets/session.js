@@ -50,7 +50,7 @@ async function main(root) {
 
   let lib = null
   try {
-    lib = await import('https://esm.sh/nominee@0.3')
+    lib = await import('https://esm.sh/nominee@1')
   } catch {
     /* fall back below */
   }
