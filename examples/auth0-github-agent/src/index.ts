@@ -206,7 +206,7 @@ function page(session: Session | null) {
     <a class="primary" href="/agent/login">Connect GitHub via Auth0 →</a>
     <p class="foot" style="margin-top:24px">You grant access once (real OAuth consent). The agent never sees your password or stores your token.</p>`
   const loggedIn = `
-    <p class="lede">Connected as <strong>${escape(session?.name || session?.sub || 'you')}</strong>. Ask the agent to star a repo <em>on your account</em>. Nothing happens until you approve — then nominee pulls your token from Token Vault and acts. <a href="/agent/logout">log out</a></p>
+    <p class="lede">Connected as <strong>${escapeHtml(session?.name || session?.sub || 'you')}</strong>. Ask the agent to star a repo <em>on your account</em>. Nothing happens until you approve — then nominee pulls your token from Token Vault and acts. <a href="/agent/logout">log out</a></p>
     <div class="card">
       <label for="repo">Repo to star (on your GitHub)</label>
       <input id="repo" type="text" value="bharath31/nominee" />
@@ -217,7 +217,7 @@ function page(session: Session | null) {
   return html(session ? loggedIn : loggedOut, Boolean(session))
 }
 
-const escape = (s: string) =>
+const escapeHtml = (s: string) =>
   s.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m] as string)
 
 function html(inner: string, loggedIn: boolean) {

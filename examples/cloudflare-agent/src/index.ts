@@ -57,109 +57,146 @@ export default {
       })
 
     try {
-    // 1) PLAN: fetch the repo's real open issues and draft a digest email
-    if (request.method === 'POST' && path.endsWith('/plan')) {
-      const { to, repo: repoRaw } = (await request.json().catch(() => ({}))) as {
-        to?: string
-        repo?: string
-      }
-      if (!isEmail(to)) return json({ ok: false, reason: 'invalid_email' }, 400)
-      const repo = cleanRepo(repoRaw)
-      if (!repo) return json({ ok: false, reason: 'invalid_repo', message: 'Use owner/repo' }, 400)
+      // 1) PLAN: fetch the repo's real open issues and draft a digest email
+      if (request.method === 'POST' && path.endsWith('/plan')) {
+        const { to, repo: repoRaw } = (await request.json().catch(() => ({}))) as {
+          to?: string
+          repo?: string
+        }
+        if (!isEmail(to)) return json({ ok: false, reason: 'invalid_email' }, 400)
+        const repo = cleanRepo(repoRaw)
+        if (!repo)
+          return json({ ok: false, reason: 'invalid_repo', message: 'Use owner/repo' }, 400)
 
-      const audit: unknown[] = []
-      const nominee = newNominee(audit)
-      const ghToken = await nominee.token({ user: to, connection: 'github' }) // brokered (may be empty)
+        const audit: unknown[] = []
+        const nominee = newNominee(audit)
+        const ghToken = await nominee.token({ user: to, connection: 'github' }) // brokered (may be empty)
 
-      const gh = await fetch(
-        `https://api.github.com/repos/${repo}/issues?state=open&per_page=6&sort=updated`,
-        {
-          headers: {
-            'user-agent': 'nominee-demo',
-            accept: 'application/vnd.github+json',
-            ...(ghToken ? { authorization: `Bearer ${ghToken}` } : {}),
+        const gh = await fetch(
+          `https://api.github.com/repos/${repo}/issues?state=open&per_page=6&sort=updated`,
+          {
+            headers: {
+              'user-agent': 'nominee-demo',
+              accept: 'application/vnd.github+json',
+              ...(ghToken ? { authorization: `Bearer ${ghToken}` } : {}),
+            },
           },
-        },
-      )
-      if (!gh.ok) {
-        const reason = gh.status === 404 ? 'repo_not_found' : gh.status === 403 ? 'github_rate_limited' : 'github_error'
-        return json({ ok: false, reason, status: gh.status, audit }, 502)
-      }
-      const issues = ((await gh.json()) as Issue[]).filter((i) => !i.pull_request).slice(0, 6)
-      if (!issues.length)
-        return json({ ok: true, proposal: { to, repo, subject: `No open issues in ${repo}`, body: `Good news — ${repo} currently has no open issues.`, issues: [] }, audit })
+        )
+        if (!gh.ok) {
+          const reason =
+            gh.status === 404
+              ? 'repo_not_found'
+              : gh.status === 403
+                ? 'github_rate_limited'
+                : 'github_error'
+          return json({ ok: false, reason, status: gh.status, audit }, 502)
+        }
+        const issues = ((await gh.json()) as Issue[]).filter((i) => !i.pull_request).slice(0, 6)
+        if (!issues.length)
+          return json({
+            ok: true,
+            proposal: {
+              to,
+              repo,
+              subject: `No open issues in ${repo}`,
+              body: `Good news — ${repo} currently has no open issues.`,
+              issues: [],
+            },
+            audit,
+          })
 
-      const list = issues.map((i) => `#${i.number} ${i.title}`).join('\n')
-      const workersai = createWorkersAI({ binding: env.AI })
-      const { text } = await generateText({
-        model: workersai(MODEL),
-        system:
-          'You write a concise, friendly email body (3-5 sentences). No subject line, no greeting, no signature. Summarize the themes of the issues; do not list them all verbatim.',
-        prompt: `Summarize these open GitHub issues for ${repo} into a short email body:\n${list}`,
-      })
-      return json({
-        ok: true,
-        proposal: {
-          to,
-          repo,
-          subject: `Open-issue digest — ${repo}`,
-          body: text.trim(),
-          issues: issues.map((i) => ({ number: i.number, title: i.title })),
-          authedFetch: Boolean(ghToken),
-        },
-        audit,
-      })
-    }
-
-    // 2) EXECUTE: on approval, nominee brokers the email key and we really send
-    if (request.method === 'POST' && path.endsWith('/execute')) {
-      const b = (await request.json().catch(() => ({}))) as {
-        to?: string
-        repo?: string
-        subject?: string
-        body?: string
-        decision?: 'approved' | 'denied'
-      }
-      if (!isEmail(b.to)) return json({ ok: false, reason: 'invalid_email' }, 400)
-      const decision = b.decision === 'approved' ? 'approved' : 'denied'
-      const audit: unknown[] = []
-      const nominee = newNominee(audit)
-      nominee.on(() => {})
-      // wire approval to the human's decision
-      const n2 = new Nominee({
-        strategy: ({ connection }) => (connection === 'resend' ? (env.RESEND_API_KEY ?? '') : ''),
-        onApprovalRequest: (req) => n2.resolveApproval(req.id, decision),
-        onAudit: (e) => audit.push(e),
-        agent: 'digest-agent',
-      })
-
-      try {
-        await n2.approve({ user: b.to, action: 'email.send', detail: { to: b.to, repo: b.repo } })
-      } catch {
-        return json({ ok: true, decision, sent: false, audit })
+        const list = issues.map((i) => `#${i.number} ${i.title}`).join('\n')
+        const workersai = createWorkersAI({ binding: env.AI })
+        const { text } = await generateText({
+          model: workersai(MODEL),
+          system:
+            'You write a concise, friendly email body (3-5 sentences). No subject line, no greeting, no signature. Summarize the themes of the issues; do not list them all verbatim.',
+          prompt: `Summarize these open GitHub issues for ${repo} into a short email body:\n${list}`,
+        })
+        return json({
+          ok: true,
+          proposal: {
+            to,
+            repo,
+            subject: `Open-issue digest — ${repo}`,
+            body: text.trim(),
+            issues: issues.map((i) => ({ number: i.number, title: i.title })),
+            authedFetch: Boolean(ghToken),
+          },
+          audit,
+        })
       }
 
-      const ip = request.headers.get('cf-connecting-ip') ?? 'anon'
-      const { success } = await env.EMAIL_RL.limit({ key: ip })
-      if (!success) return json({ ok: false, reason: 'rate_limited', message: 'Too many sends — try again in a minute.' }, 429)
+      // 2) EXECUTE: on approval, nominee brokers the email key and we really send
+      if (request.method === 'POST' && path.endsWith('/execute')) {
+        const b = (await request.json().catch(() => ({}))) as {
+          to?: string
+          repo?: string
+          subject?: string
+          body?: string
+          decision?: 'approved' | 'denied'
+        }
+        if (!isEmail(b.to)) return json({ ok: false, reason: 'invalid_email' }, 400)
+        const decision = b.decision === 'approved' ? 'approved' : 'denied'
+        const audit: unknown[] = []
+        // wire approval to the human's decision
+        const n2: Nominee = new Nominee({
+          strategy: ({ connection }) => (connection === 'resend' ? (env.RESEND_API_KEY ?? '') : ''),
+          onApprovalRequest: (req) => {
+            n2.resolveApproval(req.id, decision)
+          },
+          onAudit: (e) => audit.push(e),
+          agent: 'digest-agent',
+        })
 
-      const key = await n2.token({ user: b.to, connection: 'resend' })
-      if (!key) return json({ ok: false, reason: 'not_configured', message: 'RESEND_API_KEY is not set.', audit }, 503)
+        try {
+          await n2.approve({ user: b.to, action: 'email.send', detail: { to: b.to, repo: b.repo } })
+        } catch {
+          return json({ ok: true, decision, sent: false, audit })
+        }
 
-      const html = `<div style="font-family:system-ui,sans-serif;line-height:1.6">
+        const ip = request.headers.get('cf-connecting-ip') ?? 'anon'
+        const { success } = await env.EMAIL_RL.limit({ key: ip })
+        if (!success)
+          return json(
+            {
+              ok: false,
+              reason: 'rate_limited',
+              message: 'Too many sends — try again in a minute.',
+            },
+            429,
+          )
+
+        const key = await n2.token({ user: b.to, connection: 'resend' })
+        if (!key)
+          return json(
+            { ok: false, reason: 'not_configured', message: 'RESEND_API_KEY is not set.', audit },
+            503,
+          )
+
+        const html = `<div style="font-family:system-ui,sans-serif;line-height:1.6">
         <p>${escapeHtml(b.body || '')}</p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0" />
         <p style="color:#888;font-size:13px">An AI agent fetched the open issues for <b>${escapeHtml(b.repo || '')}</b>, you approved sending this from the <a href="https://nominee.dev/agent">nominee testbed</a>, and nominee brokered the email-provider key just-in-time.</p></div>`
 
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ from: env.FROM, to: [b.to], subject: b.subject || `Digest — ${b.repo}`, html }),
-      })
-      const out = (await res.json().catch(() => ({}))) as { id?: string; message?: string }
-      if (!res.ok) return json({ ok: false, reason: 'send_failed', status: res.status, detail: out, audit }, 502)
-      return json({ ok: true, decision, sent: true, id: out.id, to: b.to, audit })
-    }
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            from: env.FROM,
+            to: [b.to],
+            subject: b.subject || `Digest — ${b.repo}`,
+            html,
+          }),
+        })
+        const out = (await res.json().catch(() => ({}))) as { id?: string; message?: string }
+        if (!res.ok)
+          return json(
+            { ok: false, reason: 'send_failed', status: res.status, detail: out, audit },
+            502,
+          )
+        return json({ ok: true, decision, sent: true, id: out.id, to: b.to, audit })
+      }
     } catch (err) {
       return json({ ok: false, reason: 'worker_error', error: String(err) }, 500)
     }
