@@ -140,11 +140,9 @@ export default {
         const decision = b.decision === 'approved' ? 'approved' : 'denied'
         const audit: unknown[] = []
         // wire approval to the human's decision
-        const n2: Nominee = new Nominee({
+        const n2 = new Nominee({
           strategy: ({ connection }) => (connection === 'resend' ? (env.RESEND_API_KEY ?? '') : ''),
-          onApprovalRequest: (req) => {
-            n2.resolveApproval(req.id, decision)
-          },
+          onApprovalRequest: (req) => req.resolve(decision),
           onAudit: (e) => audit.push(e),
           agent: 'digest-agent',
         })

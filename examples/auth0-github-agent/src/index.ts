@@ -137,7 +137,7 @@ export default {
       const decision = b.decision === 'approved' ? 'approved' : 'denied'
 
       const audit: unknown[] = []
-      const nominee: Nominee = new Nominee({
+      const nominee = new Nominee({
         // THE point: nominee fetches a fresh GitHub token for THIS user from Auth0 Token Vault
         strategy: Auth0({
           domain: env.AUTH0_DOMAIN,
@@ -146,9 +146,7 @@ export default {
           subjectToken: () => session.refreshToken,
           subjectTokenType: 'refresh_token',
         }),
-        onApprovalRequest: (req) => {
-          nominee.resolveApproval(req.id, decision)
-        },
+        onApprovalRequest: (req) => req.resolve(decision),
         onAudit: (e) => audit.push(e),
         agent: 'github-agent',
       })

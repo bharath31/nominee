@@ -3,6 +3,29 @@ import { ApprovalDeniedError, ApprovalEngine, Memory, Nominee } from '../src/ind
 import type { ApprovalRequest } from '../src/index.js'
 
 describe('ApprovalEngine', () => {
+  it('lets onApprovalRequest settle inline via req.approve()/deny()/resolve()', async () => {
+    const n = new Nominee({
+      strategy: Memory(),
+      onApprovalRequest: (req) => req.approve(), // no need to capture the instance
+    })
+    await expect(n.approve({ user: 'u1', action: 'x' })).resolves.toMatchObject({
+      decision: 'approved',
+    })
+
+    const denier = new Nominee({ strategy: Memory(), onApprovalRequest: (req) => req.deny() })
+    await expect(denier.approve({ user: 'u1', action: 'y' })).rejects.toBeInstanceOf(
+      ApprovalDeniedError,
+    )
+
+    const resolver = new Nominee({
+      strategy: Memory(),
+      onApprovalRequest: (req) => req.resolve('approved'),
+    })
+    await expect(resolver.approve({ user: 'u1', action: 'z' })).resolves.toMatchObject({
+      decision: 'approved',
+    })
+  })
+
   it('resolves when settled with approved', async () => {
     let captured: ApprovalRequest | undefined
     const engine = new ApprovalEngine((req) => {

@@ -1,8 +1,14 @@
 import type { ApprovalDecision, ApprovalParams, ApprovalResult } from './strategy.js'
 
 export interface ApprovalRequest extends ApprovalParams {
-  /** Unique id for this pending request; pass it to `resolve()`. */
+  /** Unique id for this pending request; pass it to `resolveApproval(id, …)`. */
   id: string
+  /** Approve this request inline — no need to capture the Nominee instance. */
+  approve(): void
+  /** Deny this request inline. */
+  deny(): void
+  /** Settle this request with an explicit decision. */
+  resolve(decision: ApprovalDecision): void
 }
 
 interface Pending {
@@ -30,7 +36,19 @@ export class ApprovalEngine {
 
   async request(params: ApprovalParams): Promise<ApprovalResult> {
     const id = `apr_${Date.now().toString(36)}_${(this.seq++).toString(36)}`
-    const req: ApprovalRequest = { ...params, id }
+    const req: ApprovalRequest = {
+      ...params,
+      id,
+      approve: () => {
+        this.resolve(id, 'approved')
+      },
+      deny: () => {
+        this.resolve(id, 'denied')
+      },
+      resolve: (decision) => {
+        this.resolve(id, decision)
+      },
+    }
 
     const promise = new Promise<ApprovalResult>((resolve) => {
       const timeoutMs = params.timeoutMs ?? this.defaultTimeoutMs
