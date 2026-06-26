@@ -189,12 +189,13 @@ h3 { font-size: 19px; letter-spacing: -0.01em; font-weight: 600; }
 /* ---------- works-with logo strip ---------- */
 .worksw { max-width: var(--maxw); margin: clamp(40px, 6vw, 76px) auto 0; padding: 0 clamp(20px, 5vw, 56px); text-align: center; }
 .worksw-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 22px; }
-.worksw-row { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: clamp(26px, 5vw, 58px); }
-.worksw-row li { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; transition: color 0.18s; }
+.worksw-row { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); align-items: start; gap: clamp(16px, 4vw, 44px); }
+.worksw-row li { display: flex; flex-direction: column; align-items: center; gap: 9px; color: var(--muted); transition: color 0.18s; }
 .worksw-row li:hover { color: var(--paper); }
+.worksw-mark { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
 .worksw-row svg { height: 22px; width: auto; max-width: 26px; flex: none; }
-.worksw-note { font-family: var(--mono); font-size: 11.5px; color: var(--muted); opacity: 0.7; margin-top: 20px; }
-@media (max-width: 560px) { .worksw-note { display: none; } }
+.worksw-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); opacity: 0.8; }
+@media (max-width: 560px) { .worksw-row { grid-template-columns: repeat(2, 1fr); row-gap: 28px; } }
 
 /* ---------- strip ---------- */
 .strip {
