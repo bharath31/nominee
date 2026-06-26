@@ -673,13 +673,13 @@ const escapeHtml = (s: string) =>
 function approvalEmail(s: SessionState, approve: string, deny: string): string {
   const who = s.ghLogin ? `@${s.ghLogin}` : escapeHtml(s.name)
   return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#0a1020">
-  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#b8860b">nominee · approval required</p>
+  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#a87a0a">nominee · approval required</p>
   <h2 style="font-size:20px;margin:8px 0 4px">Your agent paused for you, ${who}.</h2>
   <p style="color:#444;line-height:1.5">An autonomous agent wants to <b>publish a gist on your GitHub</b>:</p>
   <p style="background:#f4f4f5;border-radius:8px;padding:12px 14px;color:#222;font-size:15px">${escapeHtml(s.topic)}</p>
   <p style="color:#444;line-height:1.5;font-size:14px">It's <b>hibernating</b> until you decide. Approve and it resumes — nominee fetches a fresh token from Auth0 Token Vault <i>at that moment</i>, never a stale one.</p>
   <div style="margin:24px 0">
-    <a href="${approve}" style="background:#d9a441;color:#1a1205;font-weight:600;text-decoration:none;padding:13px 22px;border-radius:9px;display:inline-block;margin-right:10px">✓ Approve &amp; publish</a>
+    <a href="${approve}" style="background:#0a1020;color:#fff;font-weight:600;text-decoration:none;padding:13px 22px;border-radius:9px;display:inline-block;margin-right:10px">✓ Approve &amp; publish</a>
     <a href="${deny}" style="color:#666;text-decoration:none;padding:13px 18px;border-radius:9px;border:1px solid #ddd;display:inline-block">Deny</a>
   </div>
   <p style="color:#999;font-size:12px;line-height:1.5">You're receiving this because you started a session at nominee.dev/agent. The agent never saw your password or a stored token.</p>
@@ -698,16 +698,16 @@ function approvalLandingPage(
       ? 'Denied — nothing was published'
       : 'Could not complete'
   const body = ok
-    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#d9a441">View it ↗</a>` : ''}`
+    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#a87a0a">View it ↗</a>` : ''}`
     : decision === 'denied'
       ? 'The agent stayed paused and took no action on your account.'
       : 'This approval link may have already been used, or the session expired.'
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>nominee · ${escapeHtml(head)}</title>
-<style>body{font-family:system-ui,-apple-system,sans-serif;background:#0a1020;color:#e8ecf6;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px}
-.card{max-width:440px;text-align:center;background:linear-gradient(180deg,#0f1830,#0c1428);border:1px solid rgba(214,224,245,.12);border-radius:16px;padding:40px 28px}
-h1{font-size:24px;margin:0 0 12px;letter-spacing:-.02em}p{color:#c4ccde;line-height:1.6}a{color:#d9a441}
-.back{font-family:ui-monospace,monospace;font-size:13px;color:#7e8ba6;margin-top:24px;display:inline-block}</style></head>
+<style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(168,122,10,.05),transparent 60%),#fff;color:#0a1020;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
+.card{max-width:440px;text-align:center;background:#fbfbfc;border:1px solid #e5e7ee;border-radius:16px;padding:40px 28px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 24px 60px -42px rgba(10,16,32,.3)}
+h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#a87a0a}
+.back{font-family:ui-monospace,monospace;font-size:13px;color:#6b7488;margin-top:24px;display:inline-block;border-bottom:1px solid #e5e7ee;padding-bottom:2px}</style></head>
 <body><div class="card"><h1>${escapeHtml(head)}</h1><p>${body}</p>
 <a class="back" href="${ORIGIN}/agent/session-view?id=${escapeHtml(id)}">watch the full session timeline →</a></div></body></html>`
 }
@@ -759,40 +759,53 @@ function html(inner: string, loggedIn: boolean) {
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-:root{--ink:#0a1020;--raised:#0f1830;--hair:rgba(214,224,245,.12);--paper:#e8ecf6;--soft:#c4ccde;--muted:#7e8ba6;--seal:#d9a441;--ok:#7fd1a6;--err:#ff6b6b;--sans:'Schibsted Grotesk',system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
-*{margin:0;box-sizing:border-box}body{font-family:var(--sans);background:radial-gradient(900px 500px at 80% -10%,rgba(217,164,65,.08),transparent 60%),var(--ink);color:var(--paper);min-height:100vh;line-height:1.55}
-.wrap{max-width:680px;margin:0 auto;padding:clamp(28px,6vw,72px) 22px 80px}
-.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--seal);margin-bottom:14px}
-h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.03em;margin-bottom:12px}
-.lede{color:var(--soft);margin-bottom:24px}.lede a{color:var(--muted);border-bottom:1px solid var(--hair)}em{color:var(--seal);font-style:normal}
-.steps{display:flex;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:22px;flex-wrap:wrap}.steps b{color:var(--seal);font-weight:500}
-.card{background:linear-gradient(180deg,var(--raised),#0c1428);border:1px solid var(--hair);border-radius:14px;padding:22px;margin-bottom:16px}
+:root{--bg:#fff;--surface:#fbfbfc;--surface-2:#f3f4f7;--ink:#0a1020;--ink-soft:#38414f;--muted:#6b7488;--line:#e5e7ee;--seal:#a87a0a;--seal-tint:rgba(168,122,10,.08);--navy:#0a1020;--navy-hover:#1b2438;--ok:#0f7b43;--err:#cf3520;--wait:#a87a0a;--code-bg:#0b1226;--code-text:#cdd5e6;--sans:'Geist',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
+*{margin:0;box-sizing:border-box}body{font-family:var(--sans);background:radial-gradient(900px 460px at 82% -12%,rgba(168,122,10,.04),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(10px);z-index:5}
+.bar .brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.02em}
+.bar .brand svg{width:24px;height:24px;color:var(--seal)}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.wrap{max-width:660px;margin:0 auto;padding:clamp(32px,6vw,68px) 22px 80px}
+h1{font-size:clamp(27px,4.6vw,38px);letter-spacing:-.035em;margin-bottom:12px;font-weight:600}
+.lede{color:var(--ink-soft);margin-bottom:20px;font-size:16px}.lede a{color:var(--muted);border-bottom:1px solid var(--line)}em{color:var(--seal);font-style:normal}
+.steps{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:26px;line-height:1.9}.steps b{color:var(--ink);font-weight:500}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 18px 44px -34px rgba(10,16,32,.28)}
 label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
-input{width:100%;font-family:var(--mono);font-size:15px;color:var(--paper);background:rgba(255,255,255,.03);border:1px solid var(--hair);border-radius:9px;padding:13px 14px}input:focus{outline:none;border-color:rgba(217,164,65,.5)}
+input{width:100%;font-family:var(--mono);font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;padding:13px 14px}input:focus{outline:none;border-color:var(--seal);box-shadow:0 0 0 3px var(--seal-tint)}
 .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
-a.primary,button{font-family:var(--mono);font-size:14px;cursor:pointer;border-radius:9px;padding:13px 20px;border:1px solid var(--hair);background:rgba(255,255,255,.04);color:var(--paper);transition:.15s;text-decoration:none;display:inline-block}
-.primary{background:var(--seal);color:#1a1205;border-color:var(--seal);font-weight:600}button:disabled{opacity:.5}
+a.primary,button{font-family:var(--mono);font-size:14px;cursor:pointer;border-radius:9px;padding:13px 20px;border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s;text-decoration:none;display:inline-block}
+a.primary:hover,button:hover{border-color:#d2d6e0}
+.primary{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}.primary:hover{background:var(--navy-hover);border-color:var(--navy-hover)}
+.approve{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}.approve:hover{background:var(--navy-hover)}
+.deny{color:var(--ink-soft)}
+button:disabled{opacity:.5}
 .sub{font-size:13px;color:var(--muted)}.foot{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .tl{list-style:none;padding:0;margin:0;font-family:var(--mono);font-size:13px}
-.tl li{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--hair);align-items:flex-start}
-.tl li:last-child{border-bottom:none}
-.tl .ic{flex:none;width:18px;text-align:center}.tl .ic.ok{color:var(--ok)}.tl .ic.ac{color:var(--seal)}.tl .ic.er{color:var(--err)}.tl .ic.wait{color:var(--seal)}
-.tl .tx{color:var(--soft)}.tl .ts{color:var(--muted);margin-left:auto;flex:none;font-size:11px;padding-left:10px}
+.tl li{display:flex;gap:13px;padding:10px 0;align-items:flex-start;position:relative}
+.tl .ic{flex:none;width:18px;text-align:center;position:relative;z-index:1;background:var(--surface)}
+.tl li:not(:last-child) .ic::after{content:'';position:absolute;top:19px;left:50%;width:1px;height:calc(100% - 6px);background:var(--line);transform:translateX(-50%)}
+.tl .ic.wait::after{background:none;border-left:1px dashed var(--seal);width:0}
+.tl .ic.ok{color:var(--ok)}.tl .ic.ac{color:var(--seal)}.tl .ic.er{color:var(--err)}.tl .ic.wait{color:var(--wait)}
+.tl .tx{color:var(--ink-soft)}.tl .ts{color:var(--muted);margin-left:auto;flex:none;font-size:11px;padding-left:10px}
 .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--seal);animation:p 1.2s infinite}
 @keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
 .clock{font-family:var(--mono);font-size:13px;color:var(--seal);margin-top:14px}
-.jsontoggle{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--hair);padding:0 0 2px;margin-top:14px;cursor:pointer}
-pre{font-family:var(--mono);font-size:12px;color:var(--soft);background:#070c18;border:1px solid var(--hair);border-radius:10px;padding:14px;overflow:auto;margin-top:10px}
+.jsontoggle{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);padding:0 0 2px;margin-top:14px;cursor:pointer}
+pre{font-family:var(--mono);font-size:12px;color:var(--code-text);background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;margin-top:10px}
 .banner{font-family:var(--mono);font-size:12.5px;border-radius:10px;padding:12px 14px;margin-bottom:14px}
-.banner.wait{background:rgba(217,164,65,.1);border:1px solid rgba(217,164,65,.3);color:var(--seal)}
-.banner.ok{background:rgba(127,209,166,.08);border:1px solid rgba(127,209,166,.3);color:var(--ok)}
-.banner.er{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:var(--err)}
-</style></head><body><div class="wrap">
-<p class="eyebrow">Live testbed · durable agent + out-of-band approval</p>
+.banner.wait{background:var(--seal-tint);border:1px solid rgba(168,122,10,.28);color:var(--seal)}
+.banner.ok{background:rgba(15,123,67,.07);border:1px solid rgba(15,123,67,.25);color:var(--ok)}
+.banner.er{background:rgba(207,53,32,.06);border:1px solid rgba(207,53,32,.25);color:var(--err)}
+:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body>
+<div class="bar"><a class="brand" href="${ORIGIN}"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="11" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(120 20 20)"/></svg><span>nominee</span></a><span class="tag">live testbed</span></div>
+<div class="wrap">
 <h1>An agent that pauses, emails you, and survives the wait.</h1>
-<div class="steps">① <b>connect GitHub</b> → ② agent reads your account → ③ <b>pauses + emails you</b> → ④ approve from your phone → ⑤ <b>fresh token from Token Vault</b> at action time → ⑥ real action + audit</div>
+<div class="steps"><b>connect GitHub</b> → agent reads your account → <b>pauses + emails you</b> → you approve from your phone → <b>fresh token from Token Vault</b> at action time → real action + audit</div>
 ${inner}
-<p class="foot" style="margin-top:28px;text-align:center"><a href="${ORIGIN}" style="color:var(--soft)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--soft)">source ↗</a></p>
+<p class="foot" style="margin-top:28px;text-align:center"><a href="${ORIGIN}" style="color:var(--muted)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--muted)">source ↗</a></p>
 </div>
 ${loggedIn ? script() : viewerScript()}
 </body></html>`
