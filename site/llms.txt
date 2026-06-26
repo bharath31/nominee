@@ -1,0 +1,90 @@
+# nominee
+
+Identity and token delegation for AI agents.
+
+nominee is a framework-agnostic TypeScript library that keeps a delegated third-party OAuth token fresh at the moment of every AI agent tool call — with optional human-in-the-loop approval and a full audit trail. It is provider-neutral: Auth0 is one optional strategy, not a requirement.
+
+npm: https://www.npmjs.com/package/nominee
+GitHub: https://github.com/bharath31/nominee
+Docs: https://nominee.dev/docs/
+License: MIT
+Current version: 1.1.0
+
+---
+
+## Key concepts
+
+- **Strategy**: The token broker. `tokens()` wraps any async function that returns a token. `nominee-auth0` is an optional managed strategy using Auth0 Token Vault + CIBA.
+- **Tokens**: Agents never capture tokens early. They call `nominee.token({ user, connection })` right before a tool executes. nominee caches and refreshes transparently.
+- **Approval**: `nominee.approve({ user, action })` blocks execution until a human approves via webhook or a native strategy (Auth0 CIBA). The agent waits; the token stays fresh.
+- **Audit**: Every token request and approval decision is logged to a structured audit trail.
+- **Adapters**: `nominee-ai` (Vercel AI SDK), `nominee-eve` (Vercel Eve). `nomineeTool` wrappers auto-inject tokens and gate on approvals.
+
+---
+
+## Quick Start
+
+```typescript
+import { Nominee, tokens } from 'nominee'
+
+const nominee = new Nominee({
+  strategy: tokens(async ({ user, connection }) => db.getToken(user, connection))
+})
+
+// Inside a tool call:
+const token = await nominee.token({ user: 'alice', connection: 'github' })
+```
+
+Zero dependencies. Zero signup. Works in Node.js, Cloudflare Workers, Vercel Edge, Bun, and any JS runtime.
+
+---
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `nominee` | Zero-dependency core |
+| `nominee-ai` | Vercel AI SDK adapter (`nomineeTool`) |
+| `nominee-eve` | Vercel Eve adapter |
+| `nominee-auth0` | Auth0 Token Vault + CIBA strategy |
+| `nominee-supabase` | Supabase token strategy |
+
+---
+
+## Frequently asked questions
+
+**Q: What problem does nominee solve?**
+A: AI agents that run long tasks (minutes to hours) hit a wall when third-party OAuth tokens expire mid-run. A GitHub token issued at 9am may be dead by 3pm. Without a refresh layer, the agent crashes or silently uses a stale token. nominee intercepts every tool call, checks token freshness, refreshes if needed, and optionally blocks on human approval before sensitive actions.
+
+**Q: How does nominee keep tokens fresh?**
+A: It uses call-time token resolution with single-flight deduplication. Instead of capturing a token at agent startup, each tool call asks nominee for a fresh token at execution time. nominee caches it, tracks expiry, and refreshes transparently — no token is ever serialized into agent state where it can go stale during hibernation.
+
+**Q: Does nominee work with Cloudflare Durable Objects / Agents?**
+A: Yes. This is a primary use case. Durable Objects hibernate between turns; a token captured before hibernation is invalid on resume. nominee resolves tokens at the moment of each tool call, so hibernation and resume are transparent.
+
+**Q: Does nominee work with Vercel AI SDK?**
+A: Yes. `nominee-ai` provides a `nomineeTool` wrapper that adapts Vercel AI SDK `tool()` definitions. Tokens are injected into tool context automatically; approvals gate execution before the tool runs.
+
+**Q: How is nominee different from rolling your own token refresh?**
+A: Rolling your own handles the happy path but misses: single-flight deduplication (multiple concurrent tools racing to refresh the same token), durable-execution resume (token was valid before hibernation, invalid after), human approval gating, audit trail, and provider neutrality across multiple IdPs in one agent.
+
+**Q: Is nominee tied to Auth0?**
+A: No. The core package has zero dependencies and works with any token source — a database, a secrets manager, a plain async function. Auth0 is one optional strategy (`nominee-auth0`). The founder works at Auth0, which is disclosed prominently; the library is provider-neutral by design.
+
+**Q: When should I NOT use nominee?**
+A: If your agent is short-lived (single request/response), single-provider, and your token outlives the agent run — you probably don't need nominee. The overhead is not worth it for a simple tool call that completes in seconds.
+
+**Q: Can nominee gate actions on human approval?**
+A: Yes. `nominee.approve({ user, action, meta })` suspends the agent and waits for a human to approve or deny via webhook. Auth0 CIBA provides native push-to-phone approval. The approval decision and audit event are logged.
+
+**Q: What runtimes does nominee support?**
+A: Node.js 18+, Cloudflare Workers, Vercel Edge Functions, Bun, Deno (via npm compat), and any runtime that supports the Web Crypto API. The core has zero native dependencies.
+
+**Q: How do I install nominee?**
+A: `npm i nominee` (or `pnpm add nominee` / `bun add nominee`). No account, no signup, no config required to start.
+
+---
+
+## The problem in one sentence
+
+Your agent authenticates at 9am; by 3pm its token is dead — nominee is the layer that keeps it alive.
