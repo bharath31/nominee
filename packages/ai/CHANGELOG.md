@@ -1,5 +1,12 @@
 # nominee-ai
 
+## 1.1.0
+
+### Patch Changes
+
+- Updated dependencies
+  - nominee@1.1.0
+
 ## 1.0.0
 
 ### Patch Changes

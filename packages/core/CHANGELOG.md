@@ -1,5 +1,11 @@
 # nominee
 
+## 1.1.0
+
+### Minor Changes
+
+- Add sub-agent delegation. `delegate(actor)` returns a child Nominee that shares the parent's token cache and audit stream but records an extended identity chain, so a delegated action is attributed to `user → orchestrator → sub-agent`. `exchange({ user, connection, actor, scopes })` performs an RFC 8693 token exchange for a downscoped token bound to a sub-agent (requires a strategy that implements `exchange`), emitting `token.exchanged` with the chain.
+
 ## 1.0.0
 
 ### Minor Changes

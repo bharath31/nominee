@@ -1,7 +1,7 @@
 {
-  "name": "nominee-auth0",
+  "name": "nominee-supabase",
   "version": "1.1.0",
-  "description": "Auth0 strategy for nominee — Token Vault tokens and CIBA human-in-the-loop approval for AI agents",
+  "description": "Supabase strategy for nominee — read and refresh provider tokens stored in Supabase for AI agents",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -20,13 +20,13 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["auth0", "token-vault", "ciba", "ai", "agents", "auth", "token", "nominee"],
+  "keywords": ["supabase", "postgres", "ai", "agents", "auth", "token", "nominee"],
   "author": "Bharath",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bharath31/nominee.git",
-    "directory": "packages/auth0"
+    "directory": "packages/supabase"
   },
   "homepage": "https://github.com/bharath31/nominee#readme",
   "publishConfig": {

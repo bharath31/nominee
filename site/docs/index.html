@@ -107,6 +107,7 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })</code
               <tr><td><code>tokens(fn)</code></td><td>The same, but named — wrap an env var or DB lookup.</td></tr>
               <tr><td><code>OAuth2({ connections })</code></td><td>Generic refresh-token flow. Zero deps. Bring your stored refresh tokens.</td></tr>
               <tr><td><code>Memory({ tokens })</code></td><td>Seed tokens in memory for dev, examples, and tests.</td></tr>
+              <tr><td><code>Supabase({ url, key })</code></td><td>Read &amp; refresh provider tokens stored in Supabase. From <code>nominee-supabase</code>.</td></tr>
               <tr><td><code>Auth0({ ... })</code></td><td>Optional managed strategy — Token Vault + CIBA. From <code>nominee-auth0</code>.</td></tr>
             </tbody>
           </table>
@@ -195,6 +196,9 @@ const nominee = new Nominee({
               <tr><td><code>approve({ user, action, detail?, timeoutMs? })</code></td><td><code>Promise&lt;ApprovalResult&gt;</code> — resolves on approval; throws <code>ApprovalDeniedError</code> on deny/expiry.</td></tr>
               <tr><td><code>resolveApproval(id, 'approved' | 'denied')</code></td><td><code>boolean</code> — settle a built-in-engine approval from your webhook. Returns false for unknown ids.</td></tr>
               <tr><td><code>can({ user, action, resource })</code></td><td><code>Promise&lt;boolean&gt;</code> — fine-grained authz. Requires a strategy that implements it (else throws).</td></tr>
+              <tr><td><code>invalidate(user, connection)</code></td><td><code>boolean</code> — drop the cached token so the next call re-resolves. Returns true if an entry was removed.</td></tr>
+              <tr><td><code>delegate(actor)</code></td><td><code>Nominee</code> — a sub-agent sharing this cache &amp; audit stream; its events carry <code>user → … → actor</code>.</td></tr>
+              <tr><td><code>exchange({ user, connection, actor, scopes? })</code></td><td><code>Promise&lt;string&gt;</code> — RFC 8693 downscoped token bound to a sub-agent. Requires a strategy that implements it.</td></tr>
               <tr><td><code>on((event) =&gt; ...)</code></td><td><code>() =&gt; void</code> — subscribe to audit events; returns an unsubscribe function.</td></tr>
             </tbody>
           </table>
@@ -213,8 +217,8 @@ const nominee = new Nominee({
         <section id="audit" class="doc-section">
           <h2>Audit events</h2>
           <p>Every privileged op emits an event to <code>onAudit</code> / <code>on()</code>. Event <code>type</code> is one of:</p>
-          <p><code>token.issued</code> · <code>token.cached</code> · <code>token.error</code> · <code>token.exchanged</code> · <code>approval.requested</code> · <code>approval.resolved</code> · <code>authz.checked</code></p>
-          <p>Each event includes <code>{ type, user, agent?, connection?, action?, resource?, decision?, chain?, at, detail? }</code>. <code>chain</code> is the identity chain (e.g. <code>['triage-bot']</code>), <code>at</code> is epoch ms.</p>
+          <p><code>token.issued</code> · <code>token.cached</code> · <code>token.error</code> · <code>token.invalidated</code> · <code>token.exchanged</code> · <code>approval.requested</code> · <code>approval.resolved</code> · <code>authz.checked</code></p>
+          <p>Each event includes <code>{ type, user, agent?, connection?, action?, resource?, decision?, chain?, at, detail? }</code>. <code>chain</code> is the delegation chain (e.g. <code>['orchestrator', 'research-agent']</code>), <code>at</code> is epoch ms.</p>
         </section>
 
         <section id="security" class="doc-section">

@@ -6,6 +6,7 @@ import type {
   ApprovalParams,
   ApprovalResult,
   AuthzParams,
+  ExchangeParams,
   GetTokenParams,
   Strategy,
   TokenResolver,
@@ -51,19 +52,24 @@ export class ApprovalDeniedError extends Error {
  */
 export class Nominee {
   readonly strategy: Strategy
-  private readonly approvals: ApprovalEngine
-  private readonly cache = new Map<string, TokenResult>()
+  // Not readonly: a delegated sub-agent (see `delegate`) shares the parent's
+  // cache, in-flight map, listeners, and approval engine by pointing at them.
+  private approvals: ApprovalEngine
+  private cache = new Map<string, TokenResult>()
   /** In-flight refreshes — concurrent cache-misses share one fetch (single-flight). */
-  private readonly inflight = new Map<string, Promise<TokenResult>>()
-  private readonly listeners = new Set<(e: AuditEvent) => void>()
+  private inflight = new Map<string, Promise<TokenResult>>()
+  private listeners = new Set<(e: AuditEvent) => void>()
   private readonly expiryLeewayMs: number
   private readonly agent?: string
+  /** Delegation chain of agent identities: `[orchestrator, …, sub-agent]`. */
+  private chainArr: string[]
 
   constructor(options: NomineeOptions) {
     this.strategy =
       typeof options.strategy === 'function' ? tokens(options.strategy) : options.strategy
     this.expiryLeewayMs = options.expiryLeewayMs ?? 60_000
     this.agent = options.agent
+    this.chainArr = options.agent ? [options.agent] : []
     if (options.onAudit) this.listeners.add(options.onAudit)
     this.approvals = new ApprovalEngine(options.onApprovalRequest, options.approvalTimeoutMs ?? 0)
   }
@@ -201,6 +207,55 @@ export class Nominee {
     return allowed
   }
 
+  /**
+   * Spawn a sub-agent that shares this nominee's strategy, token cache, and
+   * audit stream but records an extended identity chain. Every event from the
+   * child carries `user → …this chain → actor`, so a delegated action is
+   * attributable to the exact sub-agent that took it — not just the orchestrator.
+   *
+   * ```ts
+   * const orchestrator = new Nominee({ strategy, agent: 'orchestrator' })
+   * const researcher = orchestrator.delegate('research-agent')
+   * await researcher.token({ user, connection: 'github' }) // audit: chain=[orchestrator, research-agent]
+   * ```
+   */
+  delegate(actor: string): Nominee {
+    const child = new Nominee({
+      strategy: this.strategy,
+      agent: this.agent,
+      expiryLeewayMs: this.expiryLeewayMs,
+    })
+    // Share the parent's mutable internals so a sub-agent doesn't refetch what
+    // the orchestrator already cached, and its audit events reach the same sinks.
+    child.cache = this.cache
+    child.inflight = this.inflight
+    child.listeners = this.listeners
+    child.approvals = this.approvals
+    child.chainArr = [...this.chainArr, actor]
+    return child
+  }
+
+  /**
+   * Exchange the user's token for a downscoped one bound to a sub-agent `actor`
+   * (RFC 8693 token exchange). Requires a strategy that implements `exchange`.
+   * Emits `token.exchanged` with the delegation chain.
+   */
+  async exchange(params: ExchangeParams): Promise<string> {
+    if (!this.strategy.exchange) {
+      throw new Error(
+        `nominee: strategy "${this.strategy.name}" does not implement exchange() (token exchange)`,
+      )
+    }
+    const result = await this.strategy.exchange(params)
+    this.emit({
+      type: 'token.exchanged',
+      user: params.user,
+      connection: params.connection,
+      chain: [...this.chainArr, params.actor],
+    })
+    return result.token
+  }
+
   private cacheKey(user: string, connection: string): string {
     return `${user}::${connection}`
   }
@@ -211,11 +266,13 @@ export class Nominee {
   }
 
   private emit(e: Omit<AuditEvent, 'at' | 'agent'>): void {
-    const event: AuditEvent = { ...e, agent: this.agent, at: Date.now() }
+    // `agent` is the leaf of the chain — the identity that actually acted.
+    const agent = this.chainArr.length ? this.chainArr[this.chainArr.length - 1] : undefined
+    const event: AuditEvent = { ...e, agent, at: Date.now() }
     for (const l of this.listeners) l(event)
   }
 
   private chain(): string[] | undefined {
-    return this.agent ? [this.agent] : undefined
+    return this.chainArr.length ? this.chainArr : undefined
   }
 }

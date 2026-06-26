@@ -111,6 +111,29 @@
         </div>
       </section>
 
+      <section class="worksw" aria-label="Works with your stack">
+        <p class="worksw-label">Works with your stack</p>
+        <ul class="worksw-row">
+          <li title="Vercel AI SDK & Eve adapters">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 22.525H0l12-21.05 12 21.05z"/></svg>
+            <span>Vercel</span>
+          </li>
+          <li title="Cloudflare Agents & Workers">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg>
+            <span>Cloudflare</span>
+          </li>
+          <li title="Auth0 Token Vault strategy">
+            <svg viewBox="-135 -46 612.3 720" fill="currentColor" aria-hidden="true"><path d="M360.33484 536.48447 288.0367 314 477.35347 176.48447c46.58386 142.73292 0 275.03106-117.01863 360zm117.01863-360L405.05534-46H171.01807l71.92547 222.48447c0 0 234.40993 0 234.40993 0zM171.01807-46H-63.019202L-134.94466 176.48447H99.092595Zm-306.3354 222.48447c-46.21118 142.73292 0 275.03106 117.018625 360L53.626761 314Zm117.018625 360L171.01807 674 360.33484 536.48447 171.01807 398.96894Z"/></svg>
+            <span>Auth0</span>
+          </li>
+          <li title="Supabase token-store strategy">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z"/></svg>
+            <span>Supabase</span>
+          </li>
+        </ul>
+        <p class="worksw-note">Vercel AI SDK &amp; Eve · Cloudflare Agents &amp; Workers · Auth0 Token Vault · Supabase token store</p>
+      </section>
+
       <section class="section proof" id="proof">
         <div class="section-heading">
           <h2>Same agent. One keeps working past its token's expiry.</h2>
@@ -150,6 +173,7 @@
             <div class="code-top" role="tablist" aria-label="Swap the strategy">
               <button class="tab active" data-tab="fn" role="tab" aria-selected="true">function</button>
               <button class="tab" data-tab="oauth2" role="tab" aria-selected="false">oauth2</button>
+              <button class="tab" data-tab="supabase" role="tab" aria-selected="false">supabase</button>
               <button class="tab" data-tab="auth0" role="tab" aria-selected="false">auth0</button>
               <span class="file">agent.ts</span>
               <button class="code-copy" aria-label="Copy code">copy</button>
@@ -161,6 +185,11 @@
 <span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
             <pre data-panel="oauth2" hidden><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   strategy: <span class="fn">OAuth2</span>({ connections: { github: { tokenEndpoint, clientId, refreshToken } } }), <span class="c">// bring your own OAuth</span>
+})
+<span class="c">// everything below is identical, whatever the strategy ↓</span>
+<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
+            <pre data-panel="supabase" hidden><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  strategy: <span class="fn">Supabase</span>({ url, key, connections: { github: { tokenEndpoint, clientId } } }), <span class="c">// tokens stored in Supabase</span>
 })
 <span class="c">// everything below is identical, whatever the strategy ↓</span>
 <span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
@@ -344,6 +373,12 @@
             <h3>nominee-eve</h3>
             <p>Wrap Eve tools with nominee token injection and human-in-the-loop approval.</p>
             <code>npm i nominee nominee-eve</code>
+          </a>
+          <a class="package-card" href="https://www.npmjs.com/package/nominee-supabase">
+            <span class="pc-tag">Optional · Strategy</span>
+            <h3>nominee-supabase</h3>
+            <p>Store provider tokens in Supabase; nominee reads and refreshes them. Zero deps.</p>
+            <code>npm i nominee nominee-supabase</code>
           </a>
           <a class="package-card" href="https://www.npmjs.com/package/nominee-auth0">
             <span class="pc-tag">Optional · Managed</span>

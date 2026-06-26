@@ -163,6 +163,7 @@ Nominee plugs directly into your AI framework's tool system.
 | `tokens(fn)` | Simple function — env vars, your DB, a literal string |
 | `OAuth2({ connections })` | Generic OAuth2 refresh-token flow, zero deps |
 | `Memory({ tokens })` | Dev & test in-memory store |
+| [`nominee-supabase`](https://www.npmjs.com/package/nominee-supabase) | Read & refresh provider tokens stored in Supabase *(optional)* |
 | [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA push approvals *(optional)* |
 
 ---
@@ -212,6 +213,13 @@ await nominee.can({ user, action, resource })
 // Drop the cached token for a user+connection (force re-resolve next call)
 nominee.invalidate(user, connection)
 
+// Spawn a sub-agent — its audit events carry user → orchestrator → sub-agent
+const researcher = nominee.delegate('research-agent')
+await researcher.token({ user, connection }) // shares the parent cache + audit stream
+
+// Exchange for a downscoped token bound to a sub-agent (RFC 8693; needs strategy support)
+await nominee.exchange({ user, connection, actor: 'research-agent', scopes })
+
 // Subscribe to all audit events
 const unsub = nominee.on((event) => console.log(event))
 ```
@@ -247,7 +255,7 @@ Yes — AI SDK v6 added tool approvals. Nominee adds three things it doesn't cov
 
 ## Contributing
 
-PRs for community strategies (Clerk, Supabase, WorkOS, etc.) are enthusiastically welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to build a strategy. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+PRs for community strategies (Clerk, WorkOS, Firebase, etc.) are enthusiastically welcome — `nominee-auth0` and `nominee-supabase` show the shape. See [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to build a strategy. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Found a security issue? Please report it privately — see [SECURITY.md](SECURITY.md).
 
