@@ -243,7 +243,6 @@ export default {
         'acr_values',
         'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
       )
-      u.searchParams.set('prompt', 'login')
       return Response.redirect(u.toString(), 302)
     }
 
