@@ -100,6 +100,55 @@ async function myAccountToken(env: Env, refreshToken: string): Promise<string> {
   return j.access_token
 }
 
+// ---- Auth0 Management API: client-credentials token + Guardian enrollment ----
+// Cached per isolate so polling the enrollment status doesn't mint a token each tick.
+let _mgmt: { token: string; exp: number } | null = null
+async function mgmtToken(env: Env): Promise<string> {
+  if (_mgmt && _mgmt.exp > Date.now() + 30_000) return _mgmt.token
+  const res = await fetch(`https://${env.AUTH0_DOMAIN}/oauth/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'client_credentials',
+      client_id: env.AUTH0_CLIENT_ID,
+      client_secret: env.AUTH0_CLIENT_SECRET,
+      audience: `https://${env.AUTH0_DOMAIN}/api/v2/`,
+    }),
+  })
+  const j = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number }
+  if (!j.access_token) throw new Error('management API token request failed')
+  _mgmt = { token: j.access_token, exp: Date.now() + (j.expires_in ?? 3600) * 1000 }
+  return j.access_token
+}
+
+interface Enrollment {
+  id: string
+  device: string
+}
+
+// Returns the user's confirmed Guardian push enrollment, or null. Resilient:
+// any failure resolves to null so the email path is never blocked.
+async function getEnrollment(env: Env, userId: string): Promise<Enrollment | null> {
+  try {
+    const token = await mgmtToken(env)
+    const res = await fetch(
+      `https://${env.AUTH0_DOMAIN}/api/v2/users/${encodeURIComponent(userId)}/authentication-methods`,
+      { headers: { authorization: `Bearer ${token}` } },
+    )
+    if (!res.ok) return null
+    const methods = (await res.json()) as Array<{
+      id: string
+      type: string
+      name?: string
+      confirmed?: boolean
+    }>
+    const g = methods.find((m) => m.type === 'guardian' && m.confirmed !== false)
+    return g ? { id: g.id, device: g.name || 'your phone' } : null
+  } catch {
+    return null
+  }
+}
+
 // Seal the session and return a 302 that sets the cookie + redirects to `location`.
 async function setSession(env: Env, sess: Session, location: string): Promise<Response> {
   const val = await seal(env.SESSION_SECRET, sess)
@@ -174,8 +223,11 @@ export default {
       u.searchParams.set('response_type', 'code')
       u.searchParams.set('client_id', env.AUTH0_CLIENT_ID)
       u.searchParams.set('redirect_uri', REDIRECT)
-      // Plain OIDC login via GitHub. With MRRT enabled, the resulting refresh
-      // token can be exchanged for a My Account API token during /connect.
+      // Request the My Account API audience explicitly so the tenant default
+      // audience (which may have offline_access disabled) doesn't suppress the
+      // refresh token. The MRRT policy on the app allows this refresh token to
+      // be exchanged for connected-accounts scopes during /connect.
+      u.searchParams.set('audience', meAudience(env.AUTH0_DOMAIN))
       u.searchParams.set('scope', 'openid profile email offline_access')
       u.searchParams.set('connection', 'github') // primary auth via GitHub
       return Response.redirect(u.toString(), 302)
@@ -230,21 +282,58 @@ export default {
 
     const session = await getSession(request, env)
 
-    // ---- 2b. enroll: re-authenticate with MFA challenge so Auth0 Guardian enrolls ----
-    // Required before using "push to phone" approval. Auth0 will prompt the user
-    // to enroll Guardian if they haven't already, then return to the normal callback.
+    // ---- 2b. enroll: generate a Guardian enrollment ticket and redirect to it ----
+    // The acr_values approach only triggers MFA login, not enrollment. The
+    // Management API enrollment ticket is the only reliable way to get Auth0
+    // to show the Guardian QR code.
+    // Mint a single-use Guardian enrollment ticket. Returns JSON for the popup
+    // flow on the testbed page (the page opens ticket_url in a popup and polls).
     if (path.endsWith('/enroll')) {
-      if (!session) return Response.redirect(`${ORIGIN}/agent/login`, 302)
-      const u = new URL(`https://${env.AUTH0_DOMAIN}/authorize`)
-      u.searchParams.set('response_type', 'code')
-      u.searchParams.set('client_id', env.AUTH0_CLIENT_ID)
-      u.searchParams.set('redirect_uri', REDIRECT)
-      u.searchParams.set('scope', 'openid profile email offline_access')
-      u.searchParams.set(
-        'acr_values',
-        'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
-      )
-      return Response.redirect(u.toString(), 302)
+      if (!session) return json({ ok: false, reason: 'not_logged_in' }, 401)
+      try {
+        const token = await mgmtToken(env)
+        const ticketRes = await fetch(
+          `https://${env.AUTH0_DOMAIN}/api/v2/guardian/enrollments/ticket`,
+          {
+            method: 'POST',
+            headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ user_id: session.sub, send_mail: false }),
+          },
+        )
+        const ticketBody = await ticketRes.text()
+        if (!ticketRes.ok) throw new Error(`ticket API ${ticketRes.status}: ${ticketBody}`)
+        const ticket = JSON.parse(ticketBody) as { ticket_url?: string }
+        if (!ticket.ticket_url) throw new Error(`no ticket_url: ${ticketBody}`)
+        return json({ ok: true, ticketUrl: ticket.ticket_url })
+      } catch (err) {
+        return json({ ok: false, reason: short(err) }, 502)
+      }
+    }
+
+    // Live Guardian enrollment status - polled by the page during the popup flow
+    // and used to render the right phone-panel state.
+    if (path.endsWith('/enrollment-status')) {
+      if (!session) return json({ ok: false, reason: 'not_logged_in' }, 401)
+      const enr = await getEnrollment(env, session.sub)
+      return json({ ok: true, enrolled: !!enr, device: enr?.device ?? null })
+    }
+
+    // ---- 2c. unenroll: remove the user's Guardian device so they can re-enroll ----
+    if (path.endsWith('/unenroll')) {
+      if (!session) return json({ ok: false, reason: 'not_logged_in' }, 401)
+      try {
+        const enr = await getEnrollment(env, session.sub)
+        if (enr) {
+          const token = await mgmtToken(env)
+          await fetch(
+            `https://${env.AUTH0_DOMAIN}/api/v2/users/${encodeURIComponent(session.sub)}/authentication-methods/${encodeURIComponent(enr.id)}`,
+            { method: 'DELETE', headers: { authorization: `Bearer ${token}` } },
+          )
+        }
+        return json({ ok: true })
+      } catch (err) {
+        return json({ ok: false, reason: short(err) }, 502)
+      }
     }
 
     // ---- 3a. disconnect: delete the vaulted GitHub account so the next connect re-authorizes
@@ -396,7 +485,11 @@ export default {
       return json({ ok: r.ok, id, ...out }, r.status)
     }
 
-    return new Response(page(session), { headers: { 'content-type': 'text/html; charset=utf-8' } })
+    // Only the vaulted state needs the live Guardian enrollment status.
+    const enrollment = session?.vaulted ? await getEnrollment(env, session.sub) : null
+    return new Response(page(session, enrollment), {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
   },
 }
 
@@ -629,7 +722,11 @@ export class AgentSession {
           client_id: this.env.AUTH0_CLIENT_ID,
           client_secret: this.env.AUTH0_CLIENT_SECRET,
           scope: 'openid',
-          login_hint: s.user,
+          login_hint: JSON.stringify({
+            format: 'iss_sub',
+            iss: `https://${this.env.AUTH0_DOMAIN}/`,
+            sub: s.user,
+          }),
           binding_message: msg,
         }),
       })
@@ -815,7 +912,7 @@ const escapeHtml = (s: string) =>
 function approvalEmail(s: SessionState, approve: string, deny: string): string {
   const who = s.ghLogin ? `@${s.ghLogin}` : escapeHtml(s.name)
   return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#0a1020">
-  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#a87a0a">nominee · approval required</p>
+  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#8c2f2a">nominee · approval required</p>
   <h2 style="font-size:20px;margin:8px 0 4px">Your agent paused for you, ${who}.</h2>
   <p style="color:#444;line-height:1.5">An autonomous agent wants to <b>publish a gist on your GitHub</b>:</p>
   <p style="background:#f4f4f5;border-radius:8px;padding:12px 14px;color:#222;font-size:15px">${escapeHtml(s.topic)}</p>
@@ -840,94 +937,160 @@ function approvalLandingPage(
       ? 'Denied - nothing was published'
       : 'Could not complete'
   const body = ok
-    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#a87a0a">View it ↗</a>` : ''}`
+    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#8c2f2a">View it ↗</a>` : ''}`
     : decision === 'denied'
       ? 'The agent stayed paused and took no action on your account.'
       : 'This approval link may have already been used, or the session expired.'
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>nominee · ${escapeHtml(head)}</title>
-<style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(168,122,10,.05),transparent 60%),#fff;color:#0a1020;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
+<style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(140,47,42,.05),transparent 60%),#fff;color:#0a1020;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
 .card{max-width:440px;text-align:center;background:#fbfbfc;border:1px solid #e5e7ee;border-radius:16px;padding:40px 28px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 24px 60px -42px rgba(10,16,32,.3)}
-h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#a87a0a}
+h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#8c2f2a}
 .back{font-family:ui-monospace,monospace;font-size:13px;color:#6b7488;margin-top:24px;display:inline-block;border-bottom:1px solid #e5e7ee;padding-bottom:2px}</style></head>
 <body><div class="card"><h1>${escapeHtml(head)}</h1><p>${body}</p>
 <a class="back" href="${ORIGIN}/agent/session-view?id=${escapeHtml(id)}">watch the full session timeline →</a></div></body></html>`
 }
 
-function page(session: Session | null) {
+// The six visible stages of an agent run. This list is the single source of
+// truth for both the static preview (server-rendered) and the live timeline
+// (client-rendered) - so the diagram a visitor sees up front is exactly the
+// thing that lights up as the real session runs.
+const STAGES = [
+  { key: 'gather', glyph: '◎', label: 'Reads your GitHub' },
+  { key: 'draft', glyph: '✎', label: 'Drafts a gist' },
+  { key: 'paused', glyph: '⏸', label: 'Pauses for your approval' },
+  { key: 'resumed', glyph: '✓', label: 'You approve' },
+  { key: 'token', glyph: '↻', label: 'Fresh token, minted live' },
+  { key: 'acted', glyph: '↗', label: 'Publishes to GitHub' },
+] as const
+
+// Static preview of the flow - all stages pending. Shown before a run starts
+// (and to logged-out visitors) so the concept reads at a glance, no text wall.
+function flowStatic(): string {
+  const nodes = STAGES.map(
+    (s) =>
+      `<div class="fnode is-pending"><div class="fnode-mark"><span>${s.glyph}</span></div><div class="fnode-main"><div class="fnode-label">${s.label}</div></div></div>`,
+  ).join('')
+  return `<div class="flow">${nodes}</div>`
+}
+
+function monogram(name: string): string {
+  const c = name.trim()[0]
+  return escapeHtml((c || 'Y').toUpperCase())
+}
+
+const ICON_MAIL =
+  '<svg class="seg-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="m2.5 4.5 5.5 4 5.5-4"/></svg>'
+const ICON_PHONE =
+  '<svg class="seg-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"/><path d="M7 12.2h2"/></svg>'
+
+function page(session: Session | null, enrollment: Enrollment | null) {
+  const name = session?.name || session?.sub || 'you'
+  const who = escapeHtml(name)
+
+  // State 1 of 3: not logged in. Sell the concept with the visual, not prose.
   const loggedOut = `
-    <p class="lede">Start a real agent session. It reads your GitHub, drafts a gist, then <em>pauses and waits for your approval</em> - via email link or push to phone. nominee fetches a <em>fresh</em> token from Auth0 Token Vault only at the moment of the action.</p>
-    <a class="primary" href="/agent/login">Connect GitHub via Auth0 →</a>
-    <p class="foot" style="margin-top:24px">You log in once (real OAuth consent). The agent never sees your password or stores your token.</p>`
-  const needVault = `
-    <p class="lede">Signed in as <strong>${escapeHtml(session?.name || session?.sub || 'you')}</strong>. Now vault your GitHub token with Auth0 Token Vault so nominee can pull a fresh one per action. <a href="/agent/logout">log out</a></p>
-    <div class="card">
-      <label>Step 2 of 2 · Vault GitHub in Token Vault</label>
-      <p class="sub" style="margin:6px 0 16px">Authorizes nominee to fetch fresh GitHub tokens on your behalf. You can revoke this any time.</p>
-      <a class="primary" href="/agent/connect">Vault GitHub token →</a>
+    <div class="solo">
+      <h1 class="hero-h1">Watch an agent pause for your approval.</h1>
+      <p class="hero-sub">It reads your GitHub and drafts a gist, then waits for your yes - by email or phone - and acts with a token minted at that exact moment.</p>
+      <div class="card flow-card">${flowStatic()}</div>
+      <a class="primary big" href="/agent/login">Connect GitHub to start →</a>
+      <p class="trust">One real OAuth login. The agent never sees your password or stores a token.</p>
     </div>`
-  const ready = `
-    <p class="lede">Connected &amp; vaulted as <strong>${escapeHtml(session?.name || session?.sub || 'you')}</strong>. Start a session - the agent reads your GitHub, then <em>pauses and waits for your approval</em>. nominee fetches a fresh token at the moment you approve. <a href="/agent/disconnect">disconnect &amp; re-vault</a> · <a href="/agent/logout">log out</a></p>
-    <div class="card" id="starter">
-      <label for="topic">What should the agent work on?</label>
-      <input id="topic" type="text" value="Summary of my recent GitHub activity" maxlength="140" />
-      <div style="margin-top:16px">
-        <label>How should we notify you for approval?</label>
-        <div class="method-row">
-          <label class="method-opt"><input type="radio" name="method" value="email" checked /> <span>Email link</span></label>
-          <label class="method-opt"><input type="radio" name="method" value="ciba" /> <span>Push to phone <span class="badge">instant</span></span></label>
-        </div>
-      </div>
-      <div id="email-wrap" style="margin-top:14px">
-        <label for="email">Send the approval to</label>
-        <input id="email" type="email" value="${escapeHtml(session?.email || '')}" placeholder="you@example.com" />
-      </div>
-      <div id="push-wrap" style="display:none;margin-top:14px">
-        <div class="setup-note">
-          <p class="setup-title">Set up phone approval in 3 steps</p>
-          <div class="setup-steps">
-            <div class="setup-step">
-              <span class="step-num">1</span>
-              <div class="step-body">
-                <p class="step-label">Install the Auth0 Guardian app (free)</p>
-                <div class="qr-row">
-                  <div class="qr-item">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fapps.apple.com%2Fus%2Fapp%2Fauth0-guardian%2Fid1093447833" width="100" height="100" alt="App Store QR code" class="qr-img" />
-                    <a href="https://apps.apple.com/us/app/auth0-guardian/id1093447833" target="_blank" rel="noopener" class="store-btn">App Store</a>
-                  </div>
-                  <div class="qr-item">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.auth0.guardian" width="100" height="100" alt="Google Play QR code" class="qr-img" />
-                    <a href="https://play.google.com/store/apps/details?id=com.auth0.guardian" target="_blank" rel="noopener" class="store-btn">Google Play</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="setup-step">
-              <span class="step-num">2</span>
-              <div class="step-body">
-                <p class="step-label">Enroll your phone for push notifications</p>
-                <p class="step-sub">Auth0 will prompt you to scan a QR code in the Guardian app.</p>
-                <a href="/agent/enroll" class="enroll-btn">Set up push notifications</a>
-              </div>
-            </div>
-            <div class="setup-step">
-              <span class="step-num">3</span>
-              <div class="step-body">
-                <p class="step-label">Come back and start a session</p>
-                <p class="step-sub">The agent will push to your phone the moment it pauses for approval.</p>
-              </div>
-            </div>
+
+  // State 2 of 3: logged in, GitHub not yet vaulted.
+  const needVault = `
+    <div class="solo">
+      <h1 class="hero-h1">One step left, ${who}.</h1>
+      <p class="hero-sub">Vault your GitHub token in Auth0 Token Vault so nominee can mint a fresh one for each action. Revoke any time.</p>
+      <div class="card flow-card">${flowStatic()}</div>
+      <a class="primary big" href="/agent/connect">Vault GitHub token →</a>
+      <p class="trust"><a href="/agent/logout">Not you? Log out</a></p>
+    </div>`
+
+  // Phone panel: two views, toggled live by the popup-enrollment flow.
+  const enrolledView = `
+        <div class="device">
+          <span class="device-ic">✓</span>
+          <div class="device-body">
+            <p class="device-name">Guardian ready on <span id="ciba-device">${escapeHtml(enrollment?.device || 'your phone')}</span></p>
+            <p class="hint">The agent pushes an approval request straight to this phone.</p>
           </div>
-          <p class="setup-foot">Already enrolled? Skip straight to starting a session.</p>
+          <button type="button" class="device-remove" id="ciba-remove">Remove</button>
+        </div>`
+  const setupView = `
+        <div class="setup">
+          <p class="setup-lede">Approve from your phone with the free <strong>Auth0 Guardian</strong> app. Scan once, right here - no leaving the page.</p>
+          <div class="setup-row">
+            <button type="button" class="primary sm" id="ciba-enroll">Set up Guardian</button>
+            <span class="setup-status" id="ciba-setup-status"></span>
+          </div>
+          <details class="needapp">
+            <summary>Don't have the app?</summary>
+            <div class="qr-row">
+              <div class="qr-item">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=92x92&data=https%3A%2F%2Fapps.apple.com%2Fus%2Fapp%2Fauth0-guardian%2Fid1093447833" width="92" height="92" alt="App Store QR code" class="qr-img" />
+                <a href="https://apps.apple.com/us/app/auth0-guardian/id1093447833" target="_blank" rel="noopener" class="store-btn">App Store</a>
+              </div>
+              <div class="qr-item">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=92x92&data=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.auth0.guardian" width="92" height="92" alt="Google Play QR code" class="qr-img" />
+                <a href="https://play.google.com/store/apps/details?id=com.auth0.guardian" target="_blank" rel="noopener" class="store-btn">Google Play</a>
+              </div>
+            </div>
+          </details>
+        </div>`
+
+  // State 3 of 3: connected and vaulted - the playground.
+  const ready = `
+    <div class="hero">
+      <h1 class="hero-h1">Run an agent that waits for your approval.</h1>
+      <p class="hero-sub">Reads your GitHub. Pauses for your yes. Acts with a token minted the moment you approve.</p>
+    </div>
+    <div class="play" id="starter" data-method="email" data-enrolled="${enrollment ? '1' : '0'}">
+      <div class="card play-control">
+        <div class="ident">
+          <span class="ident-dot">${monogram(name)}</span>
+          <span class="ident-name">${who}</span>
+          <span class="ident-links"><a href="/agent/disconnect">re-vault</a> · <a href="/agent/logout">log out</a></span>
+        </div>
+        <label for="topic">Task</label>
+        <input id="topic" type="text" value="Summary of my recent GitHub activity" maxlength="140" />
+
+        <label style="margin-top:18px">Approve via</label>
+        <div class="seg" id="seg" role="tablist">
+          <span class="seg-ind" id="seg-ind"></span>
+          <button type="button" class="seg-opt active" data-method="email" role="tab">${ICON_MAIL} Email link</button>
+          <button type="button" class="seg-opt" data-method="ciba" role="tab">${ICON_PHONE} Phone push</button>
+        </div>
+
+        <div class="panel" id="panel-email">
+          <label for="email">Send approval link to</label>
+          <input id="email" type="email" value="${escapeHtml(session?.email || '')}" placeholder="you@example.com" />
+          <p class="hint">A one-click approve / deny link. The agent hibernates until you click.</p>
+        </div>
+
+        <div class="panel" id="panel-ciba" hidden>
+          <div id="ciba-enrolled" ${enrollment ? '' : 'hidden'}>${enrolledView}</div>
+          <div id="ciba-setup" ${enrollment ? 'hidden' : ''}>${setupView}</div>
+        </div>
+
+        <div class="row">
+          <button id="run" class="primary">Start session ▸</button>
+          <button id="again" class="ghost" hidden>Run again</button>
+          <span id="status" class="status"></span>
         </div>
       </div>
-      <div class="row"><button id="run" class="primary">Start agent session ▸</button><span id="status" class="sub"></span></div>
-    </div>
-    <div id="timeline" class="card" hidden></div>`
-  return html(
-    !session ? loggedOut : session.vaulted ? ready : needVault,
-    !!session && !!session.vaulted,
-  )
+
+      <div class="card play-flow">
+        <div class="flow-head"><span class="flow-title">Agent run</span><span class="tl-clock" id="clock" hidden></span></div>
+        <div id="flow-banner"></div>
+        <div id="flowbox">${flowStatic()}</div>
+        <div id="flow-extra"></div>
+      </div>
+    </div>`
+
+  const isReady = !!session && !!session.vaulted
+  return html(!session ? loggedOut : isReady ? ready : needVault, isReady)
 }
 
 // Tiny shim: if Auth0 returned connect_code in the URL fragment (not sent to the
@@ -949,151 +1112,271 @@ function html(inner: string, loggedIn: boolean) {
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-:root{--bg:#fff;--surface:#fbfbfc;--surface-2:#f3f4f7;--ink:#0a1020;--ink-soft:#38414f;--muted:#6b7488;--line:#e5e7ee;--seal:#a87a0a;--seal-tint:rgba(168,122,10,.08);--navy:#0a1020;--navy-hover:#1b2438;--ok:#0f7b43;--err:#cf3520;--wait:#a87a0a;--code-bg:#0b1226;--code-text:#cdd5e6;--sans:'Geist',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
-*{margin:0;box-sizing:border-box}body{font-family:var(--sans);background:radial-gradient(900px 460px at 82% -12%,rgba(168,122,10,.04),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+:root{--bg:#faf9f5;--surface:#ffffff;--surface-2:#f2f0e8;--ink:#0a1020;--ink-soft:#3a4154;--muted:#71798c;--line:#e7e3d8;--seal:#8c2f2a;--seal-tint:rgba(140,47,42,.08);--navy:#0b1020;--navy-hover:#1b2438;--ok:#1f6b4a;--err:#cf3520;--code-bg:#0b1226;--code-text:#cdd5e6;--sans:'Schibsted Grotesk',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
+*{margin:0;box-sizing:border-box}[hidden]{display:none!important}body{font-family:var(--sans);background:radial-gradient(1100px 540px at 85% -14%,rgba(140,47,42,.05),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.bar{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(10px);z-index:5}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);z-index:5}
 .bar .brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.02em}
 .bar .brand svg{width:24px;height:24px;color:var(--seal)}
 .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
-.wrap{max-width:660px;margin:0 auto;padding:clamp(32px,6vw,68px) 22px 80px}
-h1{font-size:clamp(27px,4.6vw,38px);letter-spacing:-.035em;margin-bottom:12px;font-weight:600}
-.lede{color:var(--ink-soft);margin-bottom:20px;font-size:16px}.lede a{color:var(--muted);border-bottom:1px solid var(--line)}em{color:var(--seal);font-style:normal}
-.steps{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:26px;line-height:1.9}.steps b{color:var(--ink);font-weight:500}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 18px 44px -34px rgba(10,16,32,.28)}
+.wrap{max-width:1040px;margin:0 auto;padding:clamp(30px,5vw,56px) 22px 72px}
+.solo{max-width:560px;margin:0 auto;text-align:center}
+.hero{margin-bottom:26px}
+.hero-h1{font-size:clamp(27px,4vw,38px);letter-spacing:-.035em;font-weight:600;line-height:1.08;margin-bottom:12px}
+.solo .hero-h1{margin-left:auto;margin-right:auto;max-width:16ch}
+.hero-sub{color:var(--ink-soft);font-size:16px;line-height:1.55;max-width:50ch}
+.solo .hero-sub{margin:0 auto 26px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 20px 46px -36px rgba(10,16,32,.3)}
+.flow-card{margin-bottom:24px;text-align:left}
+.primary.big{font-size:15px;padding:15px 26px}
+.trust{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:18px}.trust a{color:var(--muted);border-bottom:1px solid var(--line)}
 label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
-input{width:100%;font-family:var(--mono);font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;padding:13px 14px}input:focus{outline:none;border-color:var(--seal);box-shadow:0 0 0 3px var(--seal-tint)}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
-a.primary,button{font-family:var(--mono);font-size:14px;cursor:pointer;border-radius:9px;padding:13px 20px;border:1px solid var(--line);background:#fff;color:var(--ink);transition:.15s;text-decoration:none;display:inline-block}
-a.primary:hover,button:hover{border-color:#d2d6e0}
+input{width:100%;font-family:var(--mono);font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;padding:13px 14px;transition:.15s}input:focus{outline:none;border-color:var(--seal);box-shadow:0 0 0 3px var(--seal-tint)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+button{font-family:var(--mono);font-size:14px;cursor:pointer;border-radius:9px;padding:13px 20px;border:1px solid var(--line);background:#fff;color:var(--ink);transition:.18s ease;display:inline-flex;align-items:center;gap:8px}
+a.primary{font-family:var(--mono);font-size:14px;border-radius:9px;padding:13px 20px;display:inline-block;transition:.18s ease}
+button:hover{border-color:#d2d6e0}button:active{transform:translateY(1px)}
 .primary{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}.primary:hover{background:var(--navy-hover);border-color:var(--navy-hover)}
-.approve{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}.approve:hover{background:var(--navy-hover)}
-.deny{color:var(--ink-soft)}
-button:disabled{opacity:.5}
-.method-row{display:flex;gap:20px;margin-top:8px}.method-opt{display:flex;align-items:center;gap:7px;cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--ink-soft)}.method-opt input[type=radio]{accent-color:var(--seal)}
-.badge{font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--seal-tint);color:var(--seal);border:1px solid rgba(168,122,10,.2);border-radius:99px;padding:2px 7px;vertical-align:middle;margin-left:4px}
-.setup-note{background:var(--seal-tint);border:1px solid rgba(168,122,10,.2);border-radius:10px;padding:16px 18px}.setup-title{font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--seal);margin-bottom:14px}
-.setup-steps{display:flex;flex-direction:column;gap:16px}.setup-step{display:flex;gap:12px;align-items:flex-start}.step-num{flex:none;width:22px;height:22px;border-radius:50%;background:var(--seal);color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-top:1px}.step-body{flex:1}.step-label{font-size:13px;font-weight:500;color:var(--ink);margin:0 0 4px}.step-sub{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.5}
-.qr-row{display:flex;gap:14px;margin-top:10px}.qr-item{display:flex;flex-direction:column;align-items:center;gap:6px}.qr-img{border-radius:6px;border:1px solid var(--line);display:block}
-.store-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;display:inline-block;text-align:center;width:100%}.store-btn:hover{border-color:#d2d6e0}
-.enroll-btn{font-family:var(--mono);font-size:13px;padding:9px 16px;border-radius:8px;background:var(--navy);color:#fff;border:none;text-decoration:none;display:inline-block;cursor:pointer;margin-top:4px}.enroll-btn:hover{background:var(--navy-hover)}
-.setup-foot{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5;border-top:1px solid rgba(168,122,10,.15);padding-top:10px}
-.sub{font-size:13px;color:var(--muted)}.foot{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.tl{list-style:none;padding:0;margin:0;font-family:var(--mono);font-size:13px}
-.tl li{display:flex;gap:13px;padding:10px 0;align-items:flex-start;position:relative}
-.tl .ic{flex:none;width:18px;text-align:center;position:relative;z-index:1;background:var(--surface)}
-.tl li:not(:last-child) .ic::after{content:'';position:absolute;top:19px;left:50%;width:1px;height:calc(100% - 6px);background:var(--line);transform:translateX(-50%)}
-.tl .ic.wait::after{background:none;border-left:1px dashed var(--seal);width:0}
-.tl .ic.ok{color:var(--ok)}.tl .ic.ac{color:var(--seal)}.tl .ic.er{color:var(--err)}.tl .ic.wait{color:var(--wait)}
-.tl .tx{color:var(--ink-soft)}.tl .ts{color:var(--muted);margin-left:auto;flex:none;font-size:11px;padding-left:10px}
-.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--seal);animation:p 1.2s infinite}
-@keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
-.clock{font-family:var(--mono);font-size:13px;color:var(--seal);margin-top:14px}
-.jsontoggle{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);padding:0 0 2px;margin-top:14px;cursor:pointer}
+.ghost{background:#fff;color:var(--ink-soft)}
+button:disabled{opacity:.45;cursor:default;transform:none}
+.hint{font-size:13px;color:var(--muted);line-height:1.5;margin:8px 0 0}
+.status{font-family:var(--mono);font-size:13px;color:var(--muted)}.status.err{color:var(--err)}
+.primary.sm{padding:10px 16px;font-size:13px}
+/* playground grid */
+.play{display:grid;grid-template-columns:minmax(330px,400px) 1fr;gap:22px;align-items:start}
+.play-control{padding:22px}
+.play-flow{padding:22px;min-height:340px}
+@media(max-width:780px){.play{grid-template-columns:1fr}}
+/* identity chip */
+.ident{display:flex;align-items:center;gap:9px;margin-bottom:20px}
+.ident-dot{flex:none;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.ident-name{font-weight:600;font-size:14px;letter-spacing:-.01em}
+.ident-links{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}.ident-links a{border-bottom:1px solid var(--line)}.ident-links a:hover{color:var(--ink)}
+/* segmented control with sliding indicator */
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px}
+.seg-ind{position:absolute;top:4px;height:calc(100% - 8px);background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(10,16,32,.08);transition:left .24s cubic-bezier(.4,0,.2,1),width .24s cubic-bezier(.4,0,.2,1);z-index:0}
+.seg-opt{position:relative;z-index:1;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--muted);background:transparent;border:none;border-radius:8px;padding:10px;transition:color .18s}
+.seg-opt:hover{color:var(--ink-soft);border:none}
+.seg-opt.active{color:var(--ink)}
+.seg-ic{width:15px;height:15px;flex:none}
+.panel{margin-top:16px}
+/* enrolled device row */
+.device{display:flex;align-items:flex-start;gap:12px;background:rgba(31,107,74,.05);border:1px solid rgba(31,107,74,.22);border-radius:11px;padding:14px 16px;animation:fade .3s ease}
+.device-ic{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ok);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.device-body{flex:1}.device-name{font-size:14px;font-weight:600;color:var(--ink);margin:0}
+.device-remove{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 1px;white-space:nowrap;margin-top:3px}.device-remove:hover{color:var(--err);border-color:var(--err)}
+/* not-enrolled setup */
+.setup{background:var(--seal-tint);border:1px solid rgba(140,47,42,.22);border-radius:11px;padding:16px 18px;animation:fade .3s ease}
+.setup-lede{font-size:14px;color:var(--ink-soft);line-height:1.55;margin:0 0 14px}.setup-lede strong{color:var(--ink)}
+.setup-row{display:flex;align-items:center;gap:12px}
+.setup-status{font-family:var(--mono);font-size:12px;color:var(--seal)}
+.needapp{margin-top:14px}.needapp summary{font-family:var(--mono);font-size:12px;color:var(--muted);cursor:pointer;list-style:none}.needapp summary::-webkit-details-marker{display:none}.needapp summary:before{content:'+ ';color:var(--seal)}.needapp[open] summary:before{content:'− '}
+.qr-row{display:flex;gap:14px;margin-top:12px}.qr-item{display:flex;flex-direction:column;align-items:center;gap:6px}.qr-img{border-radius:6px;border:1px solid var(--line);display:block;background:#fff}
+.store-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid var(--line);color:var(--ink);text-align:center;width:100%}.store-btn:hover{border-color:#d2d6e0}
+/* flow stepper */
+.flow-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.flow-title{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tl-clock{font-family:var(--mono);font-size:12px;color:var(--seal);background:var(--seal-tint);border:1px solid rgba(140,47,42,.25);border-radius:999px;padding:4px 11px;white-space:nowrap}
+.flow{position:relative}
+.fnode{position:relative;display:grid;grid-template-columns:28px 1fr auto;gap:13px;align-items:start;padding:9px 0}
+.fnode:not(:last-child)::before{content:'';position:absolute;left:13px;top:28px;bottom:-9px;width:2px;transform:translateX(-50%);background:var(--line);transition:background .4s}
+.fnode.is-done::before{background:var(--ok)}
+.fnode.is-wait::before{background:repeating-linear-gradient(var(--seal) 0 4px,transparent 4px 8px)}
+.fnode-mark{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--surface);border:1.5px solid var(--line);color:var(--muted);transition:all .3s ease}
+.fnode-main{padding-top:3px}
+.fnode-label{font-size:14px;color:var(--ink);font-weight:500;line-height:1.35}
+.fnode-detail{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:3px;word-break:break-word}
+.fnode-detail a{color:var(--seal);border-bottom:1px solid rgba(140,47,42,.3)}
+.fnode-ts{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:5px}
+.fnode.is-pending .fnode-mark{opacity:.55}.fnode.is-pending .fnode-label{color:var(--muted);font-weight:400}
+.fnode.is-done .fnode-mark{background:var(--ok);border-color:var(--ok);color:#fff;animation:pop .34s ease}
+.fnode.is-wait .fnode-mark{background:var(--seal-tint);border-color:var(--seal);color:var(--seal);animation:ring 1.7s infinite}
+.fnode.is-wait .fnode-label{color:var(--seal)}
+.fnode.is-denied .fnode-mark,.fnode.is-error .fnode-mark{background:var(--err);border-color:var(--err);color:#fff;animation:pop .34s ease}
+.play-flow.win{animation:glow 1.1s ease}
+.flow-extra{margin-top:6px}
+.gist-link{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px;color:var(--seal);margin-top:14px;border:1px solid rgba(140,47,42,.3);border-radius:8px;padding:9px 13px;transition:.15s}.gist-link:hover{background:var(--seal-tint)}
+.jsontoggle{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 2px;margin-top:16px;cursor:pointer}
 pre{font-family:var(--mono);font-size:12px;color:var(--code-text);background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;margin-top:10px}
-.banner{font-family:var(--mono);font-size:12.5px;border-radius:10px;padding:12px 14px;margin-bottom:14px}
-.banner.wait{background:var(--seal-tint);border:1px solid rgba(168,122,10,.28);color:var(--seal)}
-.banner.ok{background:rgba(15,123,67,.07);border:1px solid rgba(15,123,67,.25);color:var(--ok)}
+.banner{font-family:var(--mono);font-size:12.5px;border-radius:10px;padding:12px 14px;margin-bottom:16px;animation:fade .3s ease}
+.banner.wait{background:var(--seal-tint);border:1px solid rgba(140,47,42,.28);color:var(--seal)}
+.banner.ok{background:rgba(31,107,74,.07);border:1px solid rgba(31,107,74,.25);color:var(--ok)}
 .banner.er{background:rgba(207,53,32,.06);border:1px solid rgba(207,53,32,.25);color:var(--err)}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted)}
+@keyframes pop{0%{transform:scale(.5)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(140,47,42,.34)}70%{box-shadow:0 0 0 8px rgba(140,47,42,0)}100%{box-shadow:0 0 0 0 rgba(140,47,42,0)}}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes glow{0%,100%{box-shadow:0 1px 2px rgba(10,16,32,.04),0 20px 46px -36px rgba(10,16,32,.3)}40%{box-shadow:0 0 0 3px rgba(31,107,74,.18),0 20px 46px -30px rgba(31,107,74,.4)}}
 :focus-visible{outline:2px solid var(--seal);outline-offset:2px}
-@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
 <div class="bar"><a class="brand" href="${ORIGIN}"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="11" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(120 20 20)"/></svg><span>nominee</span></a><span class="tag">live testbed</span></div>
 <div class="wrap">
-<h1>An agent that pauses for your approval - and survives the wait.</h1>
-<div class="steps"><b>connect GitHub</b> → agent reads your account → <b>pauses and notifies you</b> → you approve (email or phone) → <b>fresh token from Token Vault</b> at action time → real action + audit</div>
 ${inner}
-<p class="foot" style="margin-top:28px;text-align:center"><a href="${ORIGIN}" style="color:var(--muted)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--muted)">source ↗</a></p>
+<p class="foot" style="margin-top:32px;text-align:center"><a href="${ORIGIN}" style="color:var(--muted)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--muted)">source ↗</a></p>
 </div>
 ${loggedIn ? script() : viewerScript()}
 </body></html>`
 }
 
-// The console UI: start a session, then poll + render the live timeline.
+// Shared client helpers: the flow renderer + formatters used by both the live
+// playground and the read-only session viewer.
+function flowJs(): string {
+  return `
+const STAGES=${JSON.stringify(STAGES)};
+function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function fmt(ms){return new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function gap(f,t){let s=Math.max(0,Math.round((t-f)/1000));if(s<60)return s+'s';let m=Math.floor(s/60);return m<60?m+'m '+(s%60)+'s':Math.floor(m/60)+'h '+(m%60)+'m'}
+function detailFor(key,J){
+  if(key==='gather'&&J.ghLogin){return '@'+esc(J.ghLogin)+(J.ghRepos&&J.ghRepos.length?' · '+esc(J.ghRepos.join(', ')):'')}
+  if(key==='paused'&&J.status==='awaiting_approval'){return J.method==='ciba'?'Pushed to your phone':'Link emailed to '+esc(J.email||'you')}
+  if(key==='token'&&J.tokenFp){return 'from Token Vault · …'+esc(J.tokenFp)}
+  if(key==='acted'&&J.gistUrl){return '<a href="'+esc(J.gistUrl)+'" target="_blank" rel="noopener">view the gist ↗</a>'}
+  return ''
+}
+function flowHTML(J){
+  var byKind={};(J.steps||[]).forEach(function(st){byKind[st.kind]=st});
+  var status=J.status,keys=STAGES.map(function(s){return s.key});
+  var lastPresent=-1;keys.forEach(function(k,i){if(byKind[k])lastPresent=i});
+  var pausedIx=keys.indexOf('paused');
+  return '<div class="flow">'+STAGES.map(function(s,i){
+    var st=byKind[s.key],cls='is-pending',ts='';
+    if(st){ ts=fmt(st.at);
+      if(s.key==='paused'&&status==='awaiting_approval')cls='is-wait';
+      else if(s.key==='paused'&&status==='denied')cls='is-denied';
+      else if(status==='error'&&i===lastPresent)cls='is-error';
+      else cls='is-done';
+    } else if(status==='awaiting_approval'&&i<pausedIx)cls='is-done';
+    var glyph=cls==='is-done'?'✓':(cls==='is-denied'||cls==='is-error'?'✕':s.glyph);
+    var detail=detailFor(s.key,J);
+    return '<div class="fnode '+cls+'"><div class="fnode-mark"><span>'+glyph+'</span></div>'+
+      '<div class="fnode-main"><div class="fnode-label">'+esc(s.label)+'</div>'+(detail?'<div class="fnode-detail">'+detail+'</div>':'')+'</div>'+
+      (ts?'<div class="fnode-ts">'+ts+'</div>':'<div class="fnode-ts"></div>')+'</div>';
+  }).join('')+'</div>';
+}
+function bannerHTML(J){
+  if(J.status==='awaiting_approval'){
+    if(J.method==='ciba')return '<div class="banner wait"><b>Approve on your phone.</b> Guardian has the request - the agent is hibernating and wakes the instant you tap approve.</div>';
+    return '<div class="banner wait"><b>Check your inbox.</b> Approval link sent to '+esc(J.email||'you')+'. The agent hibernates until you click - approve from any device.</div>';
+  }
+  if(J.status==='done')return '<div class="banner ok"><b>Done.</b> Resumed and acted with a token fetched <i>at that moment</i> from Token Vault - never one held across the wait.</div>';
+  if(J.status==='denied')return '<div class="banner er"><b>Denied.</b> The agent stayed paused and touched nothing.</div>';
+  if(J.status==='error')return '<div class="banner er"><b>Something went wrong.</b> See the steps above.</div>';
+  return '';
+}`
+}
+
+// The playground: enrollment, channel choice, run, and the live flow.
 function script() {
   return `<script>
-const $=s=>document.querySelector(s);let J={},timer=null,clockTimer=null,sid=null
-function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
-function fmt(ms){const d=new Date(ms);return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-function gap(from,to){let s=Math.max(0,Math.round((to-from)/1000));if(s<60)return s+'s';let m=Math.floor(s/60);return m<60?m+'m '+(s%60)+'s':Math.floor(m/60)+'h '+(m%60)+'m'}
-const ICON={started:['●','ac'],gather:['✓','ok'],draft:['✎','ac'],paused:['⏸','wait'],resumed:['▸','ok'],token:['↻','ac'],acted:['✓','ok'],error:['✗','er']}
+${flowJs()}
+const $=s=>document.querySelector(s),starter=$('#starter');let J={},timer=null,clockTimer=null,sid=null,lastSig=''
 
-document.querySelectorAll('input[name=method]').forEach(r=>{
-  r.addEventListener('change',()=>{
-    const isCiba=document.querySelector('input[name=method]:checked')?.value==='ciba'
-    $('#email-wrap').style.display=isCiba?'none':''
-    $('#push-wrap').style.display=isCiba?'':'none'
-  })
-})
+/* segmented control with sliding indicator */
+function moveInd(){const a=document.querySelector('.seg-opt.active'),ind=$('#seg-ind');if(a&&ind){ind.style.left=a.offsetLeft+'px';ind.style.width=a.offsetWidth+'px'}}
+function selectMethod(m){
+  starter.dataset.method=m
+  document.querySelectorAll('.seg-opt').forEach(b=>b.classList.toggle('active',b.dataset.method===m))
+  $('#panel-email').hidden=m!=='email';$('#panel-ciba').hidden=m!=='ciba';moveInd();setStatus('')
+}
+document.querySelectorAll('.seg-opt').forEach(b=>b.addEventListener('click',()=>selectMethod(b.dataset.method)))
+window.addEventListener('resize',moveInd);requestAnimationFrame(moveInd)
+if(new URLSearchParams(location.search).get('enrolled')==='1')selectMethod('ciba')
+function setStatus(t,err){const el=$('#status');el.textContent=t||'';el.classList.toggle('err',!!err)}
 
+/* ---- Guardian enrollment: open a popup, poll, update inline, auto-close ---- */
+let popup=null,enrollTimer=null
+const enrollBtn=$('#ciba-enroll'),removeBtn=$('#ciba-remove')
+function setSetup(t){const e=$('#ciba-setup-status');if(e)e.textContent=t||''}
+function showEnrolled(device){if(device){const d=$('#ciba-device');if(d)d.textContent=device}$('#ciba-enrolled').hidden=false;$('#ciba-setup').hidden=true;starter.dataset.enrolled='1';setStatus('')}
+function showUnenrolled(){$('#ciba-enrolled').hidden=true;$('#ciba-setup').hidden=false;starter.dataset.enrolled='0'}
+if(enrollBtn)enrollBtn.onclick=async()=>{
+  popup=window.open('','guardian','width=460,height=720')  // open in the gesture so it isn't blocked
+  enrollBtn.disabled=true;setSetup('opening…')
+  try{
+    const r=await fetch('/agent/enroll',{method:'POST'});const j=await r.json()
+    if(!j.ok||!j.ticketUrl)throw new Error(j.reason||'failed')
+    if(popup)popup.location=j.ticketUrl
+    setSetup('scan the QR in Guardian, waiting…')
+    pollEnroll()
+  }catch(e){if(popup)popup.close();enrollBtn.disabled=false;setSetup('could not start, try again')}
+}
+function pollEnroll(){
+  let n=0;clearInterval(enrollTimer)
+  enrollTimer=setInterval(async()=>{
+    n++
+    try{
+      const r=await fetch('/agent/enrollment-status');const j=await r.json()
+      if(j.ok&&j.enrolled){clearInterval(enrollTimer);if(popup&&!popup.closed)popup.close();enrollBtn.disabled=false;setSetup('');showEnrolled(j.device);return}
+    }catch(e){}
+    if(popup&&popup.closed){clearInterval(enrollTimer);enrollBtn.disabled=false;setSetup('')}
+    else if(n>120){clearInterval(enrollTimer);enrollBtn.disabled=false;setSetup('timed out, try again')}
+  },2500)
+}
+if(removeBtn)removeBtn.onclick=async()=>{
+  removeBtn.disabled=true;removeBtn.textContent='removing…'
+  try{const r=await fetch('/agent/unenroll',{method:'POST'});const j=await r.json();if(j.ok)showUnenrolled()}catch(e){}
+  removeBtn.disabled=false;removeBtn.textContent='Remove'
+}
+
+/* ---- run a session ---- */
 $('#run').onclick=start
+$('#again').onclick=()=>location.reload()
 async function start(){
   const topic=$('#topic').value.trim()
-  const method=document.querySelector('input[name=method]:checked')?.value||'email'
-  const email=method==='email'?($('#email').value.trim()):''
-  if(method==='email'&&!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){$('#status').textContent='enter a valid email';return}
-  $('#run').disabled=true;$('#status').innerHTML='<span class="pulse"></span> starting…'
+  if(!topic){setStatus('Give the agent a task first.',1);return}
+  const method=starter.dataset.method||'email';let email=''
+  if(method==='email'){email=$('#email').value.trim();if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){setStatus('Enter a valid email.',1);return}}
+  else if(starter.dataset.enrolled!=='1'){setStatus('Set up Guardian first, or use Email link.',1);return}
+  $('#run').disabled=true;$('#topic').disabled=true;document.querySelectorAll('.seg-opt').forEach(b=>b.disabled=true);setStatus('starting…')
   const r=await fetch('/agent/session/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({topic,email,method})})
   const res=await r.json()
-  if(!res.ok){$('#run').disabled=false;$('#status').textContent=res.reason||'failed';return}
-  sid=res.id;$('#status').textContent=''
-  $('#timeline').hidden=false
-  poll();timer=setInterval(poll,1500)
-  clockTimer=setInterval(renderClock,1000)
+  if(!res.ok){$('#run').disabled=false;$('#topic').disabled=false;document.querySelectorAll('.seg-opt').forEach(b=>b.disabled=false);setStatus(reason(res.reason),1);return}
+  sid=res.id;setStatus('')
+  poll();timer=setInterval(poll,1500);clockTimer=setInterval(tickClock,1000)
 }
+function reason(c){return({invalid_email:'Enter a valid email.',invalid_topic:'Give the agent a task first.',rate_limited:'Too many sessions - wait a minute.',not_connected:'Re-vault GitHub and try again.'})[c]||'Could not start - try again.'}
+function tickClock(){if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return;const el=$('#clock');if(el)el.textContent='⏸ hibernating · '+gap(J.pausedAt,Date.now())}
 async function poll(){
   if(!sid)return
   const r=await fetch('/agent/session/'+sid);if(!r.ok)return
   J=await r.json();render()
-  if(['done','denied','error'].includes(J.status)){clearInterval(timer);clearInterval(clockTimer)}
-}
-function renderClock(){
-  if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return
-  const el=$('#clock');if(el)el.textContent='⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for your approval'
+  if(['done','denied','error'].includes(J.status)){clearInterval(timer);clearInterval(clockTimer);finish()}
 }
 function render(){
-  let banner='',clock=''
-  if(J.status==='awaiting_approval'){
-    if(J.method==='ciba'){
-      banner='<div class="banner wait"><b>Check your phone.</b> A push notification was sent to your authenticator app. The agent is hibernating - it will wake the moment you approve.</div>'
-    } else {
-      banner='<div class="banner wait"><b>Check your inbox.</b> The agent emailed an approval link to '+esc(J.email||'')+' and is now hibernating - no compute running. Approve from any device.</div>'
-    }
-    clock='<div class="clock" id="clock">⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for your approval</div>'
-  } else if(J.status==='done'){
-    banner='<div class="banner ok"><b>Done.</b> The agent resumed after the pause and acted with a token nominee fetched <i>at that moment</i> from Token Vault.</div>'
-  } else if(J.status==='denied'){
-    banner='<div class="banner er">Denied - the agent stayed paused and took no action.</div>'
-  } else if(J.status==='error'){
-    banner='<div class="banner er">Something went wrong - see the timeline.</div>'
-  }
-  let items=(J.steps||[]).map(st=>{
-    const [ic,cls]=ICON[st.kind]||['•','']
-    return '<li><span class="ic '+cls+'">'+ic+'</span><span class="tx">'+esc(st.text)+'</span><span class="ts">'+fmt(st.at)+'</span></li>'
-  }).join('')
-  let link=J.gistUrl?'<div style="margin-top:14px"><a href="'+esc(J.gistUrl)+'" target="_blank" style="color:var(--seal);font-family:var(--mono);font-size:13px">'+esc(J.gistUrl)+' ↗</a></div>':''
-  let audit=J.audit&&J.audit.length?'<button class="jsontoggle" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden">audit ('+J.audit.length+' events)</button><pre hidden>'+esc(J.audit.map(e=>fmt(e.at)+'  '+e.type).join('\\n'))+'</pre>':''
-  $('#timeline').innerHTML='<label>Agent session</label>'+banner+'<ul class="tl">'+items+'</ul>'+clock+link+audit
+  const clock=$('#clock')
+  if(J.status==='awaiting_approval'){clock.hidden=false;clock.textContent='⏸ hibernating · '+gap(J.pausedAt,Date.now())}else{clock.hidden=true}
+  const sig=J.status+':'+((J.steps||[]).length)+':'+(J.gistUrl||'')
+  if(sig===lastSig)return
+  lastSig=sig
+  $('#flow-banner').innerHTML=bannerHTML(J)
+  $('#flowbox').innerHTML=flowHTML(J)
+  let extra=''
+  if(J.audit&&J.audit.length){extra='<button class="jsontoggle" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden">audit · '+J.audit.length+' events</button><pre hidden>'+esc(J.audit.map(e=>fmt(e.at)+'  '+e.type).join('\\n'))+'</pre>'}
+  $('#flow-extra').innerHTML=extra
+}
+function finish(){
+  if(J.status==='done'){const f=$('.play-flow');f.classList.add('win');setTimeout(()=>f.classList.remove('win'),1200)}
+  $('#run').hidden=true;$('#again').hidden=false
 }
 </script>`
 }
 
-// Standalone session viewer (e.g. opened from the email landing page on another
-// device, with no cookie): ?id=... renders the same live timeline, read-only.
+// Read-only session viewer: ?id=... renders the same flow on the email landing
+// page (another device, no cookie).
 function viewerScript() {
   return `<script>
+${flowJs()}
 const params=new URLSearchParams(location.search),sid=params.get('id')
 if(sid&&location.pathname.includes('session-view')){
-  const root=document.querySelector('.wrap')
-  const card=document.createElement('div');card.className='card';card.id='timeline';root.querySelector('.steps').after(card)
-  let J={},timer=setInterval(poll,1500),clockTimer=setInterval(renderClock,1000)
-  function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
-  function fmt(ms){return new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-  function gap(f,t){let s=Math.max(0,Math.round((t-f)/1000));if(s<60)return s+'s';let m=Math.floor(s/60);return m<60?m+'m '+(s%60)+'s':Math.floor(m/60)+'h '+(m%60)+'m'}
-  const ICON={started:['●','ac'],gather:['✓','ok'],draft:['✎','ac'],paused:['⏸','wait'],resumed:['▸','ok'],token:['↻','ac'],acted:['✓','ok'],error:['✗','er']}
+  const wrap=document.querySelector('.wrap')
+  const card=document.createElement('div');card.className='card play-flow'
+  card.innerHTML='<div class="flow-head"><span class="flow-title">Agent run</span><span class="tl-clock" id="clock" hidden></span></div><div id="flow-banner"></div><div id="flowbox"></div><div id="flow-extra"></div>'
+  wrap.insertBefore(card,wrap.firstChild)
+  let J={},lastSig='',timer=setInterval(poll,1500),clockTimer=setInterval(tickClock,1000)
+  function tickClock(){if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return;const el=document.querySelector('#clock');if(el)el.textContent='⏸ hibernating · '+gap(J.pausedAt,Date.now())}
   async function poll(){const r=await fetch('/agent/session/'+sid);if(!r.ok)return;J=await r.json();render();if(['done','denied','error'].includes(J.status)){clearInterval(timer);clearInterval(clockTimer)}}
-  function renderClock(){if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return;const el=document.querySelector('#clock');if(el)el.textContent='⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for approval'}
-  function render(){let items=(J.steps||[]).map(st=>{const[ic,cls]=ICON[st.kind]||['•',''];return '<li><span class="ic '+cls+'">'+ic+'</span><span class="tx">'+esc(st.text)+'</span><span class="ts">'+fmt(st.at)+'</span></li>'}).join('');let clock=J.status==='awaiting_approval'?'<div class="clock" id="clock">⏸ hibernating</div>':'';let link=J.gistUrl?'<div style="margin-top:14px"><a href="'+esc(J.gistUrl)+'" target="_blank" style="color:var(--seal)">'+esc(J.gistUrl)+' ↗</a></div>':'';document.querySelector('#timeline').innerHTML='<label>Agent session timeline</label><ul class="tl">'+items+'</ul>'+clock+link}
+  function render(){const clock=document.querySelector('#clock');if(J.status==='awaiting_approval'){clock.hidden=false;clock.textContent='⏸ hibernating · '+gap(J.pausedAt,Date.now())}else{clock.hidden=true}var sig=J.status+':'+((J.steps||[]).length)+':'+(J.gistUrl||'');if(sig===lastSig)return;lastSig=sig;document.querySelector('#flow-banner').innerHTML=bannerHTML(J);document.querySelector('#flowbox').innerHTML=flowHTML(J)}
   poll()
 }
 </script>`

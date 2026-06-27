@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nominee — identity & token delegation for AI agents</title>
+    <title>nominee — token delegation for AI agents</title>
     <meta
       name="description"
-      content="nominee hands your AI agent a fresh third-party token at the moment of a tool call — with optional human approval and an audit trail. Provider-neutral. Install and go."
+      content="nominee hands your AI agent a fresh third-party token at the moment of each tool call — survives hibernation, pauses for human approval, logs the chain. Provider-neutral, zero-dependency core."
     />
     <link rel="canonical" href="https://nominee.dev/" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#faf9f5" />
     <meta property="og:title" content="nominee — token delegation for AI agents" />
     <meta
       property="og:description"
-      content="A fresh third-party token at the moment of a tool call. Human approval when it matters. Full audit. Provider-neutral, install and go."
+      content="A fresh third-party token at every tool call. Survives hibernation. Pauses for human approval. Provider-neutral, install and go."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nominee.dev/" />
@@ -24,7 +24,7 @@
     <meta name="twitter:title" content="nominee — token delegation for AI agents" />
     <meta
       name="twitter:description"
-      content="A fresh third-party token at the moment of a tool call. Human approval when it matters. Provider-neutral."
+      content="A fresh third-party token at every tool call. Pauses for human approval. Provider-neutral."
     />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
@@ -33,10 +33,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/home.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -44,7 +44,7 @@
         "name": "nominee",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Node.js, Cloudflare Workers, any JS runtime",
-        "description": "Identity and token delegation for AI agents: fresh third-party tokens at tool-call time, human-in-the-loop approval, and an audit trail. Provider-neutral.",
+        "description": "Token delegation for AI agents: a fresh third-party token at each tool call, human-in-the-loop approval, and an audit trail. Provider-neutral.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "url": "https://nominee.dev/",
         "license": "https://opensource.org/licenses/MIT",
@@ -70,7 +70,7 @@
       </a>
       <nav aria-label="Primary">
         <a href="#how">How it works</a>
-        <a href="#compare">Why nominee</a>
+        <a href="#why">Why nominee</a>
         <a href="#packages">Packages</a>
         <a href="/docs/">Docs</a>
         <a href="/blog/">Blog</a>
@@ -81,8 +81,13 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <h1>Agents act on your behalf.<br /><span class="ink-soft">Their access shouldn't die mid-task.</span></h1>
-          <p class="lede">Fresh token at each tool call. Survives hibernation. Human approval built in. Provider-neutral.</p>
+          <p class="hero-tag">Token delegation for AI agents <span class="ref">· MIT</span></p>
+          <h1>Tokens expire.<br /><span class="ink-soft">Your agent keeps going.</span></h1>
+          <p class="lede">
+            nominee hands your agent a fresh third-party token at the moment of each
+            tool call. It survives hibernation, pauses for human approval, and logs
+            who authorized what.
+          </p>
           <div class="hero-actions">
             <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
               <span class="prompt">›</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
@@ -92,56 +97,57 @@
           </div>
         </div>
 
-        <!-- the proof: an agent run, start to finish -->
-        <div class="term" data-demo aria-label="Example agent run with nominee">
-          <div class="term-top">
+        <!-- the proof: one agent run, expiry and recovery and approval, start to finish -->
+        <div class="run" data-demo aria-label="Example agent run with nominee">
+          <div class="run-top">
             <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="term-title">triage-agent · run</span>
+            <span class="run-title">triage-agent · run</span>
           </div>
-          <div class="term-body">
+          <div class="run-body">
             <p class="tl" data-d="120"><span class="muted">$</span> agent run <span class="str">"close stale issues in acme/api"</span></p>
             <p class="tl" data-d="700"><span class="muted">→</span> tool <span class="hl">github.close_issue</span> <span class="muted">#1242</span></p>
-            <p class="tl bad" data-d="900"><span>✗</span> 401 github token expired <span class="muted">(authorized 6h ago)</span></p>
-            <p class="tl" data-d="800"><span class="acc">~</span> nominee refreshing token via your strategy… <span class="ok">ok</span></p>
-            <p class="tl" data-d="500"><span class="acc">?</span> approval required <span class="muted">close_issue · acme/api#1242</span></p>
-            <p class="tl dim" data-d="1100">&nbsp;&nbsp;&nbsp;▸ pushed to your phone, waiting…</p>
-            <p class="tl" data-d="700"><span class="ok">✓</span> approved by <span class="hl">alice</span> <span class="muted">(2.3s)</span></p>
+            <p class="tl bad" data-d="900"><span>✗</span> 401 — github token expired <span class="muted">(granted 6h ago)</span></p>
+            <p class="tl" data-d="800"><span class="acc">↻</span> nominee issues a fresh token… <span class="ok">valid</span></p>
+            <p class="tl" data-d="500"><span class="acc">?</span> countersignature required <span class="muted">close_issue · acme/api#1242</span></p>
+            <p class="tl dim" data-d="1100">&nbsp;&nbsp;&nbsp;▸ pushed to alice's phone, waiting…</p>
+            <p class="tl" data-d="700"><span class="ok">✓</span> countersigned by <span class="hl">alice</span> <span class="muted">(2.3s)</span></p>
             <p class="tl" data-d="700"><span class="ok">✓</span> issue #1242 closed</p>
-            <p class="tl" data-d="900"><span class="acc">#</span> audit <span class="muted">you → triage-bot → github</span> close_issue <span class="ok">approved</span></p>
+            <p class="tl" data-d="900"><span class="acc">§</span> register <span class="muted">you → triage-bot → github</span> close_issue <span class="ok">approved</span></p>
           </div>
         </div>
       </section>
 
-      <section class="worksw" aria-label="Works with your stack">
-        <p class="worksw-label">Works with your stack</p>
-        <ul class="worksw-row">
+      <section class="logos" aria-label="Works with your stack">
+        <p class="logos-label">Works with the stack you already run</p>
+        <ul class="logos-row">
           <li>
-            <span class="worksw-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 22.525H0l12-21.05 12 21.05z"/></svg><span class="worksw-name">Vercel</span></span>
-            <span class="worksw-sub">AI SDK &amp; Eve</span>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 22.525H0l12-21.05 12 21.05z"/></svg><span class="logos-name">Vercel</span></span>
+            <span class="logos-sub">AI SDK &amp; Eve</span>
           </li>
           <li>
-            <span class="worksw-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg><span class="worksw-name">Cloudflare</span></span>
-            <span class="worksw-sub">Agents &amp; Workers</span>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg><span class="logos-name">Cloudflare</span></span>
+            <span class="logos-sub">Agents &amp; Workers</span>
           </li>
           <li>
-            <span class="worksw-mark"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M76.598 219.534c81.954-13.469 146.22-77.719 159.673-159.672l6.609-39.875c1.219-7.75-5.063-14.516-12.89-13.953-62.391 4.812-121.188 25.531-153.72 38.812a42.042 42.042 0 00-26.094 38.907v125.984c0 7.422 6.61 13.047 13.938 11.828l12.484-2.03zM275.74 59.862c13.453 81.953 77.703 146.203 159.672 159.656l12.468 2.047c7.344 1.22 13.938-4.406 13.938-11.828V83.753c0-17.047-10.344-32.375-26.094-38.907-32.453-13.375-91.328-34-153.703-38.812-7.844-.578-14.203 6.203-12.891 13.937l6.61 39.89zM435.474 259.081c-81.953 13.453-146.219 77.719-159.672 159.672l-8.156 77.797c-.735 7.016 7.015 11.985 12.89 8.078 0 0 .078 0 .157-.078 51.375-34.672 168.64-125.422 180.219-238.781.578-5.547-4.407-10.11-9.86-9.22l-15.5 2.532h-.078zM236.24 418.722c-13.47-81.953-77.72-146.22-159.673-159.672l-16.719-2.781c-4.89-.813-9.296 3.265-8.812 8.25 11.016 114 129.906 205.328 181.688 239.984 5.39 3.594 12.484-.734 11.828-7.172l-8.235-78.687-.078.078z"/></svg><span class="worksw-name">Auth0</span></span>
-            <span class="worksw-sub">Token Vault</span>
+            <span class="logos-mark"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M76.598 219.534c81.954-13.469 146.22-77.719 159.673-159.672l6.609-39.875c1.219-7.75-5.063-14.516-12.89-13.953-62.391 4.812-121.188 25.531-153.72 38.812a42.042 42.042 0 00-26.094 38.907v125.984c0 7.422 6.61 13.047 13.938 11.828l12.484-2.03zM275.74 59.862c13.453 81.953 77.703 146.203 159.672 159.656l12.468 2.047c7.344 1.22 13.938-4.406 13.938-11.828V83.753c0-17.047-10.344-32.375-26.094-38.907-32.453-13.375-91.328-34-153.703-38.812-7.844-.578-14.203 6.203-12.891 13.937l6.61 39.89zM435.474 259.081c-81.953 13.453-146.219 77.719-159.672 159.672l-8.156 77.797c-.735 7.016 7.015 11.985 12.89 8.078 0 0 .078 0 .157-.078 51.375-34.672 168.64-125.422 180.219-238.781.578-5.547-4.407-10.11-9.86-9.22l-15.5 2.532h-.078zM236.24 418.722c-13.47-81.953-77.72-146.22-159.673-159.672l-16.719-2.781c-4.89-.813-9.296 3.265-8.812 8.25 11.016 114 129.906 205.328 181.688 239.984 5.39 3.594 12.484-.734 11.828-7.172l-8.235-78.687-.078.078z"/></svg><span class="logos-name">Auth0</span></span>
+            <span class="logos-sub">Token Vault &amp; CIBA</span>
           </li>
           <li>
-            <span class="worksw-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z"/></svg><span class="worksw-name">Supabase</span></span>
-            <span class="worksw-sub">Token store</span>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z"/></svg><span class="logos-name">Supabase</span></span>
+            <span class="logos-sub">Token store</span>
           </li>
         </ul>
       </section>
 
-      <section class="section proof" id="proof">
-        <div class="section-heading">
-          <h2>Same agent. One keeps working past its token's expiry.</h2>
+      <section class="section" id="proof">
+        <div class="section-head">
+          <p class="eyebrow">The problem, settled live</p>
+          <h2>Same agent. One outlives its token.</h2>
           <p>
             Two agents call a protected API across a session longer than the token
-            lives (~8s here). Left: grab a token once and reuse it. Right: call
+            lives (~8s here). Left grabs a token once and reuses it. Right calls
             <code>nominee.token()</code> each time. The real <code>nominee</code>
-            package runs in your browser. Open the Network tab and watch the refresh.
+            package runs in your browser — open the Network tab and watch the refresh.
           </p>
         </div>
         <div class="race" data-race>
@@ -150,7 +156,7 @@
             <div class="lane" data-lane="captured">
               <div class="lane-head">
                 <span class="lane-name">captured token</span>
-                <span class="lane-sub">grab once, reuse forever. what every orchestrator leaves you with.</span>
+                <span class="lane-sub">grab once, reuse forever — what every orchestrator leaves you to do</span>
               </div>
               <div class="race-log" data-log></div>
               <div class="lane-verdict" data-verdict></div>
@@ -158,7 +164,7 @@
             <div class="lane hi" data-lane="nominee">
               <div class="lane-head">
                 <span class="lane-name">nominee</span>
-                <span class="lane-sub">await nominee.token() per call</span>
+                <span class="lane-sub">await nominee.token() on every call</span>
               </div>
               <div class="race-log" data-log></div>
               <div class="lane-verdict" data-verdict></div>
@@ -167,7 +173,7 @@
           <button class="race-replay" data-replay hidden>↻ replay</button>
         </div>
 
-        <div class="swap">
+        <div class="swap" style="margin-top:40px">
           <p class="swap-head">Same agent code. Only the <code>strategy</code> line changes:</p>
           <div class="code-card" data-tabs>
             <div class="code-top" role="tablist" aria-label="Swap the strategy">
@@ -202,22 +208,84 @@
           <p class="swap-foot">
             The race above runs the <strong>oauth2</strong> line. Want the
             <strong>auth0</strong> line for real? →
-            <a href="/agent">a live agent acting on your GitHub, after your approval</a>.
+            <a href="/agent">watch a live agent act on your GitHub, after your approval</a>.
           </p>
         </div>
       </section>
 
-      <section class="strip" aria-label="Why nominee">
-        <div><strong>No signup by default</strong><span>Bring a function, env var, DB lookup, or OAuth refresh. Auth0 is optional.</span></div>
-        <div><strong>Zero deps in core</strong><span>Provider and framework code lives in optional adapter packages.</span></div>
-        <div><strong>Made for durable runs</strong><span>Ask for a token at call time. Never hand a paused agent a stale one.</span></div>
+      <section class="section how" id="how">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>A standing authority — issued fresh, revocable, on the record.</h2>
+          <p>
+            You are the principal. Your agent is the nominee, authorized to act for
+            you within a scope. nominee fetches a valid token at the moment of each
+            call, holds the risky ones for a person, and keeps the register.
+          </p>
+        </div>
+        <div class="how-grid">
+          <aside class="credential" aria-label="How a delegated token stays valid">
+            <div class="cred-head">
+              <span class="cred-label">Letter of authority</span>
+              <span class="cred-id">No. 2026</span>
+            </div>
+            <div class="chain" role="img" aria-label="you to agent to service">
+              <div class="chain-node"><span>you</span><small>principal</small></div>
+              <div class="chain-link"><span class="dot"></span></div>
+              <div class="chain-node mid"><span>agent</span><small>nominee</small></div>
+              <div class="chain-link"><span class="dot"></span></div>
+              <div class="chain-node"><span>github</span><small>service</small></div>
+            </div>
+            <div class="validity">
+              <div class="validity-row">
+                <span class="validity-key">access token</span>
+                <span class="validity-state">valid · re-issued at call time</span>
+              </div>
+              <div class="validity-bar"><span class="validity-fill"></span></div>
+            </div>
+            <svg class="cred-seal" viewBox="0 0 120 120" aria-hidden="true">
+              <g fill="none" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.5">
+                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(0 60 60)" />
+                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(45 60 60)" />
+                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(90 60 60)" />
+                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(135 60 60)" />
+              </g>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-opacity="0.7" />
+              <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" stroke-opacity="0.4" />
+              <text x="60" y="74" text-anchor="middle" font-family="'Schibsted Grotesk',sans-serif" font-size="42" font-weight="600" fill="currentColor">n</text>
+            </svg>
+          </aside>
+          <ul class="how-points">
+            <li>
+              <span class="hp-mark">↻</span>
+              <div>
+                <h3>Fresh at call time</h3>
+                <p>Ask for a token the instant you need it. nominee caches until just before expiry and refreshes underneath — you never hold a stale one.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">⏸</span>
+              <div>
+                <h3>Held for a countersignature</h3>
+                <p>Gate the risky calls behind a real person. The agent pauses, a human approves from a phone or a UI, then it resumes — no stale token on the other side.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">§</span>
+              <div>
+                <h3>On the register</h3>
+                <p>Every token fetch and approval is an audit event: you → agent → service, who authorized what, and when. One stream across every framework.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section class="section" id="install">
-        <div class="section-heading">
+        <div class="section-head">
           <p class="eyebrow">Install and go</p>
           <h2>Six lines. No service to sign up for.</h2>
-          <p>Give nominee a way to get a token. It handles freshness, approval, and audit on top.</p>
+          <p>Give nominee a way to get a token. It handles freshness, approval, and audit on top — same API whichever strategy you pick.</p>
         </div>
         <div class="code-card" data-tabs>
           <div class="code-top" role="tablist" aria-label="Setup examples">
@@ -242,7 +310,7 @@
 <span class="k">const</span> closeIssue = <span class="fn">nomineeTool</span>({
   nominee, user: <span class="s">'alice'</span>,
   connection: <span class="s">'github'</span>,   <span class="c">// fresh token injected into execute()</span>
-  approval: <span class="t">true</span>,         <span class="c">// pause for human approval first</span>
+  approval: <span class="t">true</span>,         <span class="c">// hold for a human countersignature first</span>
   description: <span class="s">'Close a GitHub issue'</span>,
   inputSchema: z.<span class="fn">object</span>({ repo: z.<span class="fn">string</span>(), issue: z.<span class="fn">number</span>() }),
   <span class="k">async</span> <span class="fn">execute</span>({ repo, issue }, { token }) {
@@ -252,67 +320,43 @@
           <pre data-panel="auth0" hidden><code><span class="k">import</span> { Nominee } <span class="k">from</span> <span class="s">'nominee'</span>
 <span class="k">import</span> { Auth0 } <span class="k">from</span> <span class="s">'nominee-auth0'</span>
 
-<span class="c">// same API — swap the strategy for managed Token Vault + CIBA</span>
+<span class="c">// same API — swap the strategy for managed Token Vault + phone approval</span>
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   strategy: <span class="fn">Auth0</span>({
     domain: process.env.AUTH0_DOMAIN!,
     clientId: process.env.AUTH0_CLIENT_ID!,
     clientSecret: process.env.AUTH0_CLIENT_SECRET!,
     subjectToken: ({ user }) => store.<span class="fn">getRefreshToken</span>(user),
-    ciba: { loginHint: (user) => store.<span class="fn">getSub</span>(user) }, <span class="c">// phone approval</span>
+    ciba: { bindingMessage: (req) => <span class="s">`Approve: ${req.action}`</span> }, <span class="c">// phone approval</span>
   }),
 })</code></pre>
         </div>
       </section>
 
-      <section class="section how" id="how">
-        <div class="section-heading narrow">
-          <p class="eyebrow">How it works</p>
-          <h2>A letter of authority: issued, cached, revocable.</h2>
+      <section class="section approval" id="approval">
+        <div class="section-head center">
+          <p class="eyebrow">Human in the loop</p>
+          <h2>Hold the risky moves until a person signs.</h2>
           <p>
-            The user is the principal. Your agent is the nominee, authorized to act
-            on their behalf within a scope. nominee fetches a fresh token at the
-            moment of each call, gates the risky ones, and logs the chain.
+            Gate deletes, payments, or outbound mail behind a real approval. Use the
+            built-in engine, or a native flow like Auth0 CIBA that pings the user's
+            phone. The agent pauses, then resumes exactly where it left off.
           </p>
         </div>
-        <aside class="credential" aria-label="How a delegated token flows">
-          <span class="cred-corner tl"></span><span class="cred-corner tr"></span>
-          <span class="cred-corner bl"></span><span class="cred-corner br"></span>
-          <div class="cred-head">
-            <span class="cred-label">Letter of authority</span>
-            <span class="cred-id">No. 2026</span>
-          </div>
-          <div class="chain" role="img" aria-label="you to agent to service">
-            <div class="chain-node"><span>you</span><small>principal</small></div>
-            <div class="chain-link"><span class="dot"></span></div>
-            <div class="chain-node mid"><span>agent</span><small>nominee</small></div>
-            <div class="chain-link"><span class="dot"></span></div>
-            <div class="chain-node"><span>github</span><small>service</small></div>
-          </div>
-          <div class="token-row">
-            <div class="token-key">access token</div>
-            <div class="token-bar"><span class="token-fill"></span></div>
-            <div class="token-state">fresh · auto-refreshed</div>
-          </div>
-          <svg class="cred-seal" viewBox="0 0 120 120" aria-hidden="true">
-            <g fill="none" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.5">
-              <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(0 60 60)" />
-              <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(45 60 60)" />
-              <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(90 60 60)" />
-              <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(135 60 60)" />
-            </g>
-            <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-opacity="0.7" />
-            <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" stroke-opacity="0.4" />
-            <text x="60" y="74" text-anchor="middle" font-family="'Schibsted Grotesk',sans-serif" font-size="42" font-weight="600" fill="currentColor">n</text>
-          </svg>
-        </aside>
+        <div class="approval-card" role="status">
+          <div class="ac-head"><span class="ac-dot"></span> Awaiting countersignature</div>
+          <h3>repo.delete</h3>
+          <p>Delete repository <strong>alice/old-project</strong></p>
+          <div class="ac-actions"><span class="deny">Deny</span><span class="approve">Approve</span></div>
+          <div class="ac-foot">you → triage-bot → github · on the register</div>
+        </div>
       </section>
 
-      <section class="section" id="compare">
-        <div class="section-heading">
+      <section class="section" id="why">
+        <div class="section-head">
           <p class="eyebrow">Why nominee</p>
           <h2>Why not just use what you already have?</h2>
-          <p>Your orchestrator won't touch third-party auth; one IdP solves it but owns your stack. The honest gap, side by side.</p>
+          <p>Your orchestrator won't touch third-party auth. One IdP solves it but owns your stack. Here's the honest gap, side by side.</p>
         </div>
         <div class="compare-wrap">
           <table class="compare">
@@ -337,21 +381,20 @@
           </table>
         </div>
         <p class="compare-note">
-          Orchestrators (AI SDK, Cloudflare Agents, LangChain) run the agent but
-          <em>by design</em> hand you the third-party auth. Auth0 solves the mechanics
-          beautifully, but you marry it. nominee is the neutral seam between them:
-          start with a function, swap to Auth0 in one line.
+          Orchestrators run the agent but <em>by design</em> hand you the third-party
+          auth. Auth0 solves the mechanics beautifully, but you marry it. nominee is
+          the neutral seam between them: start with a function, swap to Auth0 in one line.
         </p>
         <p class="compare-note muted">
           <strong>When you don't need nominee:</strong> a single-provider, short-lived,
-          non-durable app: use your IdP's SDK or ~20 lines of refresh. nominee earns
+          non-durable app — use your IdP's SDK or ~20 lines of refresh. nominee earns
           its place when agents are long-running, durable, multi-provider, or you
           refuse lock-in.
         </p>
       </section>
 
       <section class="section" id="packages">
-        <div class="section-heading">
+        <div class="section-head">
           <p class="eyebrow">Packages</p>
           <h2>One auth layer, wherever your agent runs.</h2>
         </div>
@@ -389,41 +432,22 @@
         </div>
       </section>
 
-      <section class="section approval" id="approval">
-        <div class="section-heading narrow">
-          <p class="eyebrow">Human in the loop</p>
-          <h2>Hold the risky actions until a person says yes.</h2>
-          <p>
-            Gate deletes, payments, or outbound mail. Use the built-in approval
-            engine, or a native flow like Auth0 CIBA that pings the user's phone.
-            The agent pauses, then resumes.
-          </p>
-        </div>
-        <div class="approval-card" role="status">
-          <div class="ac-head"><span class="ac-dot"></span> Awaiting approval</div>
-          <h3>repo.delete</h3>
-          <p>Delete repository <strong>alice/old-project</strong></p>
-          <div class="ac-actions"><span class="deny">Deny</span><span class="approve">Approve</span></div>
-          <div class="ac-foot">user → triage-bot → github · logged to audit</div>
-        </div>
-      </section>
-
-      <section class="cta-band">
+      <section class="cta">
         <div class="cta-inner">
           <h2>Give your agent a nominee.</h2>
-          <p>Open source, MIT, zero-dependency core. Works the moment you install it.</p>
+          <p>Open source, MIT, zero-dependency core. It works the moment you install it.</p>
           <div class="cta-row">
             <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
               <span class="prompt">›</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
             </button>
             <a class="star-cta" href="https://github.com/bharath31/nominee">★ Star on GitHub</a>
           </div>
-          <p class="cta-live"><a href="/agent">▶ See a real agent act on your GitHub, with your approval →</a></p>
+          <p class="cta-live"><a href="/agent">▶ Watch a real agent act on your GitHub, after your approval →</a></p>
           <div class="badges" aria-label="project stats">
-            <img src="https://img.shields.io/github/stars/bharath31/nominee?style=flat-square&colorA=0a1020&colorB=d9a441&label=stars" alt="GitHub stars" loading="lazy" />
-            <img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0a1020&colorB=d9a441&label=version" alt="npm version" loading="lazy" />
-            <img src="https://img.shields.io/npm/dm/nominee?style=flat-square&colorA=0a1020&colorB=7e8ba6&label=downloads" alt="npm downloads" loading="lazy" />
-            <img src="https://img.shields.io/npm/l/nominee?style=flat-square&colorA=0a1020&colorB=7e8ba6&label=license" alt="license" loading="lazy" />
+            <img src="https://img.shields.io/github/stars/bharath31/nominee?style=flat-square&colorA=0b1020&colorB=8c2f2a&label=stars" alt="GitHub stars" loading="lazy" />
+            <img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0b1020&colorB=8c2f2a&label=version" alt="npm version" loading="lazy" />
+            <img src="https://img.shields.io/npm/dm/nominee?style=flat-square&colorA=0b1020&colorB=71798c&label=downloads" alt="npm downloads" loading="lazy" />
+            <img src="https://img.shields.io/npm/l/nominee?style=flat-square&colorA=0b1020&colorB=71798c&label=license" alt="license" loading="lazy" />
           </div>
         </div>
       </section>
@@ -439,7 +463,7 @@
         <span>nominee</span>
       </div>
       <p class="foot-note">
-        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design —
         Auth0 is one strategy of many. PRs for other providers welcome.
       </p>
       <div class="foot-links">
