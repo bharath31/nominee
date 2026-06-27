@@ -141,7 +141,7 @@ export default {
     }
 
     // ---- session routes (durable, multi-step agent) ----
-    // Approve / deny arrive from the EMAIL link — no cookie required (the magic
+    // Approve / deny arrive from the EMAIL link - no cookie required (the magic
     // key authorizes the act, and the Durable Object holds the user's refresh
     // token to re-resolve a fresh GitHub token at action time).
     if (path.endsWith('/approve') || path.endsWith('/deny')) {
@@ -228,6 +228,24 @@ export default {
     }
 
     const session = await getSession(request, env)
+
+    // ---- 2b. enroll: re-authenticate with MFA challenge so Auth0 Guardian enrolls ----
+    // Required before using "push to phone" approval. Auth0 will prompt the user
+    // to enroll Guardian if they haven't already, then return to the normal callback.
+    if (path.endsWith('/enroll')) {
+      if (!session) return Response.redirect(`${ORIGIN}/agent/login`, 302)
+      const u = new URL(`https://${env.AUTH0_DOMAIN}/authorize`)
+      u.searchParams.set('response_type', 'code')
+      u.searchParams.set('client_id', env.AUTH0_CLIENT_ID)
+      u.searchParams.set('redirect_uri', REDIRECT)
+      u.searchParams.set('scope', 'openid profile email offline_access')
+      u.searchParams.set(
+        'acr_values',
+        'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
+      )
+      u.searchParams.set('prompt', 'login')
+      return Response.redirect(u.toString(), 302)
+    }
 
     // ---- 3a. disconnect: delete the vaulted GitHub account so the next connect re-authorizes
     //          from scratch. Required after changing the GitHub App's granted permissions. ----
@@ -339,7 +357,7 @@ export default {
     // The agent reads your GitHub (fresh token), drafts a gist, then PAUSES for
     // out-of-band approval: it emails you a link and hibernates in a Durable
     // Object. When you approve (from your phone, minutes or hours later) the DO
-    // wakes and nominee fetches the token AT ACTION TIME — never a stale one.
+    // wakes and nominee fetches the token AT ACTION TIME - never a stale one.
     if (request.method === 'POST' && path.endsWith('/session/start')) {
       if (!session) return json({ ok: false, reason: 'not_logged_in' }, 401)
       if (!session.vaulted) return json({ ok: false, reason: 'not_connected' }, 403)
@@ -443,7 +461,7 @@ export class AgentSession {
   }
 
   /** Build a nominee bound to THIS session's vaulted user. The refresh token is
-   *  read from durable storage at call time — so it survives hibernation. */
+   *  read from durable storage at call time - so it survives hibernation. */
   private nominee(s: SessionState, audit: SessionState['audit']) {
     return new Nominee({
       strategy: Auth0({
@@ -476,7 +494,7 @@ export class AgentSession {
       approvalKey: crypto.randomUUID(),
       status: 'awaiting_approval',
       method: init.method ?? 'email',
-      steps: [{ kind: 'started', at: now, text: `agent session started — "${init.topic}"` }],
+      steps: [{ kind: 'started', at: now, text: `agent session started - "${init.topic}"` }],
       startedAt: now,
       audit,
     }
@@ -509,7 +527,7 @@ export class AgentSession {
     s.steps.push({
       kind: 'draft',
       at: Date.now(),
-      text: 'drafted a gist summarizing this session — needs your approval to publish',
+      text: 'drafted a gist summarizing this session - needs your approval to publish',
     })
     s.pausedAt = Date.now()
     s.steps.push({
@@ -517,8 +535,8 @@ export class AgentSession {
       at: s.pausedAt,
       text:
         s.method === 'ciba'
-          ? 'paused — Auth0 Guardian push sent. Agent is hibernating; it will wake when you approve on your phone.'
-          : `paused — approval link emailed to ${s.email}. Agent is hibernating; it will resume when you approve.`,
+          ? 'paused - Auth0 Guardian push sent. Agent is hibernating; it will wake when you approve on your phone.'
+          : `paused - approval link emailed to ${s.email}. Agent is hibernating; it will resume when you approve.`,
     })
 
     await this.save(s)
@@ -527,7 +545,7 @@ export class AgentSession {
       await this.initiateCiba(s)
     } else {
       // Send the out-of-band approval email. The agent now does NOTHING until the
-      // link is clicked — no compute, no polling, just durable state.
+      // link is clicked - no compute, no polling, just durable state.
       await this.sendApprovalEmail(s)
     }
 
@@ -547,7 +565,7 @@ export class AgentSession {
     s.steps.push({
       kind: 'resumed',
       at: s.resumedAt,
-      text: `you ${decision} from your inbox — agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
+      text: `you ${decision} from your inbox - agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
     })
 
     if (decision === 'denied') {
@@ -577,7 +595,7 @@ export class AgentSession {
       })
 
       const gist = await ghPost(token, 'https://api.github.com/gists', {
-        description: `Agent session: ${s.topic} — published via nominee + Auth0 Token Vault`,
+        description: `Agent session: ${s.topic} - published via nominee + Auth0 Token Vault`,
         public: true,
         files: { 'agent-session.md': { content: gistBody(s) } },
       })
@@ -600,7 +618,7 @@ export class AgentSession {
   /** Initiate a CIBA bc-authorize request and arm the first poll alarm. */
   private async initiateCiba(s: SessionState): Promise<void> {
     try {
-      const msg = `Approve: publish a gist — ${s.topic.slice(0, 50)}`
+      const msg = `Approve: publish a gist - ${s.topic.slice(0, 50)}`
       const authRes = await fetch(`https://${this.env.AUTH0_DOMAIN}/bc-authorize`, {
         method: 'POST',
         headers: {
@@ -660,7 +678,7 @@ export class AgentSession {
         s.steps.push({
           kind: 'resumed',
           at: s.resumedAt,
-          text: `you approved via Auth0 Guardian — agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
+          text: `you approved via Auth0 Guardian - agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
         })
         await this.act(s)
         return
@@ -677,7 +695,7 @@ export class AgentSession {
         s.steps.push({
           kind: 'resumed',
           at: s.resumedAt,
-          text: 'you denied via Auth0 Guardian — agent stayed paused and took no action',
+          text: 'you denied via Auth0 Guardian - agent stayed paused and took no action',
         })
         await this.save(s)
         return
@@ -687,7 +705,7 @@ export class AgentSession {
         s.steps.push({
           kind: 'error',
           at: Date.now(),
-          text: 'CIBA request expired — Guardian notification went unanswered',
+          text: 'CIBA request expired - Guardian notification went unanswered',
         })
         await this.save(s)
         return
@@ -769,7 +787,7 @@ function gistBody(s: SessionState): string {
   const who = s.ghLogin ? `@${s.ghLogin}` : s.name
   const repos = s.ghRepos?.length ? `Recent repos reviewed: ${s.ghRepos.join(', ')}.\n\n` : ''
   const channel = s.method === 'ciba' ? 'a push notification to their phone' : 'an email link'
-  return `# Agent session: ${s.topic}\n\nThis gist was published by an autonomous agent acting for ${who}, after ${who} approved it via ${channel}.\n\n${repos}The agent paused and **hibernated** while waiting for approval. When approval arrived, **nominee** fetched a fresh, short-lived GitHub token from **Auth0 Token Vault** at the moment of the action — it never held a captured token across the pause. The agent never saw a password.\n\n— via https://nominee.dev\n`
+  return `# Agent session: ${s.topic}\n\nThis gist was published by an autonomous agent acting for ${who}, after ${who} approved it via ${channel}.\n\n${repos}The agent paused and **hibernated** while waiting for approval. When approval arrived, **nominee** fetched a fresh, short-lived GitHub token from **Auth0 Token Vault** at the moment of the action - it never held a captured token across the pause. The agent never saw a password.\n\nvia https://nominee.dev\n`
 }
 
 async function getSession(req: Request, env: Env): Promise<Session | null> {
@@ -801,7 +819,7 @@ function approvalEmail(s: SessionState, approve: string, deny: string): string {
   <h2 style="font-size:20px;margin:8px 0 4px">Your agent paused for you, ${who}.</h2>
   <p style="color:#444;line-height:1.5">An autonomous agent wants to <b>publish a gist on your GitHub</b>:</p>
   <p style="background:#f4f4f5;border-radius:8px;padding:12px 14px;color:#222;font-size:15px">${escapeHtml(s.topic)}</p>
-  <p style="color:#444;line-height:1.5;font-size:14px">It's <b>hibernating</b> until you decide. Approve and it resumes — nominee fetches a fresh token from Auth0 Token Vault <i>at that moment</i>, never a stale one.</p>
+  <p style="color:#444;line-height:1.5;font-size:14px">It's <b>hibernating</b> until you decide. Approve and it resumes - nominee fetches a fresh token from Auth0 Token Vault <i>at that moment</i>, never a stale one.</p>
   <div style="margin:24px 0">
     <a href="${approve}" style="background:#0a1020;color:#fff;font-weight:600;text-decoration:none;padding:13px 22px;border-radius:9px;display:inline-block;margin-right:10px">✓ Approve &amp; publish</a>
     <a href="${deny}" style="color:#666;text-decoration:none;padding:13px 18px;border-radius:9px;border:1px solid #ddd;display:inline-block">Deny</a>
@@ -817,9 +835,9 @@ function approvalLandingPage(
 ): string {
   const ok = decision === 'approved' && out.ok
   const head = ok
-    ? '✓ Approved — your agent resumed'
+    ? '✓ Approved - your agent resumed'
     : decision === 'denied'
-      ? 'Denied — nothing was published'
+      ? 'Denied - nothing was published'
       : 'Could not complete'
   const body = ok
     ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#a87a0a">View it ↗</a>` : ''}`
@@ -838,7 +856,7 @@ h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-he
 
 function page(session: Session | null) {
   const loggedOut = `
-    <p class="lede">Start a real agent session. It reads your GitHub, drafts a gist, then <em>pauses and waits for your approval</em> — via email link or push to phone. nominee fetches a <em>fresh</em> token from Auth0 Token Vault only at the moment of the action.</p>
+    <p class="lede">Start a real agent session. It reads your GitHub, drafts a gist, then <em>pauses and waits for your approval</em> - via email link or push to phone. nominee fetches a <em>fresh</em> token from Auth0 Token Vault only at the moment of the action.</p>
     <a class="primary" href="/agent/login">Connect GitHub via Auth0 →</a>
     <p class="foot" style="margin-top:24px">You log in once (real OAuth consent). The agent never sees your password or stores your token.</p>`
   const needVault = `
@@ -849,7 +867,7 @@ function page(session: Session | null) {
       <a class="primary" href="/agent/connect">Vault GitHub token →</a>
     </div>`
   const ready = `
-    <p class="lede">Connected &amp; vaulted as <strong>${escapeHtml(session?.name || session?.sub || 'you')}</strong>. Start a session — the agent reads your GitHub, then <em>pauses and waits for your approval</em>. nominee fetches a fresh token at the moment you approve. <a href="/agent/disconnect">disconnect &amp; re-vault</a> · <a href="/agent/logout">log out</a></p>
+    <p class="lede">Connected &amp; vaulted as <strong>${escapeHtml(session?.name || session?.sub || 'you')}</strong>. Start a session - the agent reads your GitHub, then <em>pauses and waits for your approval</em>. nominee fetches a fresh token at the moment you approve. <a href="/agent/disconnect">disconnect &amp; re-vault</a> · <a href="/agent/logout">log out</a></p>
     <div class="card" id="starter">
       <label for="topic">What should the agent work on?</label>
       <input id="topic" type="text" value="Summary of my recent GitHub activity" maxlength="140" />
@@ -866,14 +884,41 @@ function page(session: Session | null) {
       </div>
       <div id="push-wrap" style="display:none;margin-top:14px">
         <div class="setup-note">
-          <p class="setup-title">Approve on your phone in one tap.</p>
-          <p class="setup-body">The agent sends a push notification the moment it pauses. Tap <b>Approve</b> — the agent wakes instantly and acts with a fresh token.</p>
-          <p class="setup-body" style="margin-top:10px">Needs the <strong>Auth0 Guardian</strong> authenticator app (free) enrolled on your account:</p>
-          <div class="store-links">
-            <a href="https://apps.apple.com/us/app/auth0-guardian/id1093447833" target="_blank" rel="noopener" class="store-btn">↓ App Store</a>
-            <a href="https://play.google.com/store/apps/details?id=com.auth0.guardian" target="_blank" rel="noopener" class="store-btn">↓ Google Play</a>
+          <p class="setup-title">Set up phone approval in 3 steps</p>
+          <div class="setup-steps">
+            <div class="setup-step">
+              <span class="step-num">1</span>
+              <div class="step-body">
+                <p class="step-label">Install the Auth0 Guardian app (free)</p>
+                <div class="qr-row">
+                  <div class="qr-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fapps.apple.com%2Fus%2Fapp%2Fauth0-guardian%2Fid1093447833" width="100" height="100" alt="App Store QR code" class="qr-img" />
+                    <a href="https://apps.apple.com/us/app/auth0-guardian/id1093447833" target="_blank" rel="noopener" class="store-btn">App Store</a>
+                  </div>
+                  <div class="qr-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.auth0.guardian" width="100" height="100" alt="Google Play QR code" class="qr-img" />
+                    <a href="https://play.google.com/store/apps/details?id=com.auth0.guardian" target="_blank" rel="noopener" class="store-btn">Google Play</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <span class="step-num">2</span>
+              <div class="step-body">
+                <p class="step-label">Enroll your phone for push notifications</p>
+                <p class="step-sub">Auth0 will prompt you to scan a QR code in the Guardian app.</p>
+                <a href="/agent/enroll" class="enroll-btn">Set up push notifications</a>
+              </div>
+            </div>
+            <div class="setup-step">
+              <span class="step-num">3</span>
+              <div class="step-body">
+                <p class="step-label">Come back and start a session</p>
+                <p class="step-sub">The agent will push to your phone the moment it pauses for approval.</p>
+              </div>
+            </div>
           </div>
-          <p class="setup-foot">Already installed? Make sure MFA is enabled on your Auth0 account and Guardian is enrolled. If you haven't set it up yet, use <b>Email link</b> instead.</p>
+          <p class="setup-foot">Already enrolled? Skip straight to starting a session.</p>
         </div>
       </div>
       <div class="row"><button id="run" class="primary">Start agent session ▸</button><span id="status" class="sub"></span></div>
@@ -892,7 +937,7 @@ function connectCodeShim() {
 <script>
 const m=location.hash.match(/connect_code=([^&]+)/)||location.search.match(/connect_code=([^&]+)/);
 if(m){location.replace('/agent/connect/callback?connect_code='+encodeURIComponent(m[1]));}
-else{document.body.textContent='Missing connect_code — please reconnect.';}
+else{document.body.textContent='Missing connect_code - please reconnect.';}
 </script></body></html>`
 }
 
@@ -927,8 +972,12 @@ a.primary:hover,button:hover{border-color:#d2d6e0}
 button:disabled{opacity:.5}
 .method-row{display:flex;gap:20px;margin-top:8px}.method-opt{display:flex;align-items:center;gap:7px;cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--ink-soft)}.method-opt input[type=radio]{accent-color:var(--seal)}
 .badge{font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--seal-tint);color:var(--seal);border:1px solid rgba(168,122,10,.2);border-radius:99px;padding:2px 7px;vertical-align:middle;margin-left:4px}
-.setup-note{background:var(--seal-tint);border:1px solid rgba(168,122,10,.2);border-radius:10px;padding:14px 16px}.setup-title{font-weight:600;font-size:14px;margin-bottom:4px}.setup-body{font-size:13px;color:var(--ink-soft);margin:0}.setup-foot{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
-.store-links{display:flex;gap:8px;margin-top:10px}.store-btn{font-family:var(--mono);font-size:12px;padding:7px 14px;border-radius:7px;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;display:inline-block}.store-btn:hover{border-color:#d2d6e0}
+.setup-note{background:var(--seal-tint);border:1px solid rgba(168,122,10,.2);border-radius:10px;padding:16px 18px}.setup-title{font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--seal);margin-bottom:14px}
+.setup-steps{display:flex;flex-direction:column;gap:16px}.setup-step{display:flex;gap:12px;align-items:flex-start}.step-num{flex:none;width:22px;height:22px;border-radius:50%;background:var(--seal);color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-top:1px}.step-body{flex:1}.step-label{font-size:13px;font-weight:500;color:var(--ink);margin:0 0 4px}.step-sub{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.5}
+.qr-row{display:flex;gap:14px;margin-top:10px}.qr-item{display:flex;flex-direction:column;align-items:center;gap:6px}.qr-img{border-radius:6px;border:1px solid var(--line);display:block}
+.store-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;display:inline-block;text-align:center;width:100%}.store-btn:hover{border-color:#d2d6e0}
+.enroll-btn{font-family:var(--mono);font-size:13px;padding:9px 16px;border-radius:8px;background:var(--navy);color:#fff;border:none;text-decoration:none;display:inline-block;cursor:pointer;margin-top:4px}.enroll-btn:hover{background:var(--navy-hover)}
+.setup-foot{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5;border-top:1px solid rgba(168,122,10,.15);padding-top:10px}
 .sub{font-size:13px;color:var(--muted)}.foot{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .tl{list-style:none;padding:0;margin:0;font-family:var(--mono);font-size:13px}
 .tl li{display:flex;gap:13px;padding:10px 0;align-items:flex-start;position:relative}
@@ -951,7 +1000,7 @@ pre{font-family:var(--mono);font-size:12px;color:var(--code-text);background:var
 </style></head><body>
 <div class="bar"><a class="brand" href="${ORIGIN}"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="11" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity=".5" transform="rotate(120 20 20)"/></svg><span>nominee</span></a><span class="tag">live testbed</span></div>
 <div class="wrap">
-<h1>An agent that pauses for your approval — and survives the wait.</h1>
+<h1>An agent that pauses for your approval - and survives the wait.</h1>
 <div class="steps"><b>connect GitHub</b> → agent reads your account → <b>pauses and notifies you</b> → you approve (email or phone) → <b>fresh token from Token Vault</b> at action time → real action + audit</div>
 ${inner}
 <p class="foot" style="margin-top:28px;text-align:center"><a href="${ORIGIN}" style="color:var(--muted)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--muted)">source ↗</a></p>
@@ -1000,23 +1049,23 @@ async function poll(){
 }
 function renderClock(){
   if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return
-  const el=$('#clock');if(el)el.textContent='⏸ hibernating — '+gap(J.pausedAt,Date.now())+' waiting for your approval'
+  const el=$('#clock');if(el)el.textContent='⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for your approval'
 }
 function render(){
   let banner='',clock=''
   if(J.status==='awaiting_approval'){
     if(J.method==='ciba'){
-      banner='<div class="banner wait"><b>Check your phone.</b> A push notification was sent to your authenticator app. The agent is hibernating — it will wake the moment you approve.</div>'
+      banner='<div class="banner wait"><b>Check your phone.</b> A push notification was sent to your authenticator app. The agent is hibernating - it will wake the moment you approve.</div>'
     } else {
-      banner='<div class="banner wait"><b>Check your inbox.</b> The agent emailed an approval link to '+esc(J.email||'')+' and is now hibernating — no compute running. Approve from any device.</div>'
+      banner='<div class="banner wait"><b>Check your inbox.</b> The agent emailed an approval link to '+esc(J.email||'')+' and is now hibernating - no compute running. Approve from any device.</div>'
     }
-    clock='<div class="clock" id="clock">⏸ hibernating — '+gap(J.pausedAt,Date.now())+' waiting for your approval</div>'
+    clock='<div class="clock" id="clock">⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for your approval</div>'
   } else if(J.status==='done'){
     banner='<div class="banner ok"><b>Done.</b> The agent resumed after the pause and acted with a token nominee fetched <i>at that moment</i> from Token Vault.</div>'
   } else if(J.status==='denied'){
-    banner='<div class="banner er">Denied — the agent stayed paused and took no action.</div>'
+    banner='<div class="banner er">Denied - the agent stayed paused and took no action.</div>'
   } else if(J.status==='error'){
-    banner='<div class="banner er">Something went wrong — see the timeline.</div>'
+    banner='<div class="banner er">Something went wrong - see the timeline.</div>'
   }
   let items=(J.steps||[]).map(st=>{
     const [ic,cls]=ICON[st.kind]||['•','']
@@ -1043,7 +1092,7 @@ if(sid&&location.pathname.includes('session-view')){
   function gap(f,t){let s=Math.max(0,Math.round((t-f)/1000));if(s<60)return s+'s';let m=Math.floor(s/60);return m<60?m+'m '+(s%60)+'s':Math.floor(m/60)+'h '+(m%60)+'m'}
   const ICON={started:['●','ac'],gather:['✓','ok'],draft:['✎','ac'],paused:['⏸','wait'],resumed:['▸','ok'],token:['↻','ac'],acted:['✓','ok'],error:['✗','er']}
   async function poll(){const r=await fetch('/agent/session/'+sid);if(!r.ok)return;J=await r.json();render();if(['done','denied','error'].includes(J.status)){clearInterval(timer);clearInterval(clockTimer)}}
-  function renderClock(){if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return;const el=document.querySelector('#clock');if(el)el.textContent='⏸ hibernating — '+gap(J.pausedAt,Date.now())+' waiting for approval'}
+  function renderClock(){if(!J||J.status!=='awaiting_approval'||!J.pausedAt)return;const el=document.querySelector('#clock');if(el)el.textContent='⏸ hibernating - '+gap(J.pausedAt,Date.now())+' waiting for approval'}
   function render(){let items=(J.steps||[]).map(st=>{const[ic,cls]=ICON[st.kind]||['•',''];return '<li><span class="ic '+cls+'">'+ic+'</span><span class="tx">'+esc(st.text)+'</span><span class="ts">'+fmt(st.at)+'</span></li>'}).join('');let clock=J.status==='awaiting_approval'?'<div class="clock" id="clock">⏸ hibernating</div>':'';let link=J.gistUrl?'<div style="margin-top:14px"><a href="'+esc(J.gistUrl)+'" target="_blank" style="color:var(--seal)">'+esc(J.gistUrl)+' ↗</a></div>':'';document.querySelector('#timeline').innerHTML='<label>Agent session timeline</label><ul class="tl">'+items+'</ul>'+clock+link}
   poll()
 }
