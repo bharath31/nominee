@@ -19,7 +19,7 @@
   <a href="https://nominee.dev">Website</a> ·
   <a href="https://nominee.dev/docs/">Docs</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
-  <a href="SECURITY.md">Security</a>
+  <a href=".github/SECURITY.md">Security</a>
 </p>
 
 <p align="center">
@@ -255,9 +255,9 @@ Yes — AI SDK v6 added tool approvals. Nominee adds three things it doesn't cov
 
 ## Contributing
 
-PRs for community strategies (Clerk, WorkOS, Firebase, etc.) are enthusiastically welcome — `nominee-auth0` and `nominee-supabase` show the shape. See [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to build a strategy. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+PRs for community strategies (Clerk, WorkOS, Firebase, etc.) are enthusiastically welcome — `nominee-auth0` and `nominee-supabase` show the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md) to learn how to build a strategy. By participating you agree to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
-Found a security issue? Please report it privately — see [SECURITY.md](SECURITY.md).
+Found a security issue? Please report it privately — see [SECURITY.md](.github/SECURITY.md).
 
 ---
 

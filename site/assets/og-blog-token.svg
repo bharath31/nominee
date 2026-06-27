@@ -1,0 +1,65 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0A1020"/><stop offset="1" stop-color="#0B1226"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#D9A441" stop-opacity="0.14"/><stop offset="1" stop-color="#D9A441" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="engrave" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="16" stroke="#D9A441" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+    <style>
+      .sans { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#engrave)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="32" y="32" width="1136" height="566" rx="8" fill="none" stroke="#E8ECF6" stroke-opacity="0.1"/>
+  <rect x="40" y="40" width="1120" height="550" rx="6" fill="none" stroke="#D9A441" stroke-opacity="0.18"/>
+
+  <!-- seal (right side, faint) -->
+  <g transform="translate(1010 330)" opacity="0.35">
+    <g fill="none" stroke="#D9A441" stroke-opacity="0.6" stroke-width="1">
+      <ellipse rx="130" ry="35" transform="rotate(0)"/>
+      <ellipse rx="130" ry="35" transform="rotate(45)"/>
+      <ellipse rx="130" ry="35" transform="rotate(90)"/>
+      <ellipse rx="130" ry="35" transform="rotate(135)"/>
+    </g>
+    <circle r="136" fill="none" stroke="#D9A441" stroke-opacity="0.7"/>
+    <circle r="84" fill="none" stroke="#D9A441" stroke-opacity="0.5"/>
+    <circle r="84" fill="#0A1020" fill-opacity="0.6"/>
+    <text class="sans" x="0" y="30" text-anchor="middle" font-size="96" font-weight="600" fill="#E8ECF6" letter-spacing="-3">n</text>
+  </g>
+
+  <!-- eyebrow -->
+  <text class="mono" x="80" y="130" font-size="15" letter-spacing="4" fill="#D9A441" fill-opacity="0.9">NOMINEE · BLOG</text>
+
+  <!-- time markers — the dramatic hook -->
+  <g transform="translate(80 195)">
+    <text class="mono" font-size="22" fill="#7E8BA6">
+      <tspan fill="#6fd1a6">9:00 AM</tspan>
+      <tspan fill="#5a6480" dx="14">token issued</tspan>
+      <tspan fill="#5a6480" dx="28">···</tspan>
+      <tspan fill="#ef6b6b" dx="28">3:00 PM</tspan>
+      <tspan fill="#5a6480" dx="14">token dead</tspan>
+    </text>
+  </g>
+
+  <!-- main headline -->
+  <text class="sans" x="80" y="300" font-size="62" font-weight="600" letter-spacing="-2.5" fill="#E8ECF6">Your agent authenticates</text>
+  <text class="sans" x="80" y="374" font-size="62" font-weight="600" letter-spacing="-2.5" fill="#E8ECF6">at 9am. By 3pm its</text>
+  <text class="sans" x="80" y="448" font-size="62" font-weight="600" letter-spacing="-2.5">
+    <tspan fill="#E8ECF6">token is </tspan><tspan fill="#ef6b6b">dead.</tspan>
+  </text>
+
+  <!-- bottom bar -->
+  <g transform="translate(80 525)">
+    <rect width="180" height="48" rx="10" fill="#D9A441" fill-opacity="0.1" stroke="#D9A441" stroke-opacity="0.5"/>
+    <text class="mono" x="22" y="32" font-size="20" fill="#E8ECF6"><tspan fill="#D9A441">›</tspan> npm i nominee</text>
+  </g>
+  <text class="sans" x="290" y="553" font-size="16" fill="#4a5470">nominee.dev/blog</text>
+</svg>
