@@ -32,6 +32,15 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const DRY_RUN = process.argv.includes('--dry-run')
 const WITH_AUTH0 = process.argv.includes('--auth0')
+
+// Fail early with a clear message instead of a cryptic Eve/tsx crash later.
+if (Number(process.versions.node.split('.')[0]) < 24) {
+  console.error(
+    `\nThis example needs Node 24+ (you have ${process.versions.node}).\n` +
+      'Run `nvm use` (or `nvm install 24`) in examples/github-agent, then retry.\n',
+  )
+  process.exit(1)
+}
 const APP_NAME = 'nominee-github-agent'
 const CALLBACK_PORT = 4777
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`

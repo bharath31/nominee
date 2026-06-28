@@ -49,18 +49,25 @@ they're missing and runs their logins.
 ## Run it
 
 ```bash
-nvm use            # Node 24
-pnpm install       # from the repo root
-pnpm setup         # installs CLIs, eve link (model), writes a GitHub token → .env.local
-pnpm seed          # creates a testbed repo on YOUR GitHub + opens a PR to act on
+git clone https://github.com/bharath31/nominee && cd nominee
+pnpm install                   # workspace install, from the repo root (needs pnpm)
+cd examples/github-agent       # all the commands below live here
+nvm use                        # Node 24 — Eve requires it (.nvmrc pins it)
+pnpm setup                     # installs CLIs, eve link (model), writes a GitHub token → .env.local
+pnpm seed                      # opens a PR on a testbed repo on YOUR GitHub
 ```
 
-Then run the broker and the agent in **two terminals**:
+Then run the broker and the agent in **two terminals** (both from
+`examples/github-agent`):
 
 ```bash
 pnpm broker        # terminal 1 — the merge-access broker (holds the GitHub credential)
 pnpm dev           # terminal 2 — the agent (interactive chat)
 ```
+
+> Need pnpm? `npm i -g pnpm`. Need Node 24? `nvm install 24`. The agent **and**
+> the broker must both run — if the chat says "broker is not reachable," start
+> `pnpm broker`.
 
 `pnpm seed` creates `‹your-username›/nominee-agent-testbed` (public) the first
 time and opens a fresh PR, printing the exact line to paste. Then in the chat:

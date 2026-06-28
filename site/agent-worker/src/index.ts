@@ -689,7 +689,10 @@ export class AgentSession {
 
       const gist = await ghPost(token, 'https://api.github.com/gists', {
         description: `Agent session: ${s.topic} - published via nominee + Auth0 Token Vault`,
-        public: true,
+        // Secret (private) gist: a real write to the visitor's account, gated by
+        // CIBA approval, but never publicly visible — minimal anxiety for a demo
+        // a stranger connects their GitHub to.
+        public: false,
         files: { 'agent-session.md': { content: gistBody(s) } },
       })
       if (!gist.ok) {
