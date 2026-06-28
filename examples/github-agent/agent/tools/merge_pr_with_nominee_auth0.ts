@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { mergePR } from '../../lib/github.js'
 import { nomineeAuth0 } from '../../lib/nominee-auth0.js'
 
-// LEVEL 3 — WITH nominee + Auth0. The token comes from Auth0 Token Vault and the
-// approval is a CIBA push to your phone. Requires an Auth0 tenant with Token
-// Vault + CIBA (see README). Same tool shape as Level 2 — only the nominee
+// WITH nominee + Auth0. The token comes from Auth0 Token Vault and the approval
+// is a CIBA push to your phone. Requires an Auth0 tenant with Token Vault + CIBA
+// (see README). Same tool shape as merge_pr_with_nominee — only the nominee
 // instance differs (`auth0()` instead of the gh-token strategy).
 export default nomineeTool({
   nominee: nomineeAuth0,
@@ -19,9 +19,9 @@ export default nomineeTool({
   },
   connection: 'github',
   approval: true, // nominee CIBA — pushes an approval to your phone
-  action: 'github.merge_pr_auth0',
+  action: 'github.merge_pr_with_nominee_auth0',
   description:
-    'Merge a pull request WITH nominee + Auth0 (Token Vault token + CIBA phone approval).',
+    'Merge a pull request with nominee and Auth0 (Token Vault token + CIBA phone approval).',
   inputSchema: z.object({
     owner: z.string(),
     repo: z.string(),

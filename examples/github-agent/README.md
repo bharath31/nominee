@@ -16,9 +16,9 @@ Once it's running, you drive the demo by what you say in the chat:
 
 | Say | Tool | What it shows |
 | --- | --- | --- |
-| **"merge without nominee"** | `merge_pr_naive` | Hand-rolled: grab a token, wait, merge — the captured token is **stale → 401**. The problem. |
-| **"merge with nominee"** | `merge_pr` | nominee re-resolves a **fresh token at merge time**; you approve in the chat → **real merge**. |
-| **"merge with nominee and auth0"** | `merge_pr_auth0` | Same, but the token is from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. |
+| **"merge pr"** | `merge_pr` | The plain, hand-rolled merge: grab a token, wait, merge — the captured token is **stale → 401**. The problem most people hit. |
+| **"merge with nominee"** | `merge_pr_with_nominee` | nominee re-resolves a **fresh token at merge time**; you approve in the chat → **real merge**. |
+| **"merge with nominee and auth0"** | `merge_pr_with_nominee_auth0` | Same, but the token is from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. |
 
 ## Prerequisites
 
@@ -38,20 +38,21 @@ they're missing and runs their logins.
 nvm use            # Node 24
 pnpm install       # from the repo root
 pnpm setup         # installs CLIs, eve link (model), writes a GitHub token → .env.local
-pnpm seed          # open a fresh PR in the testbed repo to act on
+pnpm seed          # creates a testbed repo on YOUR GitHub + opens a PR to act on
 pnpm dev           # start the agent (interactive chat in your terminal)
 ```
 
-Then in the chat (use the PR `pnpm seed` printed):
+`pnpm seed` creates `‹your-username›/nominee-agent-testbed` (public) the first
+time and opens a fresh PR, printing the exact line to paste. Then in the chat:
 
 ```
-› review PR #2 on bharath31/nominee-agent-testbed
-› merge it without nominee     ← fails: stale token (time-compressed)
-› merge it with nominee        ← approve in chat → real merge
+› review PR #1 on ‹your-username›/nominee-agent-testbed
+› merge pr                     ← fails: stale token (time-compressed)
+› merge with nominee           ← approve in chat → real merge
 ```
 
-Merging closes the PR, so run `pnpm seed` again for another round. Point it at
-your own repo by setting `TESTBED_REPO=owner/repo` before `pnpm seed`.
+Merging closes the PR, so run `pnpm seed` again for another round. To use a repo
+you already own instead, set `TESTBED_REPO=owner/repo` before `pnpm seed`.
 
 ### Level 3 — Auth0 Token Vault + CIBA
 
@@ -60,14 +61,14 @@ pnpm setup:auth0   # provisions the Auth0 app, GitHub connection + Token Vault, 
 pnpm dev
 ```
 
-Then: `merge it with nominee and auth0` — the token comes from Token Vault and
+Then: `merge with nominee and auth0` — the token comes from Token Vault and
 the approval is pushed to your phone. If Auth0 isn't configured, the tool tells
 you to run `pnpm setup:auth0`.
 
 ## What nominee removes
 
-The merge **without** nominee — what you write by hand, and it still breaks under
-a pause (`agent/tools/merge_pr_naive.ts`):
+The plain merge — what you write by hand, and it still breaks under a pause
+(`agent/tools/merge_pr.ts`):
 
 ```ts
 const token = process.env.GITHUB_TOKEN        // grab once, up front
@@ -76,7 +77,8 @@ const res = await fetch(mergeUrl, { headers: { Authorization: `Bearer ${token}` 
 if (res.status === 401) { /* token went stale — now what? refresh? re-auth? */ }
 ```
 
-The merge **with** nominee (`agent/tools/merge_pr.ts`) — the bookkeeping is gone:
+The merge **with** nominee (`agent/tools/merge_pr_with_nominee.ts`) — the
+bookkeeping is gone:
 
 ```ts
 connection: 'github',     // nominee fetches a fresh token at call time
