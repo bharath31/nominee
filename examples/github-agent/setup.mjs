@@ -297,6 +297,8 @@ function enableGrants(appClientId) {
       'urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token',
       'urn:openid:params:grant-type:ciba',
     ],
+    // CIBA requires a notification channel — Auth0 rejects the grant without it.
+    async_approval_notification_channels: ['guardian-push'],
   })
   try {
     sh('auth0', ['api', 'patch', `clients/${appClientId}`, '--data', body])
