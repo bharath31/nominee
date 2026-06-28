@@ -334,6 +334,56 @@ function enableGrants(appClientId) {
   }
 }
 
+// ── 6b. My Account API authorization (so offline_access yields a usable token) ─
+// The consent requests the My Account audience to dodge tenant default-audience
+// offline_access suppression. For that to be allowed, the app must (1) hold a
+// client grant for the /me/ API and (2) carry a matching multi-resource
+// refresh-token (MRRT) policy — exactly what the live nominee.dev/agent app has.
+function authorizeMyAccount(appClientId, domain) {
+  step('Auth0 — authorize the app for the My Account API (MRRT)')
+  const audience = `https://${domain}/me/`
+  const scope = [
+    'create:me:connected_accounts',
+    'read:me:connected_accounts',
+    'delete:me:connected_accounts',
+  ]
+  try {
+    sh('auth0', [
+      'api',
+      'post',
+      'client-grants',
+      '--data',
+      JSON.stringify({ client_id: appClientId, audience, scope }),
+    ])
+  } catch {
+    // Likely already granted on a re-run — fine.
+  }
+  const refresh_token = {
+    expiration_type: 'non-expiring',
+    rotation_type: 'non-rotating',
+    leeway: 0,
+    token_lifetime: 2592000,
+    idle_token_lifetime: 1296000,
+    infinite_token_lifetime: true,
+    infinite_idle_token_lifetime: true,
+    policies: [{ audience, scope }],
+  }
+  try {
+    sh('auth0', [
+      'api',
+      'patch',
+      `clients/${appClientId}`,
+      '--data',
+      JSON.stringify({ refresh_token }),
+    ])
+    if (!DRY_RUN) ok('Authorized for My Account API + MRRT policy set')
+  } catch {
+    warn(
+      'Could not authorize the app for the My Account API — set it in the dashboard, then re-run.',
+    )
+  }
+}
+
 // ── 7. consent (browser pop) ────────────────────────────────────────────────
 async function consent(domain, clientId, clientSecret) {
   step('Consent — one click to mint your refresh token')
@@ -474,6 +524,7 @@ async function main() {
       createGithubConnection(clientId, gh)
     }
     enableGrants(clientId)
+    authorizeMyAccount(clientId, domain)
     const { refreshToken, sub } = await consent(domain, clientId, clientSecret)
     Object.assign(env, {
       AUTH0_DOMAIN: domain,
