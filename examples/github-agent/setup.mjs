@@ -451,7 +451,7 @@ async function main() {
     ),
   )
   if (!WITH_AUTH0) {
-    console.log(c.dim('  For Level 3 (Auth0 Token Vault + CIBA): pnpm setup --auth0\n'))
+    console.log(c.dim('  For Level 3 (Auth0 Token Vault + CIBA): pnpm setup:auth0\n'))
   }
 }
 

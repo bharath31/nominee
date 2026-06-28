@@ -12,7 +12,7 @@ export default nomineeTool({
   user: () => {
     if (!process.env.AUTH0_DOMAIN) {
       throw new Error(
-        'Auth0 not configured. Sign up at https://auth0.com (you need Token Vault + CIBA), then run `pnpm setup --auth0`.',
+        'Auth0 not configured. Sign up at https://auth0.com (you need Token Vault + CIBA), then run `pnpm setup:auth0`.',
       )
     }
     return process.env.AUTH0_USER_SUB ?? 'me'
