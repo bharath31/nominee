@@ -1,7 +1,7 @@
 import { nomineeTool } from 'nominee-eve'
 import { z } from 'zod'
-import { nominee } from '../../lib/nominee.js'
 import { mergePR } from '../../lib/github.js'
+import { nominee } from '../../lib/nominee.js'
 
 // The whole story: `connection` + `approval`. No token code, no refresh code.
 // nominee gets human approval, then re-resolves a FRESH token at merge time —

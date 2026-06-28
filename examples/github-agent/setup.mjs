@@ -18,12 +18,12 @@
 // call fails the script prints the exact manual fallback instead of dying.
 
 import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output, platform } from 'node:process'
+import { createInterface } from 'node:readline/promises'
+import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -125,7 +125,9 @@ async function aiGatewayKey(existing) {
   console.log(
     c.dim('    Create a key at https://vercel.com/dashboard/ai/api-keys (or run `eve link`).'),
   )
-  const key = (await ask('Paste your AI_GATEWAY_API_KEY (or leave blank to use `eve link`):')).trim()
+  const key = (
+    await ask('Paste your AI_GATEWAY_API_KEY (or leave blank to use `eve link`):')
+  ).trim()
   if (!key) warn('No key set — make sure `eve link` is active before `pnpm dev`.')
   return key
 }
@@ -141,10 +143,7 @@ async function githubOAuthApp(domain) {
   }
   console.log(
     c.dim(
-      `    Create a GitHub OAuth App (one-time):\n` +
-        `      https://github.com/settings/applications/new\n` +
-        `      Homepage URL:    https://nominee.dev\n` +
-        `      Callback URL:    ${cb}`,
+      `    Create a GitHub OAuth App (one-time):\n      https://github.com/settings/applications/new\n      Homepage URL:    https://nominee.dev\n      Callback URL:    ${cb}`,
     ),
   )
   const id = (await ask('GitHub OAuth App Client ID:')).trim()
@@ -168,12 +167,15 @@ function auth0App() {
     '--json',
   ])
   if (!DRY_RUN) ok(`Created app ${app.client_id}`)
-  return { clientId: app.client_id ?? '<client-id>', clientSecret: app.client_secret ?? '<client-secret>' }
+  return {
+    clientId: app.client_id ?? '<client-id>',
+    clientSecret: app.client_secret ?? '<client-secret>',
+  }
 }
 
 function tenantDomain() {
   const list = shJson('auth0', ['tenants', 'list', '--json'])
-  const tenants = Array.isArray(list) ? list : list.tenants ?? []
+  const tenants = Array.isArray(list) ? list : (list.tenants ?? [])
   const active = tenants.find((t) => t.active) ?? tenants[0]
   return active?.name ?? active?.domain ?? '<your-tenant>.us.auth0.com'
 }
@@ -210,11 +212,7 @@ function githubConnection(appClientId, gh) {
 function enableCiba(appClientId) {
   step('Auth0 — enable CIBA (human-in-the-loop approval)')
   const body = JSON.stringify({
-    grant_types: [
-      'authorization_code',
-      'refresh_token',
-      'urn:openid:params:grant-type:ciba',
-    ],
+    grant_types: ['authorization_code', 'refresh_token', 'urn:openid:params:grant-type:ciba'],
   })
   try {
     sh('auth0', ['api', 'patch', `clients/${appClientId}`, '--data', body])
@@ -227,11 +225,7 @@ function enableCiba(appClientId) {
 // ── 7. consent (browser pop) ────────────────────────────────────────────────
 async function consent(domain, clientId, clientSecret) {
   step('Consent — one click to mint your refresh token')
-  const authorizeUrl =
-    `https://${domain}/authorize?response_type=code&client_id=${clientId}` +
-    `&redirect_uri=${encodeURIComponent(CALLBACK_URL)}` +
-    `&scope=${encodeURIComponent('openid profile offline_access')}` +
-    `&connection=github&prompt=consent`
+  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile offline_access')}&connection=github&prompt=consent`
 
   if (DRY_RUN) {
     plan(`open browser → ${authorizeUrl}`)
@@ -266,9 +260,9 @@ async function consent(domain, clientId, clientSecret) {
         const tok = await tokenRes.json()
         if (!tokenRes.ok) throw new Error(tok.error_description || JSON.stringify(tok))
         const sub = decodeJwtSub(tok.id_token)
-        res.writeHead(200, { 'content-type': 'text/html' }).end(
-          '<h2>✓ Connected. You can close this tab and return to the terminal.</h2>',
-        )
+        res
+          .writeHead(200, { 'content-type': 'text/html' })
+          .end('<h2>✓ Connected. You can close this tab and return to the terminal.</h2>')
         server.close()
         resolve({ refreshToken: tok.refresh_token, sub })
       } catch (err) {
@@ -298,7 +292,7 @@ function decodeJwtSub(idToken) {
 function writeEnv(values) {
   step('Write .env')
   const lines = Object.entries(values).map(([k, v]) => `${k}=${v ?? ''}`)
-  const body = lines.join('\n') + '\n'
+  const body = `${lines.join('\n')}\n`
   if (DRY_RUN) {
     plan(`write .env with keys: ${Object.keys(values).join(', ')}`)
     return
@@ -313,7 +307,7 @@ function readExistingEnv() {
   const env = {}
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
-    if (m && m[2]) env[m[1]] = m[2]
+    if (m?.[2]) env[m[1]] = m[2]
   }
   return env
 }

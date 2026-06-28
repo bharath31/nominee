@@ -1,9 +1,9 @@
 import { defineTool } from 'eve/tools'
 import { z } from 'zod'
-import { nominee } from '../../lib/nominee.js'
+import { APPROVAL_PAUSE_MS } from '../../lib/constants.js'
 import { mergePR } from '../../lib/github.js'
 import { captureToken } from '../../lib/naive-session.js'
-import { APPROVAL_PAUSE_MS } from '../../lib/constants.js'
+import { nominee } from '../../lib/nominee.js'
 
 // The hand-rolled way, WITHOUT nominee. This is what a careful developer writes:
 // grab a token, wait for approval, then act. It looks fine — and it breaks,

@@ -47,7 +47,9 @@ export async function getPR({
       checks: 'passing',
     }
   }
-  const res = await fetch(`${GH}/repos/${owner}/${repo}/pulls/${number}`, { headers: headers(token) })
+  const res = await fetch(`${GH}/repos/${owner}/${repo}/pulls/${number}`, {
+    headers: headers(token),
+  })
   if (!res.ok) throw new Error(`GitHub ${res.status}: ${await res.text()}`)
   const pr = (await res.json()) as { title: string; additions?: number; deletions?: number }
   return {

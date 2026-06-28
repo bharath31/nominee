@@ -1,7 +1,7 @@
 import { nomineeTool } from 'nominee-eve'
 import { z } from 'zod'
-import { nominee } from '../../lib/nominee.js'
 import { getPR } from '../../lib/github.js'
+import { nominee } from '../../lib/nominee.js'
 
 export default nomineeTool({
   nominee,

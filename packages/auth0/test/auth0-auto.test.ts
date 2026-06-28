@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { auth0, MOCK_TTL_MS } from '../src/index.js'
+import { MOCK_TTL_MS, auth0 } from '../src/index.js'
 
 const realEnv = {
   AUTH0_DOMAIN: 'tenant.us.auth0.com',
