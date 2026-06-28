@@ -10,7 +10,7 @@
     "typecheck": "pnpm -r typecheck",
     "check": "biome check .",
     "format": "biome format --write .",
-    "version-packages": "changeset version",
+    "version-packages": "changeset version && biome format --write packages/*/package.json",
     "release": "pnpm build && changeset publish"
   },
   "devDependencies": {

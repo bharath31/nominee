@@ -1,8 +1,8 @@
 # github-agent — a PR review-and-merge agent that survives the pause
 
 An [Eve](https://eve.dev) agent that reviews a real pull request and merges it
-**on your behalf**. The point it proves: a long-running agent's token goes stale
-during the wait for approval — but nominee re-resolves a **fresh token at merge
+**on your behalf**. The point it proves: a long-running agent's access goes stale
+during the wait for approval — but nominee re-resolves **fresh access at merge
 time**, so the merge just works no matter how long the pause was.
 
 Everything here is **real** — including the token expiry. No mocking.
@@ -23,133 +23,123 @@ front finds it expired by the time a human approves.
 
 ## Three levels
 
-Once it's running, you drive the demo by what you say in the chat:
+You drive the demo by what you say in the chat:
 
 | Say | Tool | What it shows |
 | --- | --- | --- |
 | **"merge pr"** | `merge_pr` | The hand-rolled way: request access, wait for approval, merge — but the access expired during the wait → **real 403 from the broker**. The problem most people hit. |
-| **"merge with nominee"** | `merge_pr_with_nominee` | nominee requests **fresh access at merge time**; you approve in the chat → **real merge**. |
-| **"merge with nominee and auth0"** | `merge_pr_with_nominee_auth0` | The token is a real GitHub token from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. |
+| **"merge with nominee"** | `merge_pr_with_nominee` | nominee requests **fresh access at merge time**; you approve in the chat → **real merge**. (Works for everybody.) |
+| **"merge with nominee and auth0"** | `merge_pr_with_nominee_auth0` | The token is a real GitHub token from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. (Enterprise Auth0.) |
 
 ## Prerequisites
 
-- [Node 24](https://nodejs.org) (`nvm use` — `.nvmrc` pins it).
+- [Node 24](https://nodejs.org) (`nvm use` — `.nvmrc` pins it) and **pnpm**
+  (`npm i -g pnpm`).
 - A **[Vercel](https://vercel.com) account** — Eve routes the model through the
   Vercel AI Gateway. `pnpm setup` runs `eve link` to connect it.
 - A **GitHub account** — `pnpm setup` uses the `gh` CLI for a real token.
 - **Level 3 only:** an **[Auth0](https://auth0.com) account** with **Token Vault
-  + CIBA** (these are advanced features — not on free/basic tenants), and the
-  **[Auth0 Guardian](https://auth0.com/docs/secure/multi-factor-authentication/auth0-guardian)
-  app** on your phone (it receives the approval push). Enable the **push**
-  factor in your tenant: Security → Multi-factor Auth → Push Notifications.
+  + CIBA** (advanced features — not on free/trial tenants), and the
+  **[Auth0 Guardian](https://auth0.com/docs/secure/multi-factor-authentication/auth0-guardian)**
+  app on your phone (it receives the approval push).
 
 The setup script installs the `vercel`, `gh` (and for Level 3, `auth0`) CLIs if
 they're missing and runs their logins.
 
-## Run it
+## 1. Set up
 
 ```bash
 git clone https://github.com/bharath31/nominee && cd nominee
-pnpm install                   # workspace install, from the repo root (needs pnpm)
-cd examples/github-agent       # all the commands below live here
-nvm use                        # Node 24 — Eve requires it (.nvmrc pins it)
+pnpm install                   # workspace install, from the repo root
+cd examples/github-agent       # every command below runs from here
+nvm use                        # Node 24 — Eve requires it
 pnpm setup                     # installs CLIs, eve link (model), writes a GitHub token → .env.local
-pnpm seed                      # opens a PR on a testbed repo on YOUR GitHub
+pnpm seed                      # opens a PR on a testbed repo on YOUR GitHub; prints its number
 ```
 
-Then run the broker and the agent in **two terminals** (both from
-`examples/github-agent`):
+`pnpm seed` creates `‹your-username›/nominee-agent-testbed` (public) the first
+time and opens a fresh PR, printing the exact `review PR #N on …` line to paste.
+To act on a repo you already own instead, set `TESTBED_REPO=owner/repo` first.
+
+## 2. Run it (two terminals)
 
 ```bash
 pnpm broker        # terminal 1 — the merge-access broker (holds the GitHub credential)
 pnpm dev           # terminal 2 — the agent (interactive chat)
 ```
 
-> Need pnpm? `npm i -g pnpm`. Need Node 24? `nvm install 24`. The agent **and**
-> the broker must both run — if the chat says "broker is not reachable," start
-> `pnpm broker`.
+> The agent **and** the broker must both be running. If the chat says "broker is
+> not reachable," start `pnpm broker`.
 
-`pnpm seed` creates `‹your-username›/nominee-agent-testbed` (public) the first
-time and opens a fresh PR, printing the exact `review PR #N on …` line to paste.
+## 3. Test Levels 1 & 2 (no Auth0)
 
-### Walk the demo (Levels 1 & 2)
-
-Paste these into the agent chat one at a time. Use the PR number `pnpm seed`
-printed (shown as `#1` below):
+Paste these into the agent chat one at a time, using the PR number `pnpm seed`
+printed (shown as `#1`):
 
 ```
 › review PR #1 on ‹your-username›/nominee-agent-testbed
     → reads the PR: title, diff size, merge state
 
 › merge pr
-    → ✗ fails: the access it grabbed expired during the wait (a real 403 from
-      the broker). The PR stays open. This is the problem.
+    → ✗ fails: the access it grabbed expired during the wait (a real 403 from the
+      broker). The PR stays open. This is the problem.
 
 › merge with nominee
     → pauses for your approval in the chat — approve it
     → ✓ real merge: nominee fetched fresh access at merge time. PR is now merged.
 ```
 
-Watch the **broker** terminal as you go — you'll see it `→ issue` a token, then
-`✗ 403 reject` the stale one (Level 1), then `✓ merge` with a fresh one (Level 2).
+Watch the **broker** terminal as you go: it logs `→ issue` a token, `✗ 403 reject`
+the stale one (Level 1), then `✓ merge` with a fresh one (Level 2).
 
-Merging closes the PR, so **seed another one for the next round**:
+Merging closes the PR, so **seed another for the next round**:
 
+```bash
+pnpm seed          # opens a fresh PR; note the new number
 ```
-pnpm seed                      # opens a fresh PR; note the new number
+
+## 4. Test Level 3 (Auth0 Token Vault + CIBA)
+
+The same agent, but the GitHub token comes from **Auth0 Token Vault** and approval
+is a **CIBA push to your phone**. One-time setup (enterprise Auth0 tenant):
+
+```bash
+pnpm setup:auth0   # creates the Auth0 app, reuses/creates the Token Vault github
+                   # connection, sets the CIBA + federated grants, one consent click.
+                   # Ends by verifying the vaulted token can actually merge.
 ```
 
-Then try the same arc again, or jump to Level 3 below. To act on a repo you
-already own instead of the testbed, set `TESTBED_REPO=owner/repo` before
-`pnpm seed`.
+Then seed a fresh PR and, in the chat:
 
-### Walk Level 3 (Auth0 Token Vault + CIBA)
-
-Once you've run `pnpm setup:auth0` (see below), seed a fresh PR and try:
-
-```
-pnpm seed
+```bash
+pnpm seed          # opens a fresh PR; note the number
 ```
 ```
-› review PR #2 on ‹your-username›/nominee-agent-testbed
+› review PR #N on ‹your-username›/nominee-agent-testbed
 › merge with nominee and auth0
-    → nominee pulls a fresh GitHub token from Auth0 Token Vault and sends a CIBA
-      push to your phone
+    → nominee pulls a fresh GitHub token from Token Vault and sends a CIBA push to
+      your phone
     → approve on your phone (Auth0 Guardian)
-    → ✓ real merge — same agent, same code shape, now with a vaulted token + a
+    → ✓ real merge — same code shape as Level 2, now with a vaulted token and a
       phone approval instead of an in-chat one
 ```
 
-If Auth0 isn't set up yet, the tool replies telling you to run `pnpm setup:auth0`.
-
-### Level 3 — Auth0 Token Vault + CIBA
-
-```bash
-pnpm setup:auth0   # provisions the Auth0 app, reuses/creates the Token Vault github
-                   # connection, sets the CIBA + federated grants, one consent click
-pnpm dev
-```
-
-**MFA enrollment for the CIBA push.** The approval is a push to the **Auth0
-Guardian** app, so the user must have a Guardian device enrolled. If your tenant's
-policy forces MFA during the Token Vault consent, you'll be shown a QR to scan
-inline. If it doesn't (tenant-dependent), enroll one under your user's MFA in the
-Auth0 dashboard first, and make sure the **push** factor is enabled (Security →
-Multi-factor Auth → Push Notifications). `setup:auth0` ends with a check; if it
-says the push can't be delivered, that's the enrollment.
-
-Then: `merge with nominee and auth0` — nominee pulls a fresh GitHub token from
-Token Vault and pushes the approval to your phone. Approve it, and the merge runs.
 If Auth0 isn't configured, the tool tells you to run `pnpm setup:auth0`.
+
+**MFA enrollment for the CIBA push.** The push goes to the Auth0 Guardian app, so
+your user must have a Guardian device enrolled. If your tenant's policy forces MFA
+during the Token Vault consent, you'll get a QR to scan inline. If not
+(tenant-dependent), enroll one under your user's MFA in the Auth0 dashboard and
+enable the **push** factor (Security → Multi-factor Auth → Push Notifications).
+`setup:auth0` ends with a check that flags this.
 
 > **If the merge returns `403 Resource not accessible by integration`:** the
 > GitHub App or OAuth app behind your Auth0 github connection can't merge on the
-> target repo. (`setup:auth0` warns about this up front — see the verify step.)
-> - **GitHub App:** grant **Pull requests: Read & write** + **Contents: Read &
->   write**, **Install the app on the repo** you're merging (App → *Install App*
->   tab — `total_count:0` installations means it isn't installed), then
->   **disconnect the GitHub connected account** in Auth0 and re-run `setup:auth0`
->   so the new permission is re-vaulted.
+> target repo (`setup:auth0`'s verify step warns about this up front):
+> - **GitHub App:** grant **Pull requests** + **Contents** = Read & write,
+>   **Install the app on the repo** (App → *Install App* tab — `total_count:0`
+>   installations means it isn't installed), then **disconnect the GitHub
+>   connected account** in Auth0 and re-run `setup:auth0` to re-vault.
 > - **OAuth app:** request the `repo` scope (the example vaults `public_repo`, so
 >   only **public** repos merge out of the box; a private `TESTBED_REPO` needs
 >   `repo`).
