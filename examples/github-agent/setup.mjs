@@ -387,6 +387,54 @@ function authorizeMyAccount(appClientId, domain) {
   }
 }
 
+// The page shown in the browser after the consent redirect. `error` renders the
+// failure variant.
+function connectedPage(error) {
+  const ok = !error
+  const accent = ok ? '#22c55e' : '#f87171'
+  const ring = ok ? 'rgba(34,197,94,0.15)' : 'rgba(248,113,113,0.12)'
+  const icon = ok ? '✓' : '✕'
+  const title = ok ? 'GitHub connected' : 'Connection failed'
+  const body = ok
+    ? 'Your Token Vault grant is set. Close this tab and return to your terminal.'
+    : escapeHtml(String(error))
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nominee — ${ok ? 'connected' : 'error'}</title>
+<style>
+  :root { color-scheme: dark }
+  * { box-sizing: border-box }
+  body { margin:0; min-height:100vh; display:grid; place-items:center;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1100px 560px at 50% -12%, #1b1320, #0a0a0f); color:#ece8e1 }
+  .card { text-align:center; padding:44px 40px; max-width:440px; margin:24px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+    border-radius:18px }
+  .badge { width:60px; height:60px; margin:0 auto 22px; border-radius:50%;
+    display:grid; place-items:center; font-size:30px; color:${accent};
+    background:${ring}; border:1px solid ${accent}55 }
+  h1 { font-size:20px; font-weight:650; margin:0 0 10px; letter-spacing:-0.01em }
+  p { margin:0; color:#a8a29a; font-size:14px; line-height:1.55 }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background:rgba(255,255,255,0.06); padding:2px 7px; border-radius:6px; color:#ece8e1 }
+  .brand { margin-top:26px; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:#6b655c }
+</style></head>
+<body><div class="card">
+  <div class="badge">${icon}</div>
+  <h1>${title}</h1>
+  <p>${ok ? 'Your Token Vault grant is set. Close this tab and return to your terminal — then run <code>pnpm dev</code>.' : body}</p>
+  <div class="brand">nominee</div>
+</div></body></html>`
+}
+
+function escapeHtml(s) {
+  return s.replace(
+    /[&<>"']/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch],
+  )
+}
+
 // ── 7. consent (browser pop) ────────────────────────────────────────────────
 async function consent(domain, clientId, clientSecret) {
   step('Consent — one click to mint your refresh token')
@@ -414,7 +462,10 @@ async function consent(domain, clientId, clientSecret) {
       }
       const code = url.searchParams.get('code')
       if (!code) {
-        res.writeHead(400).end('Missing code')
+        const desc = url.searchParams.get('error_description') || 'No authorization code returned.'
+        res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage(desc))
+        server.close()
+        reject(new Error(decodeURIComponent(desc)))
         return
       }
       try {
@@ -439,13 +490,13 @@ async function consent(domain, clientId, clientSecret) {
           )
         }
         const sub = decodeJwtSub(tok.id_token)
-        res
-          .writeHead(200, { 'content-type': 'text/html' })
-          .end('<h2>✓ Connected. You can close this tab and return to the terminal.</h2>')
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage())
         server.close()
         resolve({ refreshToken: tok.refresh_token, sub })
       } catch (err) {
-        res.writeHead(500).end('Token exchange failed')
+        res
+          .writeHead(500, { 'content-type': 'text/html; charset=utf-8' })
+          .end(connectedPage(err instanceof Error ? err.message : 'Token exchange failed'))
         server.close()
         reject(err)
       }
