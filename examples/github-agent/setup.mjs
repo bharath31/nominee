@@ -280,6 +280,29 @@ function tenantDomain() {
   return active?.name ?? active?.domain ?? '<your-tenant>.us.auth0.com'
 }
 
+// One clear plan check instead of a cascade of cryptic step failures. Token Vault
+// (Connected Accounts) is gated behind the My Account API resource server; if the
+// tenant doesn't have it, Level 3 cannot work — say so once and stop.
+function checkEntitlements(domain) {
+  step('Auth0 — plan check (Token Vault + CIBA + My Account API)')
+  if (DRY_RUN) {
+    plan(
+      `auth0 api get resource-servers → confirm the My Account API (https://${domain}/me/) exists`,
+    )
+    return
+  }
+  const servers = shJson('auth0', ['api', 'get', 'resource-servers'])
+  const list = Array.isArray(servers) ? servers : []
+  const hasMyAccount = list.some((s) => s.identifier === `https://${domain}/me/`)
+  if (!hasMyAccount) {
+    warn(
+      `This Auth0 tenant (${domain}) does not have the My Account API / Token Vault.\n      Level 3 needs an Auth0 plan with Token Vault + CIBA + the My Account API — these\n      are advanced features, not on free/trial tenants (see README → Prerequisites).\n\n      Levels 1 & 2 work for everybody with no Auth0 — run:  pnpm setup  (no --auth0).`,
+    )
+    process.exit(1)
+  }
+  ok('Tenant has the My Account API — Token Vault is available')
+}
+
 // ── 5. GitHub social connection with Token Vault ────────────────────────────
 // The reliable path: REUSE an existing Token Vault-enabled `github` connection if
 // the tenant already has one (so we don't depend on getting a fresh connection's
@@ -766,6 +789,7 @@ async function main() {
   // Level 3 — Auth0 Token Vault + CIBA. Only with --auth0.
   if (WITH_AUTH0) {
     const domain = tenantDomain()
+    checkEntitlements(domain) // fail fast on free/trial tenants with one clear message
     const { clientId, clientSecret } = auth0App()
     const existingConn = findGithubConnection()
     if (existingConn) {
