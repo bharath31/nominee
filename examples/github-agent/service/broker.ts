@@ -54,7 +54,7 @@ const readBody = (req: import('node:http').IncomingMessage): Promise<Record<stri
     })
   })
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const log = (msg: string) => console.log(`${new Date().toLocaleTimeString()}  ${msg}`)
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json' })
@@ -93,7 +93,19 @@ createServer(async (req, res) => {
     return json(502, { error: 'github_error', message: e instanceof Error ? e.message : String(e) })
   }
   return json(404, { error: 'not_found' })
-}).listen(BROKER_PORT, () => {
+})
+
+server.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(
+      `\nPort ${BROKER_PORT} is already in use — a broker may already be running.\nStop it, or set BROKER_PORT to a free port (in your shell env, for both broker and agent).\n`,
+    )
+    process.exit(1)
+  }
+  throw e
+})
+
+server.listen(BROKER_PORT, () => {
   console.log(`merge-access broker listening on ${BROKER_URL}`)
   console.log(`issuing just-in-time tokens with a ${JIT_TTL_MS}ms lifetime\n`)
 })

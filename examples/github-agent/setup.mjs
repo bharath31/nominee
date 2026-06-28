@@ -155,14 +155,31 @@ async function preflight() {
 }
 
 // ── GitHub token (Level 2 — works for everybody) ─────────────────────────────
-function githubToken() {
+async function githubToken() {
   step('GitHub token — Level 2 credential')
   if (DRY_RUN) {
     plan('GITHUB_TOKEN = $(gh auth token)')
+    plan('verify it can merge (repo scope)')
     return ''
   }
   const token = sh('gh', ['auth', 'token'])
-  ok('Captured a GitHub token from the gh CLI')
+  // Verify it can merge up front — otherwise a reduced-scope token 403s cryptically
+  // at merge time. (Default `gh auth login` includes `repo`; fine-grained PATs may not.)
+  try {
+    const u = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'nominee-setup' },
+    })
+    const scopes = u.headers.get('x-oauth-scopes') || ''
+    if (scopes && !/\b(repo|public_repo)\b/.test(scopes)) {
+      warn(
+        `Your gh token scopes are '${scopes}' — merging needs 'repo'. If a merge 403s,\n      run: gh auth refresh -h github.com -s repo`,
+      )
+    } else {
+      ok('Captured a GitHub token from the gh CLI (can merge)')
+    }
+  } catch {
+    ok('Captured a GitHub token from the gh CLI')
+  }
   return token
 }
 
@@ -690,7 +707,7 @@ async function main() {
 
   // Model credential (all levels) + GitHub token (Levels 1 & 2 — works for everybody).
   const aiKey = await aiGatewayKey(existing)
-  const ghToken = githubToken()
+  const ghToken = await githubToken()
   const env = { AI_GATEWAY_API_KEY: aiKey, GITHUB_TOKEN: ghToken }
 
   // Level 3 — Auth0 Token Vault + CIBA. Only with --auth0.

@@ -8,13 +8,25 @@ export interface Access {
   expiresAt: number
 }
 
+/** Error from the broker. `expired` is true only when access actually lapsed —
+ *  so callers can tell a stale token apart from a real GitHub failure (conflict,
+ *  already-merged, branch protection) the broker surfaces. */
+export class BrokerError extends Error {
+  expired: boolean
+  constructor(message: string, expired = false) {
+    super(message)
+    this.name = 'BrokerError'
+    this.expired = expired
+  }
+}
+
 const post = async (path: string, body?: unknown) => {
   const res = await fetch(`${BROKER_URL}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   }).catch(() => {
-    throw new Error(
+    throw new BrokerError(
       `merge-access broker is not reachable at ${BROKER_URL}. Start it in another terminal: pnpm broker`,
     )
   })
@@ -22,9 +34,9 @@ const post = async (path: string, body?: unknown) => {
   if (!res.ok) {
     const d = data as { error?: string; message?: string }
     if (d.error === 'access_expired') {
-      throw new Error('merge-access token expired — the broker rejected it (HTTP 403).')
+      throw new BrokerError('merge-access token expired — the broker rejected it (HTTP 403).', true)
     }
-    throw new Error(d.message || `broker ${path} failed (${res.status})`)
+    throw new BrokerError(d.message || `broker ${path} failed (${res.status})`)
   }
   return data
 }

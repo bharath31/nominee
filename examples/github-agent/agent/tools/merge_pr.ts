@@ -1,6 +1,6 @@
 import { defineTool } from 'eve/tools'
 import { z } from 'zod'
-import { brokerMerge, requestAccess } from '../../lib/broker.js'
+import { BrokerError, brokerMerge, requestAccess } from '../../lib/broker.js'
 import { APPROVAL_PAUSE_MS } from '../../lib/constants.js'
 
 // The plain "merge a PR" tool — the hand-rolled way most people write first.
@@ -25,7 +25,12 @@ export default defineTool({
       return `✓ Merged ${r.url}`
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      return `✗ ${message}\n(The access I grabbed expired during the pause. This is what nominee fixes.)`
+      // Only blame token expiry when that's actually what happened — a merge
+      // conflict / already-merged PR / branch protection is a different failure.
+      const expired = e instanceof BrokerError && e.expired
+      return expired
+        ? `✗ ${message}\n(The access I grabbed expired during the pause. This is what nominee fixes.)`
+        : `✗ ${message}`
     }
   },
 })

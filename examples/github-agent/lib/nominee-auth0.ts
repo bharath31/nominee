@@ -25,4 +25,10 @@ function auth0Strategy(): Strategy {
   }
 }
 
-export const nomineeAuth0 = new Nominee({ strategy: auth0Strategy(), agent: 'github-agent' })
+export const nomineeAuth0 = new Nominee({
+  strategy: auth0Strategy(),
+  agent: 'github-agent',
+  // Safety net: if CIBA somehow isn't wired (e.g. AUTH0_USER_SUB missing), the
+  // built-in approval engine would otherwise wait forever. Time out instead.
+  approvalTimeoutMs: 120_000,
+})
