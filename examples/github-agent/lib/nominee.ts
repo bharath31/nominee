@@ -1,19 +1,16 @@
 import { Nominee } from 'nominee'
+import { requestAccess } from './broker.js'
 
 // LEVEL 2 — with nominee (works for everybody).
 //
-// nominee re-resolves a real GitHub token at the *moment of the tool call*,
-// never capturing one up front. `pnpm setup` writes GITHUB_TOKEN (from
-// `gh auth token`) into .env.local; the strategy reads it fresh on every call.
+// nominee's job: get a valid merge-access token at the *moment* the agent acts,
+// never hold one across a pause. The strategy requests fresh just-in-time access
+// from the broker on every call; because the token is short-lived, nominee never
+// caches it — so a merge always runs with access that is valid right now.
 export const nominee = new Nominee({
-  strategy: ({ connection }) => {
-    const token = process.env.GITHUB_TOKEN
-    if (!token) {
-      throw new Error(
-        `nominee: GITHUB_TOKEN is not set (needed for "${connection}"). Run \`pnpm setup\`.`,
-      )
-    }
-    return token
+  strategy: async () => {
+    const { token, expiresAt } = await requestAccess()
+    return { token, expiresAt }
   },
   agent: 'github-agent',
 })

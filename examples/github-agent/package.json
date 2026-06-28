@@ -6,6 +6,7 @@
   "description": "Golden nominee example — an Eve PR review-and-merge agent (real GitHub merges; Auth0 Token Vault + CIBA at Level 3)",
   "scripts": {
     "dev": "eve dev",
+    "broker": "tsx service/broker.ts",
     "setup": "node setup.mjs",
     "setup:auth0": "node setup.mjs --auth0",
     "seed": "node seed-pr.mjs"

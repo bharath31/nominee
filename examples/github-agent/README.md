@@ -5,17 +5,21 @@ An [Eve](https://eve.dev) agent that reviews a real pull request and merges it
 during the wait for approval — but nominee re-resolves a **fresh token at merge
 time**, so the merge just works no matter how long the pause was.
 
-Everything here is **real** — real GitHub API, real merge of a real PR — with
-**one deliberate simulation**, called out below.
+Everything here is **real** — including the token expiry. No mocking.
 
-> ### ⚠️ We simulate the token expiry
-> A real GitHub token lives ~1 hour. We can't make a demo wait an hour for it to
-> actually expire, so on the plain **"merge pr"** path we **compress time**: the
-> approval pause is a few seconds and the captured token is *treated* as expired
-> after `DEMO_TTL_MS`. The resulting `401` is **thrown by our own code**
-> (`lib/github.ts`), **not** returned by GitHub — the real token is still valid.
-> It stands in for the failure that would genuinely happen an hour into a paused
-> agent session. The **merge with nominee** path performs a real GitHub merge.
+## The setup: a merge-access broker
+
+Merging a protected branch is privileged, so this demo gates it the way real orgs
+do: behind a **merge-access broker** (`service/broker.ts`) that hands out
+**just-in-time, short-lived access tokens**. The broker is the only thing holding
+the GitHub credential; the agent only ever gets a token that's valid for a few
+seconds — least-privilege, just-in-time access. That short lifetime is genuine:
+the broker enforces it and returns a real **HTTP 403** when a token has lapsed.
+Nothing is simulated; we just don't have to wait an hour to see a token expire,
+because it's *our* token with a deliberately short TTL.
+
+That's the whole point made concrete: a long-running agent that grabs access up
+front finds it expired by the time a human approves.
 
 ## Three levels
 
@@ -23,9 +27,9 @@ Once it's running, you drive the demo by what you say in the chat:
 
 | Say | Tool | What it shows |
 | --- | --- | --- |
-| **"merge pr"** | `merge_pr` | The plain, hand-rolled merge: grab a token, wait, merge — the captured token is **stale → 401**. The problem most people hit. |
-| **"merge with nominee"** | `merge_pr_with_nominee` | nominee re-resolves a **fresh token at merge time**; you approve in the chat → **real merge**. |
-| **"merge with nominee and auth0"** | `merge_pr_with_nominee_auth0` | Same, but the token is from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. |
+| **"merge pr"** | `merge_pr` | The hand-rolled way: request access, wait for approval, merge — but the access expired during the wait → **real 403 from the broker**. The problem most people hit. |
+| **"merge with nominee"** | `merge_pr_with_nominee` | nominee requests **fresh access at merge time**; you approve in the chat → **real merge**. |
+| **"merge with nominee and auth0"** | `merge_pr_with_nominee_auth0` | The token is a real GitHub token from **Auth0 Token Vault** and approval is a **CIBA push to your phone**. |
 
 ## Prerequisites
 
@@ -46,7 +50,13 @@ nvm use            # Node 24
 pnpm install       # from the repo root
 pnpm setup         # installs CLIs, eve link (model), writes a GitHub token → .env.local
 pnpm seed          # creates a testbed repo on YOUR GitHub + opens a PR to act on
-pnpm dev           # start the agent (interactive chat in your terminal)
+```
+
+Then run the broker and the agent in **two terminals**:
+
+```bash
+pnpm broker        # terminal 1 — the merge-access broker (holds the GitHub credential)
+pnpm dev           # terminal 2 — the agent (interactive chat)
 ```
 
 `pnpm seed` creates `‹your-username›/nominee-agent-testbed` (public) the first
@@ -54,7 +64,7 @@ time and opens a fresh PR, printing the exact line to paste. Then in the chat:
 
 ```
 › review PR #1 on ‹your-username›/nominee-agent-testbed
-› merge pr                     ← fails: stale token (time-compressed)
+› merge pr                     ← fails: access expired during the wait (real 403)
 › merge with nominee           ← approve in chat → real merge
 ```
 
@@ -78,17 +88,17 @@ The plain merge — what you write by hand, and it still breaks under a pause
 (`agent/tools/merge_pr.ts`):
 
 ```ts
-const token = process.env.GITHUB_TOKEN        // grab once, up front
-await waitForApproval()                        // ...long pause (time-compressed)...
-const res = await fetch(mergeUrl, { headers: { Authorization: `Bearer ${token}` } })
-if (res.status === 401) { /* token went stale — now what? refresh? re-auth? */ }
+const access = await requestAccess()           // grab access once, up front
+await waitForApproval()                         // ...long pause...
+const res = await brokerMerge(access.token, pr) // access expired → broker 403
+// now what? request again? thread it through? this is the bookkeeping you write.
 ```
 
 The merge **with** nominee (`agent/tools/merge_pr_with_nominee.ts`) — the
 bookkeeping is gone:
 
 ```ts
-connection: 'github',     // nominee fetches a fresh token at call time
+connection: 'github',     // nominee requests fresh access at call time
 needsApproval: always(),  // human-in-the-loop, right in the chat
 ```
 

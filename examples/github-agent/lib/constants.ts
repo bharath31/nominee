@@ -1,14 +1,21 @@
-import { MOCK_TTL_MS } from 'nominee-auth0'
+/** Where the merge-access broker listens. */
+export const BROKER_PORT = Number(process.env.BROKER_PORT ?? 4778)
+export const BROKER_URL = `http://localhost:${BROKER_PORT}`
 
 /**
- * SIMULATED token lifetime for the demo. A real GitHub token lasts ~1 hour; we
- * can't make a demo wait an hour for it to actually expire, so we shrink its
- * pretend lifetime to a few seconds. The naive path then "expires" the token it
- * captured (a 401 our own code throws — see lib/github.ts), standing in for the
- * real expiry that would happen an hour into a paused agent session.
+ * Lifetime of a merge-access token issued by the broker (ms).
+ *
+ * Short BY DESIGN — this is just-in-time, least-privilege access to a privileged
+ * action (merging a protected branch). Real orgs issue these for seconds-to-
+ * minutes so a leaked token is near-useless. The broker enforces this for real;
+ * nothing here is simulated. We use a few seconds so a paused agent's token
+ * genuinely lapses within a demo instead of minutes later.
  */
-export const DEMO_TTL_MS = MOCK_TTL_MS
+export const JIT_TTL_MS = 4000
 
-/** How long the agent "pauses for approval" (also time-compressed). Intentionally
- *  > DEMO_TTL_MS so a token captured before the pause is "stale" by merge time. */
-export const APPROVAL_PAUSE_MS = 5000
+/**
+ * How long the agent waits for human approval before it acts. Longer than
+ * JIT_TTL_MS on purpose: a token requested up front is genuinely expired (the
+ * broker rejects it) by the time the naive path tries to merge.
+ */
+export const APPROVAL_PAUSE_MS = 6000
