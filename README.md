@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=3" alt="nominee — identity and token delegation for AI agents" width="100%" />
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=4" alt="nominee — identity and token delegation for AI agents" width="100%" />
 </p>
 
 <p align="center">
@@ -23,11 +23,11 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/demo.png?v=4" alt="An agent run: the GitHub token expires, nominee refreshes it, the sensitive action pauses for human approval, then completes — with a full audit trail." width="100%" />
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-demo.gif?v=1" alt="A long-running agent's token expires mid-run; the same agent with nominee re-resolves a fresh token at the call, then pauses a sensitive action for phone approval — with a full audit trail." width="100%" />
 </p>
 
 <p align="center">
-  <em>▶ <a href="https://nominee.dev">Watch the live demo at nominee.dev</a></em>
+  <em>▶ <a href="https://nominee.dev">Watch it live at nominee.dev</a></em>
 </p>
 
 ---
@@ -232,7 +232,7 @@ The hard part of agent auth isn't the OAuth dance — it's keeping a token *fres
 
 | Capability | nominee | AI SDK / CF Agents / LangChain | Auth0 (alone) |
 | --- | :---: | :---: | :---: |
-| Fresh token at call time | ✅ | you write it | ✅ (vendor-locked) |
+| Fresh token at execution time | ✅ | you write it | ✅ (vendor-locked) |
 | Survives durable hibernation | ✅ | you write it | ✅ (vendor-locked) |
 | Provider-neutral (swap vendors) | ✅ | — | — |
 | Zero-signup to start | ✅ | ✅ | — |

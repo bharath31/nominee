@@ -224,37 +224,18 @@
           </p>
         </div>
         <div class="how-grid">
-          <aside class="credential" aria-label="How a delegated token stays valid">
-            <div class="cred-head">
-              <span class="cred-label">Letter of authority</span>
-              <span class="cred-id">No. 2026</span>
-            </div>
-            <div class="chain" role="img" aria-label="you to agent to service">
-              <div class="chain-node"><span>you</span><small>principal</small></div>
-              <div class="chain-link"><span class="dot"></span></div>
-              <div class="chain-node mid"><span>agent</span><small>nominee</small></div>
-              <div class="chain-link"><span class="dot"></span></div>
-              <div class="chain-node"><span>github</span><small>service</small></div>
-            </div>
-            <div class="validity">
-              <div class="validity-row">
-                <span class="validity-key">access token</span>
-                <span class="validity-state">valid · re-issued at call time</span>
-              </div>
-              <div class="validity-bar"><span class="validity-fill"></span></div>
-            </div>
-            <svg class="cred-seal" viewBox="0 0 120 120" aria-hidden="true">
-              <g fill="none" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.5">
-                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(0 60 60)" />
-                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(45 60 60)" />
-                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(90 60 60)" />
-                <ellipse cx="60" cy="60" rx="48" ry="15" transform="rotate(135 60 60)" />
-              </g>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-opacity="0.7" />
-              <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" stroke-opacity="0.4" />
-              <text x="60" y="74" text-anchor="middle" font-family="'Schibsted Grotesk',sans-serif" font-size="42" font-weight="600" fill="currentColor">n</text>
-            </svg>
-          </aside>
+          <figure class="how-video" aria-label="nominee in action">
+            <video
+              src="/assets/nominee-launch.mp4"
+              poster="/assets/nominee-poster.png"
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="metadata"
+            ></video>
+            <figcaption>An agent's token expires mid-run — nominee issues a fresh one, and a sensitive action pauses for phone approval.</figcaption>
+          </figure>
           <ul class="how-points">
             <li>
               <span class="hp-mark">↻</span>
@@ -371,19 +352,20 @@
               </tr>
             </thead>
             <tbody>
-              <tr><th scope="row">Fresh token at call time</th><td class="hi y">Built in</td><td class="x">You build it</td><td class="x">You build it</td><td class="x">You build it</td><td class="y">Token Vault</td></tr>
-              <tr><th scope="row">Fresh token after durable resume</th><td class="hi y">Re-resolves</td><td class="x">—</td><td class="n">State, not tokens</td><td class="n">State, not tokens</td><td class="y">Re-fetch</td></tr>
-              <tr><th scope="row">Provider-neutral (swap vendors)</th><td class="hi y">Any provider</td><td class="x">n/a</td><td class="x">n/a</td><td class="x">n/a</td><td class="x">Auth0 only</td></tr>
-              <tr><th scope="row">Zero-signup to start</th><td class="hi y">Yes</td><td class="x">n/a</td><td class="x">n/a</td><td class="x">n/a</td><td class="x">Tenant + setup</td></tr>
-              <tr><th scope="row">Human-in-the-loop approval</th><td class="hi y">Built in</td><td class="n">Primitives</td><td class="x">—</td><td class="y">Interrupts</td><td class="y">CIBA</td></tr>
-              <tr><th scope="row">Audit log (who authorized what)</th><td class="hi y">Built in</td><td class="x">—</td><td class="x">—</td><td class="n">LangSmith</td><td class="y">Tenant logs</td></tr>
+              <tr><th scope="row">Fresh token at execution time</th><td class="hi y" data-tip="Built in" aria-label="Built in"><span class="mk ok">✓</span></td><td class="x" data-tip="You build it" aria-label="You build it"><span class="mk no">✗</span></td><td class="x" data-tip="You build it" aria-label="You build it"><span class="mk no">✗</span></td><td class="x" data-tip="You build it" aria-label="You build it"><span class="mk no">✗</span></td><td class="y" data-tip="Token Vault" aria-label="Token Vault"><span class="mk ok">✓</span></td></tr>
+              <tr><th scope="row">Fresh token after durable resume</th><td class="hi y" data-tip="Re-resolves" aria-label="Re-resolves"><span class="mk ok">✓</span></td><td class="x" data-tip="No" aria-label="No"><span class="mk no">✗</span></td><td class="n" data-tip="State, not tokens" aria-label="Partial: state, not tokens"><span class="mk part">~</span></td><td class="n" data-tip="State, not tokens" aria-label="Partial: state, not tokens"><span class="mk part">~</span></td><td class="y" data-tip="Re-fetch" aria-label="Re-fetch"><span class="mk ok">✓</span></td></tr>
+              <tr><th scope="row">Provider-neutral (swap vendors)</th><td class="hi y" data-tip="Any provider" aria-label="Any provider"><span class="mk ok">✓</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="Auth0 only" aria-label="One provider only"><span class="mk no">✗</span></td></tr>
+              <tr><th scope="row">Zero-signup to start</th><td class="hi y" data-tip="Yes" aria-label="Yes"><span class="mk ok">✓</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="n/a" aria-label="n/a"><span class="mk no">✗</span></td><td class="x" data-tip="Tenant + setup" aria-label="Tenant + setup required"><span class="mk no">✗</span></td></tr>
+              <tr><th scope="row">Human-in-the-loop approval</th><td class="hi y" data-tip="Built in" aria-label="Built in"><span class="mk ok">✓</span></td><td class="n" data-tip="Primitives" aria-label="Partial: primitives"><span class="mk part">~</span></td><td class="x" data-tip="No" aria-label="No"><span class="mk no">✗</span></td><td class="y" data-tip="Interrupts" aria-label="Interrupts"><span class="mk ok">✓</span></td><td class="y" data-tip="CIBA" aria-label="CIBA"><span class="mk ok">✓</span></td></tr>
+              <tr><th scope="row">Audit log (who authorized what)</th><td class="hi y" data-tip="Built in" aria-label="Built in"><span class="mk ok">✓</span></td><td class="x" data-tip="No" aria-label="No"><span class="mk no">✗</span></td><td class="x" data-tip="No" aria-label="No"><span class="mk no">✗</span></td><td class="n" data-tip="LangSmith" aria-label="Partial: LangSmith"><span class="mk part">~</span></td><td class="y" data-tip="Tenant logs" aria-label="Tenant logs"><span class="mk ok">✓</span></td></tr>
             </tbody>
           </table>
         </div>
         <p class="compare-note">
           Orchestrators run the agent but <em>by design</em> hand you the third-party
-          auth. Auth0 solves the mechanics beautifully, but you marry it. nominee is
-          the neutral seam between them: start with a function, swap to Auth0 in one line.
+          auth. A managed identity provider solves the mechanics beautifully — but wire
+          one in directly and you marry it. nominee is the neutral seam between them:
+          start with a function, swap to a managed provider in one line.
         </p>
         <p class="compare-note muted">
           <strong>When you don't need nominee:</strong> a single-provider, short-lived,
@@ -399,36 +381,46 @@
           <h2>One auth layer, wherever your agent runs.</h2>
         </div>
         <div class="package-grid">
-          <a class="package-card" href="https://www.npmjs.com/package/nominee">
+          <div class="package-card">
             <span class="pc-tag">Core</span>
-            <h3>nominee</h3>
+            <h3><a href="https://www.npmjs.com/package/nominee">nominee</a></h3>
             <p>Engine, strategies, token cache, approvals, audit stream. Zero runtime deps.</p>
-            <code>npm i nominee</code>
-          </a>
-          <a class="package-card" href="https://www.npmjs.com/package/nominee-ai">
+            <button class="copy pkg-install" data-copy="npm i nominee" aria-label="Copy: npm i nominee">
+              <span class="prompt">$</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
             <span class="pc-tag">Vercel AI SDK</span>
-            <h3>nominee-ai</h3>
+            <h3><a href="https://www.npmjs.com/package/nominee-ai">nominee-ai</a></h3>
             <p>Fresh tokens and approval gates inside AI SDK tools. Runs on Cloudflare Agents too.</p>
-            <code>npm i nominee nominee-ai</code>
-          </a>
-          <a class="package-card" href="https://www.npmjs.com/package/nominee-eve">
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-ai" aria-label="Copy: npm i nominee nominee-ai">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-ai</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
             <span class="pc-tag">Vercel Eve</span>
-            <h3>nominee-eve</h3>
+            <h3><a href="https://www.npmjs.com/package/nominee-eve">nominee-eve</a></h3>
             <p>Wrap Eve tools with nominee token injection and human-in-the-loop approval.</p>
-            <code>npm i nominee nominee-eve</code>
-          </a>
-          <a class="package-card" href="https://www.npmjs.com/package/nominee-supabase">
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-eve" aria-label="Copy: npm i nominee nominee-eve">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-eve</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
             <span class="pc-tag">Optional · Strategy</span>
-            <h3>nominee-supabase</h3>
+            <h3><a href="https://www.npmjs.com/package/nominee-supabase">nominee-supabase</a></h3>
             <p>Store provider tokens in Supabase; nominee reads and refreshes them. Zero deps.</p>
-            <code>npm i nominee nominee-supabase</code>
-          </a>
-          <a class="package-card" href="https://www.npmjs.com/package/nominee-auth0">
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-supabase" aria-label="Copy: npm i nominee nominee-supabase">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-supabase</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
             <span class="pc-tag">Optional · Managed</span>
-            <h3>nominee-auth0</h3>
+            <h3><a href="https://www.npmjs.com/package/nominee-auth0">nominee-auth0</a></h3>
             <p>Auth0 Token Vault for federated tokens, and CIBA approvals on the user's phone.</p>
-            <code>npm i nominee nominee-auth0</code>
-          </a>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-auth0" aria-label="Copy: npm i nominee nominee-auth0">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-auth0</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
         </div>
       </section>
 

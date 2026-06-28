@@ -14,6 +14,8 @@
   /* accents */
   --seal: #8c2f2a;           /* brass — links, seal, active states (reads on white) */
   --seal-tint: rgba(140, 47, 42, 0.08);
+  --ok: #1f6b4a;             /* success / available — green */
+  --ok-tint: rgba(31, 107, 74, 0.10);
   --navy: #0a1020;           /* strong UI fill (primary button) */
   --navy-hover: #1b2438;
   /* dark code/terminal panels (kept dark on purpose) */
@@ -320,11 +322,12 @@ footer { position: relative; z-index: 2; max-width: var(--maxw); margin: clamp(7
 .compare { width: 100%; min-width: 660px; border-collapse: collapse; font-size: 14px; }
 .compare th, .compare td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--hairline); }
 .compare thead th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
-.compare thead th.hi, .compare td.hi { background: var(--seal-tint); }
+.compare thead th.hi, .compare td.hi { background: var(--ok-tint); }
 .compare tbody th { font-weight: 500; color: var(--paper); }
+.compare tbody th.hi { color: var(--ok); }
 .compare td { color: var(--muted); }
-.compare td.y { color: var(--paper-soft); }
-.compare td.hi.y { color: var(--seal); font-weight: 500; }
+.compare td.y { color: var(--ok); }
+.compare td.hi.y { color: var(--ok); font-weight: 600; }
 .compare td.x { color: #aab0c0; }
 .compare tbody tr:last-child th, .compare tbody tr:last-child td { border-bottom: 0; }
 .compare-note { max-width: 720px; margin: 22px auto 0; text-align: center; font-size: 14px; color: var(--muted); }
@@ -338,6 +341,11 @@ footer { position: relative; z-index: 2; max-width: var(--maxw); margin: clamp(7
 .cta-row { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .star-cta { font-family: var(--mono); font-size: 15px; color: #fff; background: var(--navy); padding: 15px 22px; border-radius: 11px; font-weight: 600; transition: transform 0.18s, background 0.18s; }
 .star-cta:hover { transform: translateY(-2px); background: var(--navy-hover); }
+.star-cta .gh-star { color: #e0a96d; }
+/* in the post CTA, Star on GitHub is a secondary (quiet) button — primary focus stays on install */
+.post-cta-links a.star-cta { background: var(--raised); color: var(--paper); border: 1px solid var(--hairline); font-weight: 500; }
+.post-cta-links a.star-cta:hover { background: var(--ink-2); border-color: var(--hairline-2); color: var(--paper); transform: translateY(-1px); }
+.post-cta-links a.star-cta .gh-star { color: var(--seal); }
 .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
 .badges img { height: 20px; }
 .cta-live { margin-top: 18px; font-family: var(--mono); font-size: 13px; }
@@ -467,11 +475,21 @@ footer { position: relative; z-index: 2; max-width: var(--maxw); margin: clamp(7
 .post-body a:hover { color: var(--seal); border-color: var(--seal); }
 .post-body pre { background: linear-gradient(180deg, var(--code-bg), var(--code-bg-2)); border: 1px solid var(--hairline); border-radius: 12px; padding: 20px 22px; overflow-x: auto; margin: 8px 0 24px; }
 .post-body pre code { font-family: var(--mono); font-size: 13.5px; line-height: 1.8; color: var(--code-text); }
+/* syntax highlighting for post code blocks (matches the dark code-card palette) */
+.post-body pre code .k { color: var(--code-accent); }
+.post-body pre code .t { color: #cdb6f0; }
+.post-body pre code .fn { color: #fff; }
+.post-body pre code .s { color: #93c4a6; }
+.post-body pre code .n { color: #e0a96d; }
+.post-body pre code .c { color: var(--code-soft); font-style: italic; }
 .post-body p code { font-family: var(--mono); font-size: 14px; background: var(--ink-2); border: 1px solid var(--hairline); padding: 2px 7px; border-radius: 5px; color: var(--paper); }
 .post-rule { border: none; border-top: 1px solid var(--hairline); margin: 44px 0; }
 .post-compare-wrap { overflow-x: auto; border: 1px solid var(--hairline); border-radius: 12px; margin: 24px 0; }
 .post-compare-note { font-size: 14px; color: var(--muted); margin: 14px 0 0; }
-.post-cta-block { margin-top: 56px; padding: 36px; background: radial-gradient(600px 240px at 50% 0, var(--seal-tint), transparent 70%), var(--raised); border: 1px solid var(--hairline); border-radius: 16px; text-align: center; }
-.post-cta-block .eyebrow { margin-bottom: 16px; }
-.post-cta-install { display: inline-block; font-family: var(--mono); font-size: 18px; background: var(--ink); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px 22px; margin-bottom: 24px; color: var(--paper); }
-.post-cta-links { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.post-cta-block { margin-top: 56px; padding: clamp(32px, 5vw, 48px); background: radial-gradient(700px 280px at 50% -10%, var(--seal-tint), transparent 70%), var(--raised); border: 1px solid var(--hairline); border-radius: 18px; text-align: center; }
+.post-cta-block .eyebrow { justify-content: center; margin-bottom: 20px; }
+.post-cta-block .cta-head { font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.025em; line-height: 1.12; color: var(--paper); margin: 0 auto 26px; max-width: 18ch; }
+.post-cta-install { display: inline-flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 18px; background: linear-gradient(180deg, var(--code-bg), var(--code-bg-2)); border: 1px solid var(--code-line); border-radius: 12px; padding: 16px 24px; margin-bottom: 28px; color: var(--code-text); box-shadow: 0 1px 2px rgba(10, 16, 32, 0.06), 0 26px 56px -42px rgba(10, 16, 32, 0.55); }
+.post-cta-install .prompt { color: var(--code-accent); }
+.post-cta-install .copy-hint { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--code-soft); border-left: 1px solid var(--code-line); padding-left: 12px; margin-left: 4px; }
+.post-cta-links { display: flex; gap: 14px 22px; justify-content: center; align-items: center; flex-wrap: wrap; }

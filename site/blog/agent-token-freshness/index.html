@@ -98,11 +98,11 @@
 
           <p>Most agent code does something like this:</p>
 
-          <pre><code>// At agent initialization
-const token = await getGithubToken(userId)
+          <pre><code><span class="c">// At agent initialization</span>
+<span class="k">const</span> token = <span class="k">await</span> <span class="fn">getGithubToken</span>(userId)
 
-// Hours later, in a tool:
-await github.createPR({ token, ... }) // 401</code></pre>
+<span class="c">// Hours later, in a tool:</span>
+<span class="k">await</span> github.<span class="fn">createPR</span>({ token, ... }) <span class="c">// 401</span></code></pre>
 
           <p>The token was valid when the agent started. It's invalid by the time the tool runs. If the token expires during a long task, there's no recovery — the agent didn't capture a refresh token, and there's no hook to re-authenticate mid-run.</p>
 
@@ -130,16 +130,16 @@ await github.createPR({ token, ... }) // 401</code></pre>
 
           <p>Instead of capturing a token at agent startup, you ask nominee for a fresh token at the moment of each tool call:</p>
 
-          <pre><code>import { Nominee, tokens } from 'nominee'
+          <pre><code><span class="k">import</span> { <span class="t">Nominee</span>, tokens } <span class="k">from</span> <span class="s">'nominee'</span>
 
-const nominee = new Nominee({
-  strategy: tokens(async ({ user, connection }) =>
-    db.getToken(user, connection)
+<span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  strategy: <span class="fn">tokens</span>(<span class="k">async</span> ({ user, connection }) =>
+    db.<span class="fn">getToken</span>(user, connection)
   )
 })
 
-// Inside any tool — called right before you need it:
-const token = await nominee.token({ user: 'alice', connection: 'github' })</code></pre>
+<span class="c">// Inside any tool — called right before you need it:</span>
+<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user: <span class="s">'alice'</span>, connection: <span class="s">'github'</span> })</code></pre>
 
           <p>nominee caches the token, tracks its expiry, refreshes when needed — with single-flight deduplication. Whether the agent runs for 30 seconds or 30 hours, every tool call gets a live token.</p>
 
@@ -153,13 +153,13 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })</code
 
           <p>nominee also handles the case where a tool call requires explicit human sign-off before it runs:</p>
 
-          <pre><code>await nominee.approve({
-  user: 'alice',
-  action: 'push-to-main',
-  meta: { repo: 'acme/api', branch: 'main' }
+          <pre><code><span class="k">await</span> nominee.<span class="fn">approve</span>({
+  user: <span class="s">'alice'</span>,
+  action: <span class="s">'push-to-main'</span>,
+  meta: { repo: <span class="s">'acme/api'</span>, branch: <span class="s">'main'</span> }
 })
-// Blocks until alice approves or denies via webhook or push notification
-// Token is refreshed at the moment of approval, not before</code></pre>
+<span class="c">// Blocks until alice approves or denies via webhook or push notification</span>
+<span class="c">// Token is refreshed at the moment of approval, not before</span></code></pre>
 
           <p>The agent pauses. The user gets a notification — email, phone, whatever your approval backend sends. They approve. The agent continues with a fresh token. The whole interaction is logged to an audit trail.</p>
 
@@ -215,7 +215,7 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })</code
                   <td class="y">✓</td>
                 </tr>
                 <tr>
-                  <th class="hi" style="color:var(--seal)">nominee</th>
+                  <th class="hi">nominee</th>
                   <td class="hi y">✓</td>
                   <td class="hi y">✓</td>
                   <td class="hi y">✓</td>
@@ -248,9 +248,9 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })</code
 
           <p>For framework integration:</p>
 
-          <pre><code>npm i nominee-ai      # Vercel AI SDK
-npm i nominee-auth0   # Auth0 Token Vault + CIBA (optional)
-npm i nominee-supabase # Supabase token strategy</code></pre>
+          <pre><code>npm i nominee-ai      <span class="c"># Vercel AI SDK</span>
+npm i nominee-auth0   <span class="c"># Auth0 Token Vault + CIBA (optional)</span>
+npm i nominee-supabase <span class="c"># Supabase token strategy</span></code></pre>
 
           <p>If you're on Cloudflare Agents or Durable Objects, the core package works directly — no adapter needed. If you're using Vercel AI SDK, <code>nominee-ai</code> gives you a <code>nomineeTool</code> wrapper that auto-injects tokens and gates on approvals.</p>
 
@@ -270,11 +270,13 @@ npm i nominee-supabase # Supabase token strategy</code></pre>
 
           <div class="post-cta-block">
             <p class="eyebrow">Get started</p>
+            <p class="cta-head">Keep your agent's token alive across the whole run.</p>
             <div class="post-cta-install">
-              <code>npm i nominee</code>
+              <span class="prompt">$</span> npm i nominee
+              <span class="copy-hint">zero deps</span>
             </div>
             <div class="post-cta-links">
-              <a class="star-cta" href="https://github.com/bharath31/nominee">★ Star on GitHub</a>
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
               <a class="text-link" href="/docs/">Read the docs →</a>
               <a class="text-link" href="https://nominee.dev">Watch the live demo →</a>
             </div>
