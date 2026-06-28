@@ -94,6 +94,14 @@ Then: `merge with nominee and auth0` — nominee pulls a fresh GitHub token from
 Token Vault and pushes the approval to your phone. Approve it, and the merge runs.
 If Auth0 isn't configured, the tool tells you to run `pnpm setup:auth0`.
 
+> **If the merge returns `403 Resource not accessible by integration`:** the
+> GitHub App or OAuth app behind your Auth0 github connection lacks merge
+> permission. For a **GitHub App**, grant **Pull requests: Read & write** and
+> **Contents: Read & write** (then re-consent so the new permission is granted).
+> For an **OAuth app**, request the `repo` (or `public_repo` for public repos)
+> scope. Token Vault can only hand the agent what the underlying app is allowed
+> to do — that's the point.
+
 ## What nominee removes
 
 The plain merge — what you write by hand, and it still breaks under a pause
