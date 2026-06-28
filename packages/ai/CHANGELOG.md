@@ -1,5 +1,21 @@
 # nominee-ai
 
+## 2.0.2
+
+### Patch Changes
+
+- Release 2.0.2 to realign all packages on one clean, publishable version.
+
+  `nominee@2.0.1` and `nominee-supabase@2.0.1` published successfully, but
+  `nominee-ai`, `nominee-eve`, and `nominee-auth0` had **both 2.0.0 and 2.0.1
+  burned** on npm (published then unpublished earlier — npm permanently retires
+  those exact version numbers, so `changeset publish` keeps getting "cannot
+  publish over previously published version"). 2.0.2 is unused for every package,
+  so it publishes cleanly and brings the whole linked group back in lockstep.
+
+- Updated dependencies
+  - nominee@2.0.2
+
 ## 2.0.1
 
 ### Patch Changes
