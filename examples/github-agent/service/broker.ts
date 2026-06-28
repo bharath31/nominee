@@ -55,6 +55,7 @@ const readBody = (req: import('node:http').IncomingMessage): Promise<Record<stri
   })
 
 createServer(async (req, res) => {
+  const log = (msg: string) => console.log(`${new Date().toLocaleTimeString()}  ${msg}`)
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(body))
@@ -63,28 +64,36 @@ createServer(async (req, res) => {
 
   // Request just-in-time merge access (a short-lived token).
   if (req.method === 'POST' && url.pathname === '/access') {
-    return json(200, issue())
+    const a = issue()
+    log(`→ issued access ${a.token.slice(0, 8)}… (valid ${JIT_TTL_MS}ms)`)
+    return json(200, a)
   }
 
   const body = await readBody(req)
+  const tok = typeof body.token === 'string' ? body.token.slice(0, 8) : '????????'
   if (!isValid(body.token)) {
     // The real, non-simulated rejection: the access token has lapsed.
+    log(`✗ 403 rejected access ${tok}… — expired or unknown`)
     return json(403, { error: 'access_expired', message: 'merge-access token expired or unknown' })
   }
   const ref = { owner: String(body.owner), repo: String(body.repo), number: Number(body.number) }
+  const what = `${ref.owner}/${ref.repo}#${ref.number}`
 
   try {
     if (req.method === 'POST' && url.pathname === '/pr') {
+      log(`· read ${what} with access ${tok}…`)
       return json(200, await getPR({ ...ref, token: GITHUB_TOKEN }))
     }
     if (req.method === 'POST' && url.pathname === '/merge') {
+      log(`✓ access ${tok}… valid — merging ${what} on GitHub`)
       return json(200, await mergePR({ ...ref, token: GITHUB_TOKEN }))
     }
   } catch (e) {
+    log(`! GitHub error on ${what}: ${e instanceof Error ? e.message : String(e)}`)
     return json(502, { error: 'github_error', message: e instanceof Error ? e.message : String(e) })
   }
   return json(404, { error: 'not_found' })
 }).listen(BROKER_PORT, () => {
   console.log(`merge-access broker listening on ${BROKER_URL}`)
-  console.log(`issuing just-in-time tokens with a ${JIT_TTL_MS}ms lifetime`)
+  console.log(`issuing just-in-time tokens with a ${JIT_TTL_MS}ms lifetime\n`)
 })
