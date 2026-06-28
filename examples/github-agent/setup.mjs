@@ -445,7 +445,10 @@ async function consent(domain, clientId, clientSecret) {
   // uses. That refresh token is what nominee exchanges for a GitHub Token Vault
   // token at call time.
   const audience = `https://${domain}/me/`
-  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile email offline_access')}&audience=${encodeURIComponent(audience)}&connection=github&prompt=consent`
+  // `prompt=login` forces a real re-authentication (not an SSO replay), so Auth0
+  // stores a FRESH GitHub token. Without it, re-running setup just SSOs you back
+  // in and keeps a stale/revoked vaulted token (last_login never moves).
+  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile email offline_access')}&audience=${encodeURIComponent(audience)}&connection=github&prompt=login`
 
   if (DRY_RUN) {
     plan(`open browser → ${authorizeUrl}`)
