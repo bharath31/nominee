@@ -38,7 +38,10 @@ Once it's running, you drive the demo by what you say in the chat:
   Vercel AI Gateway. `pnpm setup` runs `eve link` to connect it.
 - A **GitHub account** — `pnpm setup` uses the `gh` CLI for a real token.
 - **Level 3 only:** an **[Auth0](https://auth0.com) account** with **Token Vault
-  + CIBA** (these are advanced features — not on free/basic tenants).
+  + CIBA** (these are advanced features — not on free/basic tenants), and the
+  **[Auth0 Guardian](https://auth0.com/docs/secure/multi-factor-authentication/auth0-guardian)
+  app** on your phone (it receives the approval push). Enable the **push**
+  factor in your tenant: Security → Multi-factor Auth → Push Notifications.
 
 The setup script installs the `vercel`, `gh` (and for Level 3, `auth0`) CLIs if
 they're missing and runs their logins.
@@ -74,13 +77,22 @@ you already own instead, set `TESTBED_REPO=owner/repo` before `pnpm seed`.
 ### Level 3 — Auth0 Token Vault + CIBA
 
 ```bash
-pnpm setup:auth0   # provisions the Auth0 app, GitHub connection + Token Vault, CIBA, one consent click
+pnpm setup:auth0   # provisions the Auth0 app, reuses/creates the Token Vault github
+                   # connection, sets the CIBA + federated grants, one consent click
 pnpm dev
 ```
 
-Then: `merge with nominee and auth0` — the token comes from Token Vault and
-the approval is pushed to your phone. If Auth0 isn't configured, the tool tells
-you to run `pnpm setup:auth0`.
+**First-time MFA enrollment (you won't get stuck).** During the `setup:auth0`
+consent, you log in through GitHub. Because Token Vault / Connected Accounts is a
+sensitive operation, Auth0 requires MFA — so on your **first** login it shows a
+QR code. Scan it with the **Auth0 Guardian** app to enroll your phone (a one-time
+step). That same enrolled device is what receives the **CIBA approval push** when
+the agent merges. New users enroll inline here; returning users are just prompted
+to approve.
+
+Then: `merge with nominee and auth0` — nominee pulls a fresh GitHub token from
+Token Vault and pushes the approval to your phone. Approve it, and the merge runs.
+If Auth0 isn't configured, the tool tells you to run `pnpm setup:auth0`.
 
 ## What nominee removes
 
