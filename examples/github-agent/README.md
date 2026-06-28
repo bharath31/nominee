@@ -89,25 +89,32 @@ pnpm setup:auth0   # provisions the Auth0 app, reuses/creates the Token Vault gi
 pnpm dev
 ```
 
-**First-time MFA enrollment (you won't get stuck).** During the `setup:auth0`
-consent, you log in through GitHub. Because Token Vault / Connected Accounts is a
-sensitive operation, Auth0 requires MFA — so on your **first** login it shows a
-QR code. Scan it with the **Auth0 Guardian** app to enroll your phone (a one-time
-step). That same enrolled device is what receives the **CIBA approval push** when
-the agent merges. New users enroll inline here; returning users are just prompted
-to approve.
+**MFA enrollment for the CIBA push.** The approval is a push to the **Auth0
+Guardian** app, so the user must have a Guardian device enrolled. If your tenant's
+policy forces MFA during the Token Vault consent, you'll be shown a QR to scan
+inline. If it doesn't (tenant-dependent), enroll one under your user's MFA in the
+Auth0 dashboard first, and make sure the **push** factor is enabled (Security →
+Multi-factor Auth → Push Notifications). `setup:auth0` ends with a check; if it
+says the push can't be delivered, that's the enrollment.
 
 Then: `merge with nominee and auth0` — nominee pulls a fresh GitHub token from
 Token Vault and pushes the approval to your phone. Approve it, and the merge runs.
 If Auth0 isn't configured, the tool tells you to run `pnpm setup:auth0`.
 
 > **If the merge returns `403 Resource not accessible by integration`:** the
-> GitHub App or OAuth app behind your Auth0 github connection lacks merge
-> permission. For a **GitHub App**, grant **Pull requests: Read & write** and
-> **Contents: Read & write** (then re-consent so the new permission is granted).
-> For an **OAuth app**, request the `repo` (or `public_repo` for public repos)
-> scope. Token Vault can only hand the agent what the underlying app is allowed
-> to do — that's the point.
+> GitHub App or OAuth app behind your Auth0 github connection can't merge on the
+> target repo. (`setup:auth0` warns about this up front — see the verify step.)
+> - **GitHub App:** grant **Pull requests: Read & write** + **Contents: Read &
+>   write**, **Install the app on the repo** you're merging (App → *Install App*
+>   tab — `total_count:0` installations means it isn't installed), then
+>   **disconnect the GitHub connected account** in Auth0 and re-run `setup:auth0`
+>   so the new permission is re-vaulted.
+> - **OAuth app:** request the `repo` scope (the example vaults `public_repo`, so
+>   only **public** repos merge out of the box; a private `TESTBED_REPO` needs
+>   `repo`).
+>
+> Token Vault can only hand the agent what the underlying app is allowed to do —
+> that's the point.
 
 ## What nominee removes
 

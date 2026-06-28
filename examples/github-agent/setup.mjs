@@ -11,15 +11,21 @@
 //   3. GitHub     — capture a real token from `gh auth token` (GITHUB_TOKEN)
 //   -. write .env.local
 //
-// With --auth0 (needs an Auth0 tenant with Token Vault + CIBA):
-//   4. GitHub App — OAuth App client id/secret for the Auth0 connection
-//   5. Auth0 app  — a Regular Web App (Authorization Code + Refresh Token)
-//   6. connection — GitHub social connection with Token Vault enabled
-//   7. CIBA       — enable the CIBA grant on the app
-//   8. consent    — one browser pop to mint the user's refresh token + sub
+// With --auth0 (needs an Auth0 tenant with Token Vault + CIBA + the My Account API —
+// these are advanced/entitlement-gated features, not on free/trial tenants):
+//   - Auth0 app  — a Regular Web App, reused if it already exists
+//   - connection — reuse an existing Token Vault github connection, or create one
+//                  (which prompts for a GitHub OAuth App's client id/secret)
+//   - grants     — federated-connection (Token Vault) + CIBA (+ guardian-push channel)
+//   - My Account — client-grant (subject_type=user) + MRRT policy for the /me/ API
+//   - consent    — log in, then vault GitHub via the Connected Accounts flow
+//   - verify     — confirm the vaulted token can actually merge the testbed repo
 //
-// The Token Vault connection step is finicky and tenant-dependent; if the API
-// call fails the script prints the exact manual fallback instead of dying.
+// Note on the connection's GitHub backing: a GitHub *App* (used by the live demo)
+// issues refresh tokens so Token Vault genuinely refreshes, but needs to be
+// *installed* on the repo with contents+pull_requests write to merge. A GitHub
+// *OAuth App* with the `repo` scope merges public repos directly (no install) but
+// its token is non-expiring (so it brokers, rather than refreshes, the token).
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -297,6 +303,15 @@ function enableAppOnConnection(conn, appClientId) {
     JSON.stringify({ enabled_clients: [...enabled] }),
   ])
   if (!DRY_RUN) ok(`Enabled this app on existing github connection "${conn.name}"`)
+  // Heads-up early if the reused connection is OAuth-app-backed and scoped too
+  // narrowly to merge (e.g. a gists/read-only demo). For GitHub-App-backed
+  // connections scope is moot — permissions come from the App (verifyVault checks).
+  const scope = conn.options?.scope
+  if (Array.isArray(scope) && !scope.some((s) => s === 'repo' || s === 'public_repo')) {
+    warn(
+      `Reused connection "${conn.name}" is scoped [${scope.join(', ')}] — merging needs 'repo'/'public_repo'.\n      If it is OAuth-app-backed, widen the scope (Authentication → Social → GitHub). If it is\n      GitHub-App-backed, scope is moot — the verify step checks the app’s repo permissions.`,
+    )
+  }
 }
 
 function createGithubConnection(appClientId, gh) {
@@ -551,6 +566,27 @@ async function consent(domain, clientId, clientSecret) {
           if (!mj.access_token) return fail(`My Account token failed: ${JSON.stringify(mj)}`)
           maToken = mj.access_token
 
+          // Clear any stale GitHub connected account first, so a re-run after a
+          // permission change actually re-consents (otherwise GitHub silently
+          // reuses the old, under-privileged grant). Mirrors the live worker's
+          // /disconnect. Ignore failures (e.g. nothing connected yet).
+          try {
+            const lr = await fetch(`https://${domain}/me/v1/connected-accounts`, {
+              headers: { authorization: `Bearer ${maToken}` },
+            })
+            if (lr.ok) {
+              const lj = await lr.json()
+              for (const acc of lj.connected_accounts ?? []) {
+                if (acc.connection === 'github' && acc.id) {
+                  await fetch(`https://${domain}/me/v1/connected-accounts/${acc.id}`, {
+                    method: 'DELETE',
+                    headers: { authorization: `Bearer ${maToken}` },
+                  })
+                }
+              }
+            }
+          } catch {}
+
           const cr = await me('/connect', {
             connection: 'github',
             redirect_uri: CONNECT_CALLBACK_URL,
@@ -616,10 +652,10 @@ const ENV_PATH = join(HERE, '.env.local')
 // Turns the cryptic agent-time "403 Resource not accessible by integration" into
 // an upfront, actionable message. Warns (never blocks) so .env.local is still
 // written and you can fix the permission and re-run.
-async function verifyVault(domain, clientId, clientSecret, refreshToken) {
+async function verifyVault(domain, clientId, clientSecret, refreshToken, targetRepo) {
   step('Verify — can the vaulted GitHub token merge?')
   if (DRY_RUN) {
-    plan('federated exchange → confirm the GitHub token is live and has write access')
+    plan('federated exchange → confirm the GitHub token can merge on the testbed repo')
     return
   }
   try {
@@ -647,19 +683,36 @@ async function verifyVault(domain, clientId, clientSecret, refreshToken) {
     const scopes = u.headers.get('x-oauth-scopes') || ''
     if (/\b(repo|public_repo)\b/.test(scopes))
       return ok(`Vaulted token can merge (scope: ${scopes}).`)
-    // GitHub App path: needs an installation granting contents + pull_requests write.
+    // GitHub App path: it's not enough that *some* install has write — the app must
+    // be installed ON THE TARGET REPO with contents+pull_requests write, or the
+    // merge 403s even though a global check would pass. Verify against targetRepo.
     const inst = await fetch('https://api.github.com/user/installations', { headers: ghHeaders })
     const ij = await inst.json().catch(() => ({}))
-    const canMerge = (ij.installations || []).some(
+    const writeInstalls = (ij.installations || []).filter(
       (i) => i.permissions?.contents === 'write' && i.permissions?.pull_requests === 'write',
     )
-    if (canMerge)
-      return ok('Vaulted GitHub App token has contents + pull_requests write — can merge.')
+    if (writeInstalls.length === 0) {
+      return warn(
+        'The vaulted token can READ but not MERGE. Grant write access, then re-run pnpm setup:auth0:\n' +
+          '      • OAuth App: add the `repo` scope to the GitHub connection.\n' +
+          '      • GitHub App: set Pull requests + Contents = Read & write (App → Permissions).',
+      )
+    }
+    // Confirm one of those installs actually covers the target repo.
+    let coversTarget = !targetRepo
+    for (const i of writeInstalls) {
+      if (coversTarget) break
+      const reposRes = await fetch(
+        `https://api.github.com/user/installations/${i.id}/repositories`,
+        { headers: ghHeaders },
+      )
+      const rj = await reposRes.json().catch(() => ({}))
+      if ((rj.repositories || []).some((r) => r.full_name === targetRepo)) coversTarget = true
+    }
+    if (coversTarget)
+      return ok(`Vaulted GitHub App token can merge${targetRepo ? ` on ${targetRepo}` : ''}.`)
     warn(
-      'The vaulted token can READ but not MERGE. Grant write access, then re-run pnpm setup:auth0:\n' +
-        '      • OAuth App: add the `repo` scope to the GitHub connection.\n' +
-        '      • GitHub App: set Pull requests + Contents = Read & write, and INSTALL the app on\n' +
-        '        your repo (the app’s "Install App" tab).',
+      `The GitHub App has write permission but is NOT installed on ${targetRepo}.\n      Install it there (App → "Install App" tab → select the repo), disconnect the\n      GitHub connected account in Auth0, and re-run pnpm setup:auth0 to re-vault.`,
     )
   } catch (e) {
     warn(`Could not verify the vaulted token: ${e instanceof Error ? e.message : e}`)
@@ -726,7 +779,12 @@ async function main() {
     enableGrants(clientId)
     authorizeMyAccount(clientId, domain)
     const { refreshToken, sub } = await consent(domain, clientId, clientSecret)
-    await verifyVault(domain, clientId, clientSecret, refreshToken)
+    // The repo the agent will merge — the same one `pnpm seed` targets — so the
+    // verify step checks the App is installed where it actually matters.
+    const ghLogin = shJson('gh', ['api', 'user']).login
+    const targetRepo =
+      process.env.TESTBED_REPO || (ghLogin ? `${ghLogin}/nominee-agent-testbed` : '')
+    await verifyVault(domain, clientId, clientSecret, refreshToken, targetRepo)
     Object.assign(env, {
       AUTH0_DOMAIN: domain,
       AUTH0_CLIENT_ID: clientId,
