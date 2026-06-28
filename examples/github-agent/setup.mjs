@@ -35,6 +35,7 @@ const WITH_AUTH0 = process.argv.includes('--auth0')
 const APP_NAME = 'nominee-github-agent'
 const CALLBACK_PORT = 4777
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`
+const CONNECT_CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/connect/callback`
 
 const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -212,20 +213,13 @@ function auth0App() {
     return { clientId: '<client-id>', clientSecret: '<client-secret>' }
   }
   const list = shJson('auth0', ['apps', 'list', '--json'])
+  const wanted = [CALLBACK_URL, CONNECT_CALLBACK_URL]
   const existing = (Array.isArray(list) ? list : []).find((a) => a.name === APP_NAME)
   if (existing) {
     const full = shJson('auth0', ['apps', 'show', existing.client_id, '--reveal-secrets', '--json'])
-    // Make sure the localhost callback is present for the consent step.
-    if (!(full.callbacks ?? []).includes(CALLBACK_URL)) {
-      sh('auth0', [
-        'apps',
-        'update',
-        existing.client_id,
-        '--callbacks',
-        [...(full.callbacks ?? []), CALLBACK_URL].join(','),
-        '--json',
-      ])
-    }
+    // Make sure BOTH localhost callbacks (login + connect) are present.
+    const cbs = new Set([...(full.callbacks ?? []), ...wanted])
+    sh('auth0', ['apps', 'update', existing.client_id, '--callbacks', [...cbs].join(','), '--json'])
     ok(`Reusing app ${existing.client_id}`)
     return { clientId: existing.client_id, clientSecret: full.client_secret }
   }
@@ -237,7 +231,7 @@ function auth0App() {
     '--type',
     'regular',
     '--callbacks',
-    CALLBACK_URL,
+    wanted.join(','),
     '--reveal-secrets',
     '--json',
   ])
@@ -435,77 +429,147 @@ function escapeHtml(s) {
   )
 }
 
-// ── 7. consent (browser pop) ────────────────────────────────────────────────
+// Tiny shim: Auth0 returns connect_code in the URL fragment (not sent to the
+// server), so this page reads it and re-requests with it in the query string.
+function connectCodeShim() {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>completing…</title></head><body>
+<script>
+const m=location.hash.match(/connect_code=([^&]+)/)||location.search.match(/connect_code=([^&]+)/);
+if(m){location.replace('/connect/callback?connect_code='+encodeURIComponent(m[1]));}
+else{document.body.textContent='Missing connect_code — please re-run pnpm setup:auth0.';}
+</script></body></html>`
+}
+
+// ── 7. consent + vault (browser) ─────────────────────────────────────────────
+// Mirrors the live nominee.dev/agent worker: log in, then vault the GitHub token
+// through the **Connected Accounts** flow. The primary login alone does NOT keep
+// Token Vault fresh — only `/connect` + `/complete` store a refreshable token
+// that the federated exchange (nominee.token) can actually use.
 async function consent(domain, clientId, clientSecret) {
-  step('Consent — one click to mint your refresh token')
-  // The My Account API audience is REQUIRED here: many tenants set a default
-  // audience with offline_access disabled, which silently suppresses the refresh
-  // token. Requesting `https://<domain>/me/` explicitly (with offline_access)
-  // guarantees a refresh token — the same trick the live nominee.dev/agent worker
-  // uses. That refresh token is what nominee exchanges for a GitHub Token Vault
-  // token at call time.
-  const audience = `https://${domain}/me/`
-  // `prompt=login` forces a real re-authentication (not an SSO replay), so Auth0
-  // stores a FRESH GitHub token. Without it, re-running setup just SSOs you back
-  // in and keeps a stale/revoked vaulted token (last_login never moves).
-  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile email offline_access')}&audience=${encodeURIComponent(audience)}&connection=github&prompt=login`
+  step('Consent — log in, then vault your GitHub token (Connected Accounts)')
+  const meAud = `https://${domain}/me/`
+  const CA_SCOPE =
+    'openid profile email offline_access create:me:connected_accounts read:me:connected_accounts delete:me:connected_accounts'
+  // prompt=login forces a real re-auth (not an SSO replay); audience=me dodges
+  // tenant default-audience offline_access suppression so we get a refresh token.
+  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile email offline_access')}&audience=${encodeURIComponent(meAud)}&connection=github&prompt=login`
 
   if (DRY_RUN) {
     plan(`open browser → ${authorizeUrl}`)
-    plan(`listen on ${CALLBACK_URL}, exchange code at https://${domain}/oauth/token`)
+    plan('exchange code → Auth0 refresh token (My Account audience)')
+    plan('POST /me/v1/connected-accounts/connect → open GitHub authorize')
+    plan('POST /me/v1/connected-accounts/complete → vault the GitHub token')
     return { refreshToken: '<refresh-token>', sub: '<auth0|user-sub>' }
   }
 
   return await new Promise((resolve, reject) => {
+    // Shared across the two callbacks (login → connect).
+    let refreshToken
+    let sub
+    let maToken
+    let authSession
+
+    const oauth = (body) =>
+      fetch(`https://${domain}/oauth/token`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    const me = (path, body) =>
+      fetch(`https://${domain}/me/v1/connected-accounts${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${maToken}` },
+        body: JSON.stringify(body),
+      })
+
     const server = createServer(async (req, res) => {
-      const url = new URL(req.url, CALLBACK_URL)
-      if (url.pathname !== '/callback') {
-        res.writeHead(404).end()
-        return
-      }
-      const code = url.searchParams.get('code')
-      if (!code) {
-        const desc = url.searchParams.get('error_description') || 'No authorization code returned.'
-        res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage(desc))
+      const fail = (err) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        try {
+          res.writeHead(500, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage(msg))
+        } catch {}
         server.close()
-        reject(new Error(decodeURIComponent(desc)))
-        return
+        reject(new Error(msg))
       }
       try {
-        const tokenRes = await fetch(`https://${domain}/oauth/token`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
+        const url = new URL(req.url, CALLBACK_URL)
+
+        // 1. login callback → Auth0 refresh token, then initiate Connected Accounts connect.
+        if (url.pathname === '/callback') {
+          const code = url.searchParams.get('code')
+          if (!code) {
+            const d = url.searchParams.get('error_description') || 'No authorization code.'
+            return fail(decodeURIComponent(d))
+          }
+          const tr = await oauth({
             grant_type: 'authorization_code',
             client_id: clientId,
             client_secret: clientSecret,
             code,
             redirect_uri: CALLBACK_URL,
-          }),
-        })
-        const tok = await tokenRes.json()
-        if (!tokenRes.ok) throw new Error(tok.error_description || JSON.stringify(tok))
-        if (!tok.refresh_token) {
-          // Don't silently write a partial config — surface the real problem.
-          throw new Error(
-            'no refresh_token returned. Your tenant likely suppresses offline_access on the default audience. ' +
-              'Ensure the My Account API allows offline_access, then re-run `pnpm setup:auth0`.',
-          )
+          })
+          const tok = await tr.json()
+          if (!tr.ok) return fail(tok.error_description || JSON.stringify(tok))
+          if (!tok.refresh_token) return fail('no refresh_token (offline_access suppressed)')
+          refreshToken = tok.refresh_token
+          sub = decodeJwtSub(tok.id_token)
+
+          const mr = await oauth({
+            grant_type: 'refresh_token',
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            audience: meAud,
+            scope: CA_SCOPE,
+          })
+          const mj = await mr.json()
+          if (!mj.access_token) return fail(`My Account token failed: ${JSON.stringify(mj)}`)
+          maToken = mj.access_token
+
+          const cr = await me('/connect', {
+            connection: 'github',
+            redirect_uri: CONNECT_CALLBACK_URL,
+            scopes: ['public_repo'],
+          })
+          const cj = await cr.json()
+          if (!cr.ok || !cj.connect_uri)
+            return fail(`connect init failed (${cr.status}) ${JSON.stringify(cj)}`)
+          authSession = cj.auth_session
+          const ticket = cj.connect_params?.ticket
+          const target = ticket
+            ? `${cj.connect_uri}?ticket=${encodeURIComponent(ticket)}`
+            : cj.connect_uri
+          // Continue in the same browser tab: authorize GitHub for the vault.
+          return res.writeHead(302, { location: target }).end()
         }
-        const sub = decodeJwtSub(tok.id_token)
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage())
-        server.close()
-        resolve({ refreshToken: tok.refresh_token, sub })
+
+        // 2. connect callback → complete the flow, vaulting the GitHub token.
+        if (url.pathname === '/connect/callback') {
+          const connectCode = url.searchParams.get('connect_code')
+          if (!connectCode) {
+            // connect_code arrives in the fragment; shim re-requests with it in the query.
+            return res
+              .writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+              .end(connectCodeShim())
+          }
+          const cr = await me('/complete', {
+            auth_session: authSession,
+            connect_code: connectCode,
+            redirect_uri: CONNECT_CALLBACK_URL,
+          })
+          if (!cr.ok) return fail(`vault complete failed (${cr.status}) ${await cr.text()}`)
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(connectedPage())
+          server.close()
+          return resolve({ refreshToken, sub })
+        }
+
+        res.writeHead(404).end()
       } catch (err) {
-        res
-          .writeHead(500, { 'content-type': 'text/html; charset=utf-8' })
-          .end(connectedPage(err instanceof Error ? err.message : 'Token exchange failed'))
-        server.close()
-        reject(err)
+        fail(err)
       }
     })
     server.listen(CALLBACK_PORT, () => {
-      console.log(c.dim('    Opening your browser to approve GitHub access…'))
+      console.log(c.dim('    Opening your browser — log in, then approve GitHub access…'))
       openBrowser(authorizeUrl)
     })
   })
