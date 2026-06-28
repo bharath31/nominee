@@ -203,8 +203,32 @@ async function githubOAuthApp(domain) {
 }
 
 // ── 4. Auth0 app ────────────────────────────────────────────────────────────
+// Reuse an existing app of the same name (so re-running setup doesn't pile up
+// duplicate apps), otherwise create one.
 function auth0App() {
-  step('Auth0 — create the Regular Web App')
+  step('Auth0 — create/reuse the Regular Web App')
+  if (DRY_RUN) {
+    plan(`reuse or create app "${APP_NAME}" (callback ${CALLBACK_URL})`)
+    return { clientId: '<client-id>', clientSecret: '<client-secret>' }
+  }
+  const list = shJson('auth0', ['apps', 'list', '--json'])
+  const existing = (Array.isArray(list) ? list : []).find((a) => a.name === APP_NAME)
+  if (existing) {
+    const full = shJson('auth0', ['apps', 'show', existing.client_id, '--reveal-secrets', '--json'])
+    // Make sure the localhost callback is present for the consent step.
+    if (!(full.callbacks ?? []).includes(CALLBACK_URL)) {
+      sh('auth0', [
+        'apps',
+        'update',
+        existing.client_id,
+        '--callbacks',
+        [...(full.callbacks ?? []), CALLBACK_URL].join(','),
+        '--json',
+      ])
+    }
+    ok(`Reusing app ${existing.client_id}`)
+    return { clientId: existing.client_id, clientSecret: full.client_secret }
+  }
   const app = shJson('auth0', [
     'apps',
     'create',
@@ -217,7 +241,7 @@ function auth0App() {
     '--reveal-secrets',
     '--json',
   ])
-  if (!DRY_RUN) ok(`Created app ${app.client_id}`)
+  ok(`Created app ${app.client_id}`)
   return {
     clientId: app.client_id ?? '<client-id>',
     clientSecret: app.client_secret ?? '<client-secret>',
@@ -313,7 +337,14 @@ function enableGrants(appClientId) {
 // ── 7. consent (browser pop) ────────────────────────────────────────────────
 async function consent(domain, clientId, clientSecret) {
   step('Consent — one click to mint your refresh token')
-  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile offline_access')}&connection=github&prompt=consent`
+  // The My Account API audience is REQUIRED here: many tenants set a default
+  // audience with offline_access disabled, which silently suppresses the refresh
+  // token. Requesting `https://<domain>/me/` explicitly (with offline_access)
+  // guarantees a refresh token — the same trick the live nominee.dev/agent worker
+  // uses. That refresh token is what nominee exchanges for a GitHub Token Vault
+  // token at call time.
+  const audience = `https://${domain}/me/`
+  const authorizeUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent('openid profile email offline_access')}&audience=${encodeURIComponent(audience)}&connection=github&prompt=consent`
 
   if (DRY_RUN) {
     plan(`open browser → ${authorizeUrl}`)
@@ -347,6 +378,13 @@ async function consent(domain, clientId, clientSecret) {
         })
         const tok = await tokenRes.json()
         if (!tokenRes.ok) throw new Error(tok.error_description || JSON.stringify(tok))
+        if (!tok.refresh_token) {
+          // Don't silently write a partial config — surface the real problem.
+          throw new Error(
+            'no refresh_token returned. Your tenant likely suppresses offline_access on the default audience. ' +
+              'Ensure the My Account API allows offline_access, then re-run `pnpm setup:auth0`.',
+          )
+        }
         const sub = decodeJwtSub(tok.id_token)
         res
           .writeHead(200, { 'content-type': 'text/html' })
