@@ -587,6 +587,60 @@ function decodeJwtSub(idToken) {
 
 const ENV_PATH = join(HERE, '.env.local')
 
+// ── verify the vaulted token can actually merge (catch perms at setup time) ───
+// Turns the cryptic agent-time "403 Resource not accessible by integration" into
+// an upfront, actionable message. Warns (never blocks) so .env.local is still
+// written and you can fix the permission and re-run.
+async function verifyVault(domain, clientId, clientSecret, refreshToken) {
+  step('Verify — can the vaulted GitHub token merge?')
+  if (DRY_RUN) {
+    plan('federated exchange → confirm the GitHub token is live and has write access')
+    return
+  }
+  try {
+    const r = await fetch(`https://${domain}/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        grant_type:
+          'urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token',
+        subject_token_type: 'urn:ietf:params:oauth:token-type:refresh_token',
+        subject_token: refreshToken,
+        requested_token_type: 'http://auth0.com/oauth/token-type/federated-connection-access-token',
+        connection: 'github',
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+    const j = await r.json()
+    const token = j.access_token
+    if (!token) return warn(`Token Vault returned no token (${r.status}). Re-run setup.`)
+    const ghHeaders = { Authorization: `Bearer ${token}`, 'User-Agent': 'nominee-setup' }
+    const u = await fetch('https://api.github.com/user', { headers: ghHeaders })
+    if (!u.ok) return warn(`Vaulted token is not valid (GitHub ${u.status}). Re-run setup.`)
+    // OAuth App path: the `repo` scope merges directly, no installation needed.
+    const scopes = u.headers.get('x-oauth-scopes') || ''
+    if (/\b(repo|public_repo)\b/.test(scopes))
+      return ok(`Vaulted token can merge (scope: ${scopes}).`)
+    // GitHub App path: needs an installation granting contents + pull_requests write.
+    const inst = await fetch('https://api.github.com/user/installations', { headers: ghHeaders })
+    const ij = await inst.json().catch(() => ({}))
+    const canMerge = (ij.installations || []).some(
+      (i) => i.permissions?.contents === 'write' && i.permissions?.pull_requests === 'write',
+    )
+    if (canMerge)
+      return ok('Vaulted GitHub App token has contents + pull_requests write — can merge.')
+    warn(
+      'The vaulted token can READ but not MERGE. Grant write access, then re-run pnpm setup:auth0:\n' +
+        '      • OAuth App: add the `repo` scope to the GitHub connection.\n' +
+        '      • GitHub App: set Pull requests + Contents = Read & write, and INSTALL the app on\n' +
+        '        your repo (the app’s "Install App" tab).',
+    )
+  } catch (e) {
+    warn(`Could not verify the vaulted token: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
 // ── 8. write .env.local ─────────────────────────────────────────────────────
 // Eve reads `.env.local` (its candidates are ['.env.local', '.env']) and
 // hot-reloads it. We MERGE so we never clobber what `eve link` wrote there.
@@ -647,6 +701,7 @@ async function main() {
     enableGrants(clientId)
     authorizeMyAccount(clientId, domain)
     const { refreshToken, sub } = await consent(domain, clientId, clientSecret)
+    await verifyVault(domain, clientId, clientSecret, refreshToken)
     Object.assign(env, {
       AUTH0_DOMAIN: domain,
       AUTH0_CLIENT_ID: clientId,
