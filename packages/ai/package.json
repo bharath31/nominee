@@ -1,7 +1,7 @@
 {
   "name": "nominee-ai",
-  "version": "2.0.2",
-  "description": "Nominee adapter for the Vercel AI SDK — fresh tokens and human-in-the-loop approval for AI SDK tools",
+  "version": "2.1.0",
+  "description": "Nominee adapter for the Vercel AI SDK — policy, approvals, receipts, and fresh tokens for AI SDK tools (guardTools / nomineeTool)",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -20,7 +20,19 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["vercel", "ai-sdk", "ai", "agents", "auth", "token", "nominee"],
+  "keywords": [
+    "vercel",
+    "ai-sdk",
+    "ai",
+    "agents",
+    "auth",
+    "token",
+    "nominee",
+    "authorization",
+    "permissions",
+    "human-in-the-loop",
+    "guardrails"
+  ],
   "author": "Bharath",
   "license": "MIT",
   "repository": {

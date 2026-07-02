@@ -5,6 +5,10 @@ guide for coding agents and contributors.
 
 ## Quick Orientation
 
+nominee is the authorization layer for AI agents: allow/deny/ask policy on
+every tool call, human approvals, and hash-chained tamper-evident receipts,
+with call-time token brokering as the supporting act.
+
 - `nominee` is the dependency-free core package.
 - `nominee-ai` adapts nominee to Vercel AI SDK tools and Cloudflare Agents.
 - `nominee-eve` adapts nominee to Vercel Eve tools.

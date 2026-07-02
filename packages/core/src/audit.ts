@@ -1,6 +1,8 @@
+import type { Effect } from './policy.js'
 import type { ApprovalDecision } from './strategy.js'
 
 export type AuditEventType =
+  | 'policy.decision'
   | 'token.issued'
   | 'token.cached'
   | 'token.error'
@@ -29,6 +31,12 @@ export interface AuditEvent {
   resource?: string
   /** Outcome: approval decision, or boolean authz result. */
   decision?: ApprovalDecision | boolean
+  /** Policy verdict, for `policy.decision` events. */
+  effect?: Effect
+  /** Compact label of the deciding rule, e.g. `"deny:email.forward"`. */
+  rule?: string
+  /** Reason recorded by the deciding rule or engine. */
+  reason?: string
   /** Delegation chain of agent identities, when known. */
   chain?: string[]
   /** Epoch milliseconds. */

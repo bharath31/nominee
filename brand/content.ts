@@ -15,49 +15,49 @@
 
 export const brand = {
   name: 'nominee',
-  version: '2.0.2',
+  version: '2.1.0',
 
   /** Full hero one-liner (README, docs, OG image). */
   taglineFull:
-    "Fresh tokens, human approval, and an audit trail for agents that act on your users' behalf.",
+    'The authorization layer for AI agents. Your agent logs in as you — nominee decides what it can do as you.',
   /** Compressed hero for the big display headline on the landing page. */
-  taglineShort: 'Fresh tokens, approval & audit.',
-  taglineShortLine2: 'For agents that act for your users.',
+  taglineShort: 'Your agent logs in as you.',
+  taglineShortLine2: "It shouldn't get to be you.",
 
-  /** Scope qualifier — names the tail nominee is for. */
+  /** Scope qualifier — names what nominee is. */
   subhead:
-    'Framework-neutral, no SaaS — the Passport.js of agent auth, for the multi-framework, no-lock-in, standalone tail.',
+    'Policy, approvals, and receipts on every agent tool call — dependency-free, framework-neutral, no SaaS.',
 
   /** The demonstrable insight that leads every surface. */
   insight:
-    'Naive OAuth refresh breaks under rotation and concurrency: fire 8 concurrent tool calls and 7/8 fail with invalid_grant. nominee gets 8/8 with the same agent code.',
-  insightShort: 'Naive concurrent + rotating OAuth refresh fails 7/8. nominee gets 8/8.',
+    'A prompt-injected agent tries to exfiltrate your email — and physically can’t: the deny rule fires before the tool runs, and a signed, tamper-evident receipt of the attempt is on the chain.',
+  insightShort:
+    'The injected exfiltration is blocked before the tool runs — with a signed receipt of the attempt.',
 
-  /** The layer diagram: framework | nominee | vault. */
+  /** The layer diagram: framework | nominee | tools+vault. */
   layers: [
     {
       tag: 'your agent / framework',
-      title: 'asks for a token at call time',
-      eg: 'Vercel AI SDK · Eve · Cloudflare Agents · standalone',
+      title: 'calls a tool as your user',
+      eg: 'Vercel AI SDK · Eve · Mastra · Cloudflare Agents · MCP · standalone',
     },
     {
       tag: 'nominee',
-      title: 'freshness · approval · audit · delegation',
-      eg: 'single-flight refresh · rotation persistence · human-in-the-loop',
+      title: 'policy · approvals · receipts · delegation',
+      eg: 'allow / deny / ask · budgets · hash-chained receipts · fresh tokens at call time',
     },
     {
-      tag: 'your vault / store',
-      title: 'where the refresh token actually lives',
-      eg: 'env · DB · OAuth2 · Auth0 Token Vault · Supabase · Nango',
+      tag: 'your tools & vault',
+      title: 'what actually runs — with only the authority you granted',
+      eg: 'env · DB · OAuth2 · Auth0 Token Vault · Supabase',
     },
   ],
 
   /** "When you don't need nominee" — present on every surface. */
   whenNot: [
-    "You're on Eve, or a framework that already brokers fresh third-party access.",
-    'You use the Vercel AI SDK with Vercel Connect for connectors.',
-    'One provider, a long-lived non-rotating token, no pause, no concurrency.',
-    'You want one fully-managed vendor — use Auth0 Token Vault or Nango directly.',
+    'A read-only agent with no authority worth guarding.',
+    'Your platform’s native permission system covers you end-to-end.',
+    'You want one fully-managed vendor for tools + auth + policy — use Arcade or Composio directly.',
   ],
 
   urls: {
@@ -66,7 +66,7 @@ export const brand = {
     repo: 'https://github.com/bharath31/nominee',
     npm: 'https://www.npmjs.com/package/nominee',
     proofExample:
-      'https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness',
+      'https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked',
   },
 
   colors: {

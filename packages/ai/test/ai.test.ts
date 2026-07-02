@@ -1,7 +1,7 @@
-import { Memory, Nominee } from 'nominee'
+import { Memory, Nominee, PolicyDeniedError, allow, deny } from 'nominee'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { nomineeTool, withNominee } from '../src/index.js'
+import { guardTools, nomineeTool, withNominee } from '../src/index.js'
 
 // Minimal stand-in for the AI SDK's ToolCallOptions.
 const fakeOptions = { toolCallId: 'call_1', messages: [] } as never
@@ -112,5 +112,49 @@ describe('nominee-ai', () => {
       execute: async (_input, { token, user }) => `${user}:${token}`,
     })
     await expect(exec(tool, {})).resolves.toBe('u1:gh_tok_123')
+  })
+
+  it('enforces a deny rule on nomineeTool via its action name', async () => {
+    const executed = vi.fn(async () => 'done')
+    const nominee = makeNominee({
+      policy: { rules: [deny('repo.delete')], fallback: 'allow' },
+    })
+    const tool = nomineeTool({
+      nominee,
+      user: 'u1',
+      action: 'repo.delete',
+      description: 'delete a repo',
+      inputSchema: z.object({ repo: z.string() }),
+      execute: executed,
+    })
+    await expect(exec(tool, { repo: 'a/b' })).rejects.toBeInstanceOf(PolicyDeniedError)
+    expect(executed).not.toHaveBeenCalled()
+  })
+
+  it('guardTools wraps a whole tools object, keyed by tool name', async () => {
+    const nominee = makeNominee({
+      policy: { rules: [allow('search'), deny('exfiltrate')], fallback: 'deny' },
+    })
+    const search = vi.fn(async ({ q }: { q: string }) => `hits: ${q}`)
+    const exfiltrate = vi.fn(async () => 'secrets')
+    const tools = guardTools(
+      nominee,
+      {
+        search: { description: 's', inputSchema: z.object({ q: z.string() }), execute: search },
+        exfiltrate: { description: 'x', inputSchema: z.object({}), execute: exfiltrate },
+      } as never,
+      { user: 'u1' },
+    ) as {
+      search: { description?: string; execute?: (...args: unknown[]) => unknown }
+      exfiltrate: { description?: string; execute?: (...args: unknown[]) => unknown }
+    }
+
+    expect(tools.search.description).toBe('s')
+    await expect(exec(tools.search, { q: 'a' })).resolves.toBe('hits: a')
+    await expect(exec(tools.exfiltrate, {})).rejects.toBeInstanceOf(PolicyDeniedError)
+    expect(exfiltrate).not.toHaveBeenCalled()
+    // Refusal is on the receipt chain.
+    expect(nominee.receipts.at(-1)?.effect).toBe('deny')
+    expect(nominee.verifyReceipts().ok).toBe(true)
   })
 })

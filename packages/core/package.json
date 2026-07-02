@@ -1,7 +1,7 @@
 {
   "name": "nominee",
-  "version": "2.0.2",
-  "description": "Identity and token delegation for AI agents — the provider-neutral auth layer for agents that act on your behalf",
+  "version": "2.1.0",
+  "description": "The authorization layer for AI agents — allow/deny/ask policy on every tool call, human approvals, and tamper-evident receipts. Framework-neutral, zero dependencies",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -23,13 +23,21 @@
   "keywords": [
     "ai",
     "agents",
+    "authorization",
+    "permissions",
+    "policy",
+    "guardrails",
+    "human-in-the-loop",
+    "approvals",
+    "audit",
+    "receipts",
     "auth",
     "oauth",
     "token",
     "identity",
     "delegation",
-    "token-vault",
-    "human-in-the-loop"
+    "prompt-injection",
+    "agent-security"
   ],
   "author": "Bharath",
   "license": "MIT",

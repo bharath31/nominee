@@ -76,10 +76,15 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
     async execute(input: z.infer<TSchema>, options: ToolCallOptions): Promise<TOutput> {
       const user = typeof config.user === 'function' ? await config.user(options) : config.user
 
-      if (config.approval) {
-        // Throws ApprovalDeniedError if the human denies / it expires.
-        await nominee.approve({ user, action, detail: input })
-      }
+      // Enforce the nominee policy (allow / deny / ask) for this call. Throws
+      // PolicyDeniedError on a deny rule; ApprovalDeniedError if a human (or
+      // timeout) refuses an escalated call. `approval: true` forces the ask.
+      await nominee.authorize({
+        tool: action,
+        input,
+        user,
+        requireApproval: config.approval,
+      })
 
       let token: string | undefined
       if (config.connection) {
@@ -96,6 +101,50 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
     z.infer<TSchema>,
     TOutput
   >
+}
+
+/**
+ * Wrap a whole AI SDK `tools` object so every call is authorized against the
+ * nominee policy first — the one-line integration:
+ *
+ * ```ts
+ * import { guardTools } from 'nominee-ai'
+ *
+ * const result = await generateText({
+ *   model,
+ *   tools: guardTools(nominee, { searchEmail, forwardEmail, deleteRepo }, {
+ *     user: 'alice',
+ *   }),
+ * })
+ * ```
+ *
+ * The key in the object is the tool name your policy matches on. Denied calls
+ * throw `PolicyDeniedError` before the tool runs; `ask` calls block until a
+ * human decides. Tools without an `execute` (client-executed tools) pass
+ * through untouched.
+ */
+export function guardTools<T extends Record<string, Tool>>(
+  nominee: Nominee,
+  tools: T,
+  opts: { user: UserResolver },
+): T {
+  const out: Record<string, Tool> = {}
+  for (const [name, t] of Object.entries(tools)) {
+    const execute = t.execute as ((input: unknown, options: ToolCallOptions) => unknown) | undefined
+    if (typeof execute !== 'function') {
+      out[name] = t
+      continue
+    }
+    out[name] = {
+      ...t,
+      async execute(input: unknown, options: ToolCallOptions) {
+        const user = typeof opts.user === 'function' ? await opts.user(options) : opts.user
+        await nominee.authorize({ tool: name, input, user })
+        return execute.call(t, input, options)
+      },
+    } as Tool
+  }
+  return out as T
 }
 
 /**

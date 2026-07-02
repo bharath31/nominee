@@ -1,6 +1,29 @@
 # nominee examples
 
-## [`github-agent`](./github-agent) — the golden example
+## [`prompt-injection-blocked`](./prompt-injection-blocked) — the flagship demo
+
+A prompt-injected agent tries to exfiltrate your email — and physically can't.
+The tools are wrapped with `nominee.guard()`; the deny rule fires **before the
+tool runs**, the delete-the-evidence step is escalated to (and denied by) a
+human, and every attempt is sealed into a signed, tamper-evident receipt chain.
+Doctoring the log is detected. No API keys, no network, one command:
+
+```bash
+cd examples/prompt-injection-blocked
+node run.mjs
+```
+
+## [`ai-sdk-minimal`](./ai-sdk-minimal) / [`ai-sdk-github-agent`](./ai-sdk-github-agent)
+
+Drop nominee into Vercel AI SDK tools — policy + fresh token + approval + audit
+in one `nomineeTool` wrapper (or `guardTools` for a whole tools object).
+
+## [`token-refresh-correctness`](./token-refresh-correctness)
+
+The token-freshness proof: naive concurrent + rotating OAuth refresh fails 7/8;
+nominee gets 8/8 with the same agent code. `node run.mjs`, no mocks that cheat.
+
+## [`github-agent`](./github-agent) — the golden Eve example
 
 An [Eve](https://eve.dev) agent that reviews a pull request and merges it on your
 behalf, after your approval. It shows nominee's core value: a long-running agent
