@@ -45,8 +45,10 @@ see [`../token-refresh-correctness`](../token-refresh-correctness) for the proof
 
 ## When you don't need this
 
-If you're on Eve or already use a managed connector (Vercel Connect, Auth0 Token
-Vault), use it — nominee is for the framework-neutral, no-lock-in, standalone case.
+If your agent is read-only with no authority worth guarding, or your platform's
+native permission system covers you end-to-end, you don't need nominee. Managed
+connectors (Vercel Connect, Auth0 Token Vault) can still sit *under* nominee as
+the token strategy — nominee adds the policy, approvals, and receipts they don't.
 
 ## Demo recording
 

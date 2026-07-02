@@ -10,7 +10,7 @@
 
 <p align="center">
   <strong>Vercel Eve adapter for nominee.</strong><br />
-  Fresh tokens and human-in-the-loop approval — injected automatically into every Eve agent tool.
+  Policy, portable approvals, and receipts on every Eve agent tool — plus a fresh token at call time.
 </p>
 
 > **Note:** Eve is ESM-only, so `nominee-eve` is ESM-only too.
@@ -30,13 +30,16 @@ npm i nominee nominee-eve
 ```mermaid
 flowchart LR
     Agent["Eve Agent\ndecides to call tool"] --> T["nomineeTool()\n(wraps defineTool)"]
-    T --> A{approval?}
-    A -->|yes| AP["nominee.approve()\n⏸ wait for human"]
+    T --> P{"policy:\nallow / deny / ask"}
+    P -->|deny| X["PolicyDeniedError\n(tool never runs)"]
+    P -->|ask| AP["⏸ wait for a\nhuman decision"]
     AP -->|approved| TOK
-    A -->|no| TOK["nominee.token()\nfresh OAuth token"]
-    TOK --> EX["execute(input, ctx)\nctx.token = fresh token"]
-    EX --> Agent2["Result returned\nto Eve Agent"]
+    P -->|allow| TOK["nominee.token()\nfresh token (optional)"]
+    TOK --> EX["execute(input, ctx)"]
+    EX --> R["receipt appended\nhash-chained record"]
 ```
+
+`nomineeTool` authorizes every call against the nominee policy — using the tool's `action` name — **before** `execute` runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides; every outcome (including refusals) lands on the receipt chain. The same policy and receipts travel with you if the agent moves off Eve.
 
 ---
 
@@ -45,10 +48,14 @@ flowchart LR
 ```ts
 // agent/tools/star_repo.ts
 import { nomineeTool } from 'nominee-eve'
-import { Nominee, tokens } from 'nominee'
+import { Nominee, allow, ask, tokens } from 'nominee'
 import { z } from 'zod'
 
 const nominee = new Nominee({
+  policy: {
+    rules: [allow('github.star'), ask('github.delete_repo')],
+    fallback: 'deny',
+  },
   strategy: tokens(({ connection }) =>
     process.env[`${connection.toUpperCase()}_TOKEN`]!
   ),
@@ -59,6 +66,7 @@ export const starRepo = nomineeTool({
   nominee,
   user: 'user_123',
   connection: 'github',                              // fresh token → ctx.token
+  action: 'github.star',                             // the name your policy matches on
   description: 'Star a GitHub repository on behalf of the user',
   inputSchema: z.object({
     repo: z.string().describe('owner/repo to star, e.g. vercel/ai'),
@@ -77,14 +85,16 @@ Eve's `defineTool` is called internally — the output is fully branded and acce
 
 ---
 
-## Human Approval
+## Approvals — Portable, Not Just Eve's
+
+`ask` rules (and `approval: true`, which forces the ask even when the policy allows) route through nominee's approval engine — resolve them from Slack, push, a webhook, or a native strategy flow like Auth0 CIBA. Denials throw `ApprovalDeniedError` before the tool runs, and land on the receipt chain:
 
 ```ts
 export const deleteFile = nomineeTool({
   nominee,
   user: 'user_123',
   connection: 'drive',
-  approval: true,                   // ⏸ pauses until user approves
+  approval: true,                   // ⏸ pauses until a human approves
   action: 'drive.delete',
   description: 'Delete a file from Google Drive',
   inputSchema: z.object({ fileId: z.string() }),
@@ -94,6 +104,8 @@ export const deleteFile = nomineeTool({
   },
 })
 ```
+
+Eve's own interactive web consent still works alongside: pass `needsApproval` (from `eve/tools/approval`) and it's forwarded straight to `defineTool`, independent of nominee's gate.
 
 ---
 
@@ -116,11 +128,13 @@ export const tool2 = nomineeTool({ ... })
 
 ```ts
 execute: async (input, ctx) => {
-  ctx.token     // string — fresh OAuth token for the configured connection
-  ctx.user      // string — the current user ID
-  ctx.eve       // raw Eve tool context
+  ctx.token     // string — fresh token for the configured connection (if any)
+  ctx.user      // string — the resolved principal
+  ctx.eve       // raw Eve tool context (session, getToken, requireAuth, …)
 }
 ```
+
+`user` can be a fixed id or a function of the Eve context: `(ctx) => ctx.session.userId`.
 
 ---
 
@@ -133,7 +147,7 @@ my-agent/
       star_repo.ts     ← nomineeTool() here
       delete_file.ts
   lib/
-    nominee.ts         ← shared Nominee instance
+    nominee.ts         ← shared Nominee instance (policy + strategy)
 ```
 
 ---
