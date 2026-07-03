@@ -109,6 +109,8 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 
 Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
 
+A durable or hibernating agent that reconstructs its `Nominee` instance across restarts can persist receipts itself and pass `receipts: { resume: { seq, prev } }` — the sequence number and hash to continue from — so the new ledger picks up the same chain instead of starting a second genesis.
+
 ---
 
 ## Human-in-the-Loop Approvals
@@ -198,6 +200,8 @@ const unsub = nominee.on((event) => log(event))
 | **Mastra / OpenAI Agents / MCP / anything** | core `nominee.guard()` wraps any object of functions or `{ execute }` tools |
 
 ---
+
+Upgrading from 2.0? It's fully additive — see [Migrating from 2.0](https://nominee.dev/docs/#migrating).
 
 ## Contributing
 

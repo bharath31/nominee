@@ -156,6 +156,8 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 
 By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
 
+A durable or hibernating agent that reconstructs its `Nominee` instance across restarts (a Durable Object, a resumed job) can persist receipts itself and pass `receipts: { resume: { seq, prev } }` to continue the same chain instead of starting a second genesis — see the live agent demo at [nominee.dev/agent](https://nominee.dev/agent) for a worked example.
+
 ## Framework adapters
 
 | Where your agent runs | Integration |
@@ -233,6 +235,8 @@ const unsub = nominee.on((event) => log(event))
 - A read-only agent with no authority worth guarding.
 - Your platform's native permission system already covers you end-to-end and you're happy inside it.
 - You want one fully-managed vendor for tools + auth + policy — use Arcade or Composio directly.
+
+Upgrading from 2.0? It's fully additive, nothing changed shape — see [Migrating from 2.0](https://nominee.dev/docs/#migrating).
 
 ## Contributing
 

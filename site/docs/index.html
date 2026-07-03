@@ -61,16 +61,21 @@
         <a href="#when-not">When you don't need it</a>
         <a href="#quickstart">Quickstart</a>
         <span class="grp">Core</span>
-        <a href="#freshness">Token freshness</a>
+        <a href="#policy">Policy</a>
         <a href="#approval">Approvals</a>
+        <a href="#receipts">Receipts</a>
+        <a href="#delegation">Delegation</a>
         <a href="#audit">Audit</a>
-        <span class="grp">Build</span>
+        <span class="grp">Tokens</span>
+        <a href="#freshness">Token freshness</a>
         <a href="#strategies">Strategies</a>
+        <span class="grp">Build</span>
         <a href="#adapters">Framework adapters</a>
         <span class="grp">Reference</span>
         <a href="#api">Core API</a>
         <a href="#errors">Errors</a>
         <a href="#security">Security model</a>
+        <a href="#migrating">Migrating from 2.0</a>
       </aside>
 
       <article class="docs-main">
@@ -140,28 +145,184 @@
         <section id="quickstart" class="doc-section">
           <h2>Quickstart</h2>
           <pre><code>npm i nominee</code></pre>
-          <p>The whole setup is a function that returns a token. No provider, no signup.</p>
-          <pre><code>import { Nominee } from 'nominee'
+          <p>The whole setup is a policy and one line around your tools. No provider, no signup.</p>
+          <pre><code>import { Nominee, allow, deny, ask } from 'nominee'
 
 const nominee = new Nominee({
-  // bring tokens you already have — env var, DB, OAuth refresh
+  policy: {
+    rules: [
+      allow('email.read'),
+      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
+      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
+      ask('email.delete'),
+    ],
+    fallback: 'deny',
+  },
+  onApprovalRequest: (req) => notifySlack(req), // req.approve() / req.deny()
+})
+
+// One line. Works with plain functions or any framework's { execute } tools.
+const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardEmail }, {
+  user: 'alice',
+})</code></pre>
+          <p>
+            <strong>Denied calls throw <code>PolicyDeniedError</code> before the tool runs.</strong>
+            Escalated (<code>ask</code>) calls block until a human decides. Every outcome — allow,
+            deny, ask, and the eventual approval — lands on the
+            <a href="#receipts">receipt chain</a>.
+          </p>
+
+          <h3>When tools need third-party tokens</h3>
+          <p>
+            Tools that act on APIs also need credentials — fresh ones, at call time, never
+            sitting in the model's context. Add a <code>strategy</code>; it's optional, and a
+            plain function is the simplest one:
+          </p>
+          <pre><code>const nominee = new Nominee({
+  policy, // as above
   strategy: ({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!,
-  onAudit: (event) => auditDb.insert(event), // optional
-  agent: 'triage-bot',                       // optional, recorded in the chain
 })
 
 // at the moment the tool runs — always fresh, cached until just before expiry
 const token = await nominee.token({ user: 'alice', connection: 'github' })</code></pre>
           <p>
             <strong>Rule of thumb:</strong> never store the returned token in your own agent
-            state. Call <code>nominee.token()</code> at the moment of the call — that's what
-            survives long-running and durable execution.
+            state. Call <code>nominee.token()</code> at the moment of the call — see
+            <a href="#freshness">Token freshness</a> for why.
           </p>
           <p>
             Don't want to bring your own tokens? Let Auth0 manage Token Vault + push approvals,
             also one line: <code>new Nominee({ strategy: auth0() })</code> — see
             <a href="#strategies">Strategies</a>.
           </p>
+        </section>
+
+        <section id="policy" class="doc-section">
+          <h2>Policy</h2>
+          <p>
+            Declarative <code>allow</code> / <code>deny</code> / <code>ask</code> rules over
+            tool calls — the model cannot talk its way past a <code>deny</code>. Semantics are
+            small enough to hold in your head:
+          </p>
+          <ul>
+            <li><strong>First match wins</strong> within a policy; rules are checked in order.</li>
+            <li><strong>No match → <code>fallback</code></strong> (default <code>'ask'</code> — unknown actions reach a human; set <code>'deny'</code> for default-deny, or <code>'allow'</code> for report-only auditing).</li>
+            <li><strong><code>when</code> predicates</strong> see <code>{ tool, input, user, chain }</code> — gate on arguments, not just tool names.</li>
+            <li><strong>Glob patterns</strong> match tool names: <code>allow('github.*')</code>, <code>deny('*.delete')</code>.</li>
+            <li><strong>Budgets</strong>: <code>allow('search.*', { max: 20 })</code> — the 21st call escalates to a human instead of failing silently.</li>
+          </ul>
+          <pre><code>import { allow, deny, ask } from 'nominee'
+
+allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') })
+deny('email.forward', { reason: 'external forwarding is exfiltration' })
+ask('repo.delete', { reason: 'destructive', timeoutMs: 5 * 60_000 })
+allow('search.web', { max: 20 })  // budget: call #21 asks a human</code></pre>
+          <p>Dry-run any call without consuming budgets, asking anyone, or writing a receipt:</p>
+          <pre><code>await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'deny', ... }</code></pre>
+        </section>
+
+        <section id="approval" class="doc-section">
+          <h2>Approvals</h2>
+          <p>Gate sensitive actions. <code>approve()</code> blocks until a decision and throws <code>ApprovalDeniedError</code> if denied or expired.</p>
+          <pre><code>try {
+  await nominee.approve({
+    user: 'alice',
+    action: 'repo.delete',
+    detail: { repo: 'alice/old-project' },
+    timeoutMs: 5 * 60_000, // optional; default waits indefinitely
+  })
+  // approved — proceed
+} catch (err) {
+  // ApprovalDeniedError: denied or expired
+}</code></pre>
+          <p>
+            If the strategy implements native approval (e.g. Auth0 CIBA), nominee delegates to it.
+            Otherwise the built-in engine pauses until your webhook resolves it:
+          </p>
+          <pre><code>// in your Nominee config:
+onApprovalRequest: (req) => notifyUser(req), // req.id, req.user, req.action, req.detail
+
+// later, from your approval webhook/handler:
+nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
+        </section>
+
+        <section id="receipts" class="doc-section">
+          <h2>Receipts</h2>
+          <p>
+            Every decision, approval, and token grant appends to a hash chain — each receipt's
+            hash covers its content plus the previous hash, so editing or deleting <em>any</em>
+            record breaks verification of everything after it. With a signing key, hashes become
+            HMACs, so only key-holders can forge the chain.
+          </p>
+          <pre><code>const nominee = new Nominee({
+  policy,
+  receipts: {
+    key: process.env.RECEIPT_KEY,          // optional HMAC signing
+    onReceipt: (r) => auditLog.write(r),   // stream to your sink
+  },
+})
+
+nominee.receipts          // the chain so far
+nominee.verifyReceipts()  // { ok: true, checked: 128 }
+
+// Later, offline, from your log sink:
+import { verifyReceipts } from 'nominee'
+verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }</code></pre>
+          <p>
+            By default inputs are recorded as <code>inputHash</code> (SHA-256 of the canonical
+            JSON) — provable without writing user data into logs.
+            <code>receipts: { input: 'raw' }</code> or <code>'none'</code> change that. Pass
+            <code>receipts: false</code> to disable receipts entirely.
+          </p>
+          <p>
+            For a durable or hibernating agent that reconstructs its <code>Nominee</code>
+            instance across restarts (a Durable Object, a resumed job), persist the receipts
+            yourself and pass <code>resume: { seq, prev }</code> — the sequence number and hash
+            to continue from — so the new ledger picks up the same chain instead of starting a
+            second genesis:
+          </p>
+          <pre><code>const last = persistedReceipts.at(-1)
+const nominee = new Nominee({
+  policy,
+  receipts: {
+    key,
+    onReceipt: (r) => persistedReceipts.push(r),
+    resume: last ? { seq: persistedReceipts.length, prev: last.hash } : undefined,
+  },
+})</code></pre>
+          <p>
+            See <a href="https://nominee.dev/agent">the live agent demo</a> for a worked example:
+            a Cloudflare Durable Object that hibernates mid-session and resumes the same receipt
+            chain when it wakes.
+          </p>
+        </section>
+
+        <section id="delegation" class="doc-section">
+          <h2>Delegation</h2>
+          <p>
+            An orchestrator can spawn sub-agents whose policies can only <strong>narrow</strong>
+            authority, never widen it. Across a delegation chain, the strictest outcome wins
+            (<code>deny</code> &gt; <code>ask</code> &gt; <code>allow</code>) — a sub-agent can
+            never allow what its parent denies.
+          </p>
+          <pre><code>const researcher = nominee.delegate('researcher', {
+  policy: [deny('email.*'), deny('github.merge_*')],
+})
+// researcher's receipts carry chain: ['orchestrator', 'researcher']</code></pre>
+          <p>
+            The sub-agent shares the parent's token cache, receipt chain, and audit stream, but
+            every event from it carries the extended identity chain — so a delegated action is
+            attributable to the exact sub-agent that took it. A sub-agent's own
+            <code>fallback</code> defaults to <code>'allow'</code> (its rules are restrictions
+            layered on top of the chain, not a fresh default-ask).
+          </p>
+        </section>
+
+        <section id="audit" class="doc-section">
+          <h2>Audit</h2>
+          <p>Every privileged op emits an event to <code>onAudit</code> / <code>on()</code>. Event <code>type</code> is one of:</p>
+          <p><code>policy.decision</code> · <code>token.issued</code> · <code>token.cached</code> · <code>token.error</code> · <code>token.invalidated</code> · <code>token.exchanged</code> · <code>approval.requested</code> · <code>approval.resolved</code> · <code>authz.checked</code></p>
+          <p>Each event includes <code>{ type, user, agent?, connection?, action?, resource?, decision?, effect?, rule?, reason?, chain?, at, detail? }</code>. <code>effect</code>, <code>rule</code>, and <code>reason</code> are set on <code>policy.decision</code> events — the same fields recorded on the matching receipt. <code>chain</code> is the delegation chain (e.g. <code>['orchestrator', 'research-agent']</code>), <code>at</code> is epoch ms. Pipe it to durable storage so you can always answer "who authorized this, and on whose behalf?".</p>
         </section>
 
         <section id="freshness" class="doc-section">
@@ -209,38 +370,6 @@ const nominee = new Nominee({
             <code>nominee.invalidate(user, connection)</code>; the next <code>token()</code>
             re-resolves. <code>token({ force: true })</code> bypasses the cache for one call.
           </p>
-        </section>
-
-        <section id="approval" class="doc-section">
-          <h2>Approvals</h2>
-          <p>Gate sensitive actions. <code>approve()</code> blocks until a decision and throws <code>ApprovalDeniedError</code> if denied or expired.</p>
-          <pre><code>try {
-  await nominee.approve({
-    user: 'alice',
-    action: 'repo.delete',
-    detail: { repo: 'alice/old-project' },
-    timeoutMs: 5 * 60_000, // optional; default waits indefinitely
-  })
-  // approved — proceed
-} catch (err) {
-  // ApprovalDeniedError: denied or expired
-}</code></pre>
-          <p>
-            If the strategy implements native approval (e.g. Auth0 CIBA), nominee delegates to it.
-            Otherwise the built-in engine pauses until your webhook resolves it:
-          </p>
-          <pre><code>// in your Nominee config:
-onApprovalRequest: (req) => notifyUser(req), // req.id, req.user, req.action, req.detail
-
-// later, from your approval webhook/handler:
-nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
-        </section>
-
-        <section id="audit" class="doc-section">
-          <h2>Audit</h2>
-          <p>Every privileged op emits an event to <code>onAudit</code> / <code>on()</code>. Event <code>type</code> is one of:</p>
-          <p><code>token.issued</code> · <code>token.cached</code> · <code>token.error</code> · <code>token.invalidated</code> · <code>token.exchanged</code> · <code>approval.requested</code> · <code>approval.resolved</code> · <code>authz.checked</code></p>
-          <p>Each event includes <code>{ type, user, agent?, connection?, action?, resource?, decision?, chain?, at, detail? }</code>. <code>chain</code> is the delegation chain (e.g. <code>['orchestrator', 'research-agent']</code>), <code>at</code> is epoch ms. Pipe it to durable storage so you can always answer "who authorized this, and on whose behalf?".</p>
         </section>
 
         <section id="strategies" class="doc-section">
@@ -344,6 +473,30 @@ const starRepo = nomineeTool({
             <li><strong>Attribute delegated actions.</strong> Use <code>delegate()</code> / <code>exchange()</code> so a sub-agent's actions carry the full identity chain.</li>
             <li>Report vulnerabilities privately — see <a href="https://github.com/bharath31/nominee/blob/main/SECURITY.md">SECURITY.md</a>.</li>
           </ul>
+        </section>
+
+        <section id="migrating" class="doc-section">
+          <h2>Migrating from 2.0</h2>
+          <p>
+            2.1 is fully additive — nothing from 2.0's constructor options or method signatures
+            changed shape. A 2.0 nominee that only used <code>strategy</code>,
+            <code>token()</code>, <code>approve()</code>, and <code>onAudit</code> keeps working
+            exactly as written.
+          </p>
+          <p>What's new to opt into:</p>
+          <ul>
+            <li><code>policy</code> — add rules and call <code>authorize()</code> / <code>guard()</code> to start enforcing before tools run, instead of only brokering tokens.</li>
+            <li><code>receipts</code> — on by default (with a fresh, empty chain) unless you pass <code>receipts: false</code>.</li>
+            <li><code>delegate()</code> — new, for sub-agent narrowing.</li>
+          </ul>
+          <p>
+            One behavior note: <code>nomineeTool</code>'s <code>approval: true</code> (in
+            <code>nominee-ai</code> and <code>nominee-eve</code>) now routes through
+            <code>authorize({ requireApproval: true })</code> under the hood instead of calling
+            <code>approve()</code> directly — the user-visible behavior (blocks until a human
+            decides, throws <code>ApprovalDeniedError</code> on denial) is unchanged, but the
+            decision and the approval now both land on the receipt chain.
+          </p>
         </section>
       </article>
     </div>
