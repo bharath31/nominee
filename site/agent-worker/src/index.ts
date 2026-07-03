@@ -15,6 +15,11 @@ interface Env {
   RESEND_API_KEY: string
   FROM: string
   NOMINEE_RECEIPT_KEY: string
+  // Cloudflare Web Analytics site token (from the dashboard, Pages project ->
+  // Web Analytics -> manual setup). Optional: Pages' own automatic injection
+  // covers the static site, but never this worker (/agent* is a separate
+  // service) - set this var once you have the token to measure it too.
+  CF_BEACON_TOKEN?: string
 }
 
 // Fire-and-forget demo funnel event. Never lets analytics break the demo, and
@@ -223,7 +228,7 @@ export default {
         `https://do/resolve?decision=${decision}&k=${encodeURIComponent(k)}`,
       )
       const out = (await r.json().catch(() => ({}))) as { ok?: boolean; gistUrl?: string }
-      return new Response(approvalLandingPage(decision, out, id), {
+      return new Response(approvalLandingPage(decision, out, id, env.CF_BEACON_TOKEN), {
         status: r.status,
         headers: { 'content-type': 'text/html; charset=utf-8' },
       })
@@ -508,7 +513,7 @@ export default {
 
     // Only the vaulted state needs the live Guardian enrollment status.
     const enrollment = session?.vaulted ? await getEnrollment(env, session.sub) : null
-    return new Response(page(session, enrollment), {
+    return new Response(page(session, enrollment, env.CF_BEACON_TOKEN), {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   },
@@ -1079,6 +1084,7 @@ function approvalLandingPage(
   decision: string,
   out: { ok?: boolean; gistUrl?: string },
   id: string,
+  beaconToken?: string,
 ): string {
   const ok = decision === 'approved' && out.ok
   const head = ok
@@ -1091,8 +1097,12 @@ function approvalLandingPage(
     : decision === 'denied'
       ? 'The agent stayed paused and took no action on your account.'
       : 'This approval link may have already been used, or the session expired.'
+  const beacon = beaconToken
+    ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='${JSON.stringify({ token: beaconToken }).replace(/'/g, '&#39;')}'></script>`
+    : ''
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>nominee · ${escapeHtml(head)}</title>
+${beacon}
 <style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(140,47,42,.05),transparent 60%),#fff;color:#0a1020;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
 .card{max-width:440px;text-align:center;background:#fbfbfc;border:1px solid #e5e7ee;border-radius:16px;padding:40px 28px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 24px 60px -42px rgba(10,16,32,.3)}
 h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#8c2f2a}
@@ -1136,7 +1146,7 @@ const ICON_MAIL =
 const ICON_PHONE =
   '<svg class="seg-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"/><path d="M7 12.2h2"/></svg>'
 
-function page(session: Session | null, enrollment: Enrollment | null) {
+function page(session: Session | null, enrollment: Enrollment | null, beaconToken?: string) {
   const name = session?.name || session?.sub || 'you'
   const who = escapeHtml(name)
 
@@ -1243,7 +1253,7 @@ function page(session: Session | null, enrollment: Enrollment | null) {
     </div>`
 
   const isReady = !!session && !!session.vaulted
-  return html(!session ? loggedOut : isReady ? ready : needVault, isReady)
+  return html(!session ? loggedOut : isReady ? ready : needVault, isReady, beaconToken)
 }
 
 // Tiny shim: if Auth0 returned connect_code in the URL fragment (not sent to the
@@ -1257,13 +1267,20 @@ else{document.body.textContent='Missing connect_code - please reconnect.';}
 </script></body></html>`
 }
 
-function html(inner: string, loggedIn: boolean) {
+function html(inner: string, loggedIn: boolean, beaconToken?: string) {
+  // Cloudflare Web Analytics: Pages' automatic injection never reaches this
+  // worker (/agent* is a separate service), so this is the only way to
+  // measure it. No-op until CF_BEACON_TOKEN is set.
+  const beacon = beaconToken
+    ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='${JSON.stringify({ token: beaconToken }).replace(/'/g, '&#39;')}'></script>`
+    : ''
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>nominee · live agent session</title>
 <link rel="icon" href="${ORIGIN}/assets/icon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+${beacon}
 <style>
 :root{--bg:#faf9f5;--surface:#ffffff;--surface-2:#f2f0e8;--ink:#0a1020;--ink-soft:#3a4154;--muted:#71798c;--line:#e7e3d8;--seal:#8c2f2a;--seal-tint:rgba(140,47,42,.08);--navy:#0b1020;--navy-hover:#1b2438;--ok:#1f6b4a;--err:#cf3520;--code-bg:#0b1226;--code-text:#cdd5e6;--sans:'Schibsted Grotesk',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
 *{margin:0;box-sizing:border-box}[hidden]{display:none!important}body{font-family:var(--sans);background:radial-gradient(1100px 540px at 85% -14%,rgba(140,47,42,.05),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
