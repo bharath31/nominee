@@ -1,12 +1,15 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { stepCountIs, streamText } from 'ai'
-import { Nominee } from 'nominee'
+import { Nominee, ask } from 'nominee'
 import { nomineeTool } from 'nominee-ai'
 import { z } from 'zod'
 
 // 1. One nominee instance. The strategy is just a function — no provider, no
 //    signup. It resolves a FRESH token at the moment of every tool call.
 const nominee = new Nominee({
+  // The policy: a human signs off on star_repo before it runs. Everything
+  // else falls back to ask too (the default), so nothing runs unreviewed.
+  policy: [ask('star_repo')],
   strategy: ({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!,
   // No SaaS for approvals either: decide here (Slack, a web button, the terminal…).
   onApprovalRequest: (req) => {
@@ -16,12 +19,12 @@ const nominee = new Nominee({
   onAudit: (e) => console.log('[audit]', e.type, e.action ?? e.connection ?? ''),
 })
 
-// 2. Wrap any AI SDK tool: fresh token + human approval + audit, one wrapper.
+// 2. Wrap any AI SDK tool: policy + fresh token + human approval + audit, one
+//    wrapper. `action` is what the policy above matches on.
 const starRepo = nomineeTool({
   nominee,
   user: 'demo-user',
   connection: 'github',
-  approval: true,
   action: 'star_repo',
   description: 'Star a GitHub repository on behalf of the user',
   inputSchema: z.object({ owner: z.string(), repo: z.string() }),

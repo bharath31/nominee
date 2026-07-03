@@ -26,7 +26,8 @@ nominee gets 8/8 with the same agent code. `node run.mjs`, no mocks that cheat.
 ## [`github-agent`](./github-agent) — the golden Eve example
 
 An [Eve](https://eve.dev) agent that reviews a pull request and merges it on your
-behalf, after your approval. It shows nominee's core value: a long-running agent
+behalf, scoped by a real `nominee` policy (reads run free, a merge asks — every
+decision receipted) — and, since a merge is also a long-running action, one
 whose access **survives the approval pause** because nominee re-resolves it at
 action time. Three levels, picked by what you say in the chat:
 

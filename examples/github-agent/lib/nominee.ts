@@ -1,4 +1,4 @@
-import { Nominee } from 'nominee'
+import { Nominee, allow, ask } from 'nominee'
 import { requestAccess } from './broker.js'
 
 // LEVEL 2 — with nominee (works for everybody).
@@ -13,4 +13,18 @@ export const nominee = new Nominee({
     return { token, expiresAt }
   },
   agent: 'github-agent',
+  // What this agent may do, before either tool runs: reads run free, merges
+  // ask. The ask is honestly resolved below by the real human decision Eve's
+  // own `needsApproval: always()` gate (in merge_pr_with_nominee.ts) already
+  // collected in the chat, before execute() — and hence this authorize() —
+  // ever ran.
+  policy: {
+    rules: [
+      allow('github.review_pr'),
+      ask('github.merge_pr_with_nominee', { reason: 'a merge is a real write' }),
+    ],
+    fallback: 'deny',
+  },
+  receipts: { key: process.env.NOMINEE_RECEIPT_KEY ?? 'demo-signing-key' },
+  onApprovalRequest: (req) => req.approve(),
 })

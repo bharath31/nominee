@@ -31,4 +31,7 @@ export const nomineeAuth0 = new Nominee({
   // Safety net: if CIBA somehow isn't wired (e.g. AUTH0_USER_SUB missing), the
   // built-in approval engine would otherwise wait forever. Time out instead.
   approvalTimeoutMs: 120_000,
+  // The tool forces approval (`approval: true`), settled here by a real
+  // Auth0 CIBA push to your phone — every decision still gets a receipt.
+  receipts: { key: process.env.NOMINEE_RECEIPT_KEY ?? 'demo-signing-key' },
 })

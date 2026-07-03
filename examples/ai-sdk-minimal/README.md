@@ -10,15 +10,19 @@ cp .env.example .env   # set GITHUB_TOKEN and OPENROUTER_API_KEY
 node --env-file=.env --import tsx agent.ts
 ```
 
-The whole integration is `nomineeTool({ ... })`:
+The whole integration is one `policy` and one `nomineeTool({ ... })`:
 
 ```ts
+const nominee = new Nominee({
+  policy: [ask('star_repo')],   // the policy gates execute behind a human OK
+  strategy: ({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!,
+})
+
 const starRepo = nomineeTool({
   nominee,
   user: 'demo-user',
   connection: 'github',
-  approval: true,            // gates execute behind a human OK
-  action: 'star_repo',
+  action: 'star_repo',          // what the policy above matches on
   description: 'Star a GitHub repository on behalf of the user',
   inputSchema: z.object({ owner: z.string(), repo: z.string() }),
   async execute({ owner, repo }, { token }) {
