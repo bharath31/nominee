@@ -27,5 +27,13 @@ class_name = "AgentSession"
 tag = "v1"
 new_sqlite_classes = ["AgentSession"]
 
+# Demo funnel events (session_start/blocked/approved/denied/published/error) -
+# queryable via the Analytics Engine SQL API or the CF dashboard. Optional in
+# code (Env.FUNNEL is `?:`), so local dev without this binding still works.
+[[analytics_engine_datasets]]
+binding = "FUNNEL"
+dataset = "nominee_agent_funnel"
+
 # Secrets (set with `wrangler secret put <NAME>`):
-#   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, SESSION_SECRET, RESEND_API_KEY
+#   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, SESSION_SECRET, RESEND_API_KEY,
+#   NOMINEE_RECEIPT_KEY
