@@ -21,4 +21,12 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://nominee.dev/blog/oauth-refresh-is-probably-broken/</loc>
+    <lastmod>2026-06-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- site/blog/your-agent-logs-in-as-you/ intentionally omitted: shell only,
+       add once the real copy replaces the placeholders (see brand/README.md). -->
 </urlset>

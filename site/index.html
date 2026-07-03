@@ -51,6 +51,78 @@
         "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" }
       }
     </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Isn't this just an if-statement with extra steps?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The check itself, yes. What you're buying is everything around it: ask-rules that escalate to a human instead of silently failing, budgets that let 20 calls through and ask on the 21st, delegation that a sub-agent can only narrow, a tamper-evident receipt of every decision, and the same policy enforced whether your agent runs on the Vercel AI SDK, Eve, or a bare function."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can the model talk its way past a deny?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. The model never sees the policy — it only ever gets the tools you handed it via nominee.guard(). A deny rule throws PolicyDeniedError inside the wrapper, before your tool's own code runs. The call physically doesn't happen."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do receipts store my data?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Not by default. Tool inputs are recorded as inputHash, a SHA-256 of the canonical JSON, so you can prove what an approver saw without writing user data into the log. Pass receipts: { input: 'raw' } for the full input instead, or 'none' to skip it entirely."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can receipts be forged?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Tamper-evident, not non-repudiation. Without a signing key the chain is publicly re-computable: anyone can verify it wasn't edited, but anyone with write access to the whole log could also rewrite it consistently. Pass an HMAC key and only key-holders can produce valid hashes."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is this different from Arcade, Composio, or Vercel Connect?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Those are hosted platforms for tool-calling and connectors — SaaS, with the policy brain on their side. nominee is an MIT, in-process, framework-neutral policy layer that can sit on top of any of them (or your own DB, OAuth2, or Auth0) as the token strategy."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does nominee replace my auth provider (Auth0, Clerk, WorkOS)?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Authentication (who is the user) is a separate, solved problem. nominee is the layer above it, deciding what an already-authenticated agent may do as that user. Auth0 is one optional strategy among several, not a requirement."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What happens if I don't configure a policy?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Everything is allowed, and still receipted. nominee doesn't restrict anything until you add rules, so you can adopt it incrementally: wrap your tools first, watch the receipt chain, then tighten the policy once you know what your agent actually does."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "When don't I need nominee?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A read-only agent with no authority worth guarding. Your platform's native permission system already covers you end-to-end. Or you want one fully-managed vendor for tools, auth, and policy together — use Arcade or Composio directly."
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div class="frame" aria-hidden="true"></div>
@@ -138,6 +210,39 @@
 
       <section class="section" id="proof">
         <div class="section-head">
+          <p class="eyebrow">Run it yourself — no API keys, no network</p>
+          <h2>An injected agent tries to exfiltrate your data. Policy says no.</h2>
+          <p>
+            The tools are wrapped with <code>nominee.guard()</code>. The model obeys the
+            injection anyway — models do — and the deny rule fires
+            <strong>before the tool runs</strong>. Every attempt, allowed or refused, is
+            sealed into a signed, tamper-evident receipt chain. One command:
+          </p>
+        </div>
+        <div class="run" aria-label="Output of examples/prompt-injection-blocked">
+          <div class="run-top">
+            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
+            <span class="run-title">$ node run.mjs</span>
+          </div>
+          <div class="run-body">
+            <p class="tl"><span class="muted">2.</span> the model obeys the injection and tries to exfiltrate</p>
+            <p class="tl"><span class="ok">✓</span> BLOCKED before the tool ran — <span class="hl">deny:email.forward</span> <span class="muted">(exfiltration)</span></p>
+            <p class="tl"><span class="muted">5.</span> the receipt chain (signed, tamper-evident)</p>
+            <p class="tl dim">&nbsp;&nbsp;#0 policy.decision email.read&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow&nbsp;&nbsp;5493c2c54cd5</p>
+            <p class="tl dim">&nbsp;&nbsp;#1 policy.decision email.forward&nbsp;&nbsp;deny&nbsp;&nbsp;&nbsp;ca6a069febdb</p>
+            <p class="tl dim">&nbsp;&nbsp;#2 policy.decision email.delete&nbsp;&nbsp;&nbsp;ask&nbsp;&nbsp;&nbsp;&nbsp;d2fe628a5202</p>
+            <p class="tl dim">&nbsp;&nbsp;#4 approval.resolved email.delete&nbsp;denied&nbsp;2b0ac4aa3ad8</p>
+            <p class="tl dim">&nbsp;&nbsp;#5 policy.decision email.forward&nbsp;&nbsp;allow&nbsp;&nbsp;fd17436d92c0</p>
+            <p class="tl"><span class="ok">✓</span> chain verifies: 6 receipts intact</p>
+            <p class="tl"><span class="ok">✓</span> doctored log detected — broken at #1</p>
+          </div>
+        </div>
+        <p class="proof-link">
+          <code>cd examples/prompt-injection-blocked && node run.mjs</code> —
+          <a href="https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked">source ↗</a>
+        </p>
+
+        <div class="section-head" style="margin-top: 56px">
           <p class="eyebrow">Tokens, the supporting act — settled live</p>
           <h2>Same agent. One outlives its token.</h2>
           <p>
@@ -432,6 +537,91 @@
               <span class="prompt">$</span><span class="cmd">npm i nominee-auth0</span><span class="copy-hint">copy</span>
             </button>
           </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <div class="section-head center">
+          <p class="eyebrow">FAQ</p>
+          <h2>The questions people actually ask.</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
+            <p>
+              The check itself, yes. What you're buying is everything around it: ask-rules
+              that escalate to a human instead of silently failing, budgets that let 20 calls
+              through and ask on the 21st, delegation that a sub-agent can only narrow, a
+              tamper-evident receipt of every decision, and the same policy enforced whether
+              your agent runs on the Vercel AI SDK, Eve, or a bare function — one enforcement
+              point instead of scattered if-statements per tool, per framework.
+            </p>
+          </details>
+          <details>
+            <summary><span>Can the model talk its way past a <code>deny</code>?</span></summary>
+            <p>
+              No. The model never sees the policy — it only ever gets the tools you handed it
+              via <code>nominee.guard()</code>. A <code>deny</code> rule throws
+              <code>PolicyDeniedError</code> inside the wrapper, before your tool's own code
+              runs. There's no prompt for the model to argue with; the call physically doesn't
+              happen.
+            </p>
+          </details>
+          <details>
+            <summary><span>Do receipts store my data?</span></summary>
+            <p>
+              Not by default. Tool inputs are recorded as <code>inputHash</code> — a SHA-256 of
+              the canonical JSON — so you can prove what an approver saw without writing user
+              data into the log. Pass <code>receipts: { input: 'raw' }</code> if you want the
+              full input on the record instead, or <code>'none'</code> to skip it entirely.
+            </p>
+          </details>
+          <details>
+            <summary><span>Can receipts be forged?</span></summary>
+            <p>
+              Tamper-evident, not non-repudiation — say that plainly. Without a signing key,
+              the chain is publicly re-computable: anyone can verify it wasn't edited, but
+              anyone with write access to the whole log could also rewrite it consistently.
+              Pass an HMAC <code>key</code> and only key-holders can produce valid hashes —
+              that's the guarantee to reach for once receipts leave your own process.
+            </p>
+          </details>
+          <details>
+            <summary><span>How is this different from Arcade, Composio, or Vercel Connect?</span></summary>
+            <p>
+              Those are hosted platforms for tool-calling and connectors — good products, but
+              SaaS: per-call billing, and the policy brain lives on their side. nominee is an
+              MIT, in-process, framework-neutral policy layer that can sit
+              <em>on top of</em> any of them (or your own DB, OAuth2, or Auth0) as the token
+              strategy. Bring your own vault; keep the policy, approvals, and receipts local.
+            </p>
+          </details>
+          <details>
+            <summary><span>Does nominee replace my auth provider (Auth0, Clerk, WorkOS)?</span></summary>
+            <p>
+              No — authentication (who is the user) is a separate, solved problem. nominee is
+              the layer above it, deciding what an already-authenticated agent may
+              <em>do</em> as that user. It composes with whatever you already use; Auth0 is
+              one optional strategy among several, not a requirement.
+            </p>
+          </details>
+          <details>
+            <summary><span>What happens if I don't configure a policy?</span></summary>
+            <p>
+              Everything is allowed — and still receipted. nominee doesn't restrict anything
+              until you add rules, so you can adopt it incrementally: wrap your tools first,
+              watch the receipt chain to see what your agent actually does, then tighten the
+              policy once you know.
+            </p>
+          </details>
+          <details>
+            <summary><span>When don't I need nominee?</span></summary>
+            <p>
+              A read-only agent with no authority worth guarding. Your platform's native
+              permission system already covers you end-to-end. Or you want one fully-managed
+              vendor for tools, auth, and policy together — use Arcade or Composio directly.
+            </p>
+          </details>
         </div>
       </section>
 

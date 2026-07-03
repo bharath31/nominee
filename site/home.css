@@ -378,6 +378,17 @@ footer { max-width: var(--maxw); margin: 0 auto; padding: 40px var(--pad) 56px; 
 .when-not li::before { content: '—'; position: absolute; left: 0; color: var(--seal); }
 .when-not-foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
 
+/* ---- FAQ ------------------------------------------------------------- */
+.faq { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; }
+.faq details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 4px 22px; }
+.faq details[open] { border-color: var(--seal-line); }
+.faq summary { list-style: none; cursor: pointer; padding: 18px 0; font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: -0.01em; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--seal); font-size: 20px; font-weight: 400; flex: none; }
+.faq details[open] summary::after { content: '\2212'; }
+.faq details p { color: var(--ink-soft); font-size: 15px; line-height: 1.6; padding: 0 0 20px; }
+.faq details p code { font-family: var(--mono); font-size: 0.92em; color: var(--seal); background: var(--seal-tint); padding: 1px 6px; border-radius: 5px; }
+
 /* ---- a11y --------------------------------------------------------------- */
 :focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; border-radius: 3px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
