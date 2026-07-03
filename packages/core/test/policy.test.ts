@@ -138,3 +138,41 @@ describe('PolicyEngine', () => {
     expect(d.reason).toBe('no policy configured')
   })
 })
+
+describe('when predicate typing', () => {
+  // The published README/llms.txt snippet, verbatim — must compile without a
+  // cast. `input` defaults to `any` so untyped property access just works.
+  it('compiles the untyped README snippet and narrows correctly', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
+          deny('email.forward', { reason: 'external forwarding is exfiltration' }),
+        ],
+        fallback: 'deny',
+      },
+    ])
+    const call = (to: string) => ({ tool: 'email.forward', input: { to }, user: 'alice' })
+    expect((await engine.evaluate(call('a@acme.com'))).effect).toBe('allow')
+    expect((await engine.evaluate(call('a@evil.com'))).effect).toBe('deny')
+  })
+
+  it('supports an explicit type argument for stricter callers', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow<{ to: string }>('email.forward', {
+            when: ({ input }) => input?.to.endsWith('@acme.com') ?? false,
+          }),
+        ],
+        fallback: 'deny',
+      },
+    ])
+    const d = await engine.evaluate({
+      tool: 'email.forward',
+      input: { to: 'a@acme.com' },
+      user: 'a',
+    })
+    expect(d.effect).toBe('allow')
+  })
+})

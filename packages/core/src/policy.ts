@@ -30,12 +30,14 @@ export interface ToolCall {
   chain?: string[]
 }
 
-export interface RuleOptions {
+export interface RuleOptions<TInput = any> {
   /**
    * Argument-level condition: the rule only matches when this returns true.
-   * Keep predicates pure and fast — they run on every candidate call.
+   * Keep predicates pure and fast — they run on every candidate call. The
+   * call's `input` type defaults to `any` (call sites vary by tool); narrow
+   * it by passing a type argument, e.g. `allow<{ to: string }>(...)`.
    */
-  when?: (call: ToolCall) => boolean | Promise<boolean>
+  when?: (call: Omit<ToolCall, 'input'> & { input?: TInput }) => boolean | Promise<boolean>
   /**
    * Budget for `allow` rules: after this rule has allowed `max` calls for a
    * given user, further matches escalate to `'ask'`. Ignored on deny/ask.
@@ -54,17 +56,20 @@ export interface Rule extends RuleOptions {
 }
 
 /** Allow matching calls to run without a human in the loop. */
-export function allow(tools: string | string[], opts: RuleOptions = {}): Rule {
+export function allow<TInput = any>(
+  tools: string | string[],
+  opts: RuleOptions<TInput> = {},
+): Rule {
   return { effect: 'allow', tools: Array.isArray(tools) ? tools : [tools], ...opts }
 }
 
 /** Refuse matching calls outright — the model cannot talk its way past this. */
-export function deny(tools: string | string[], opts: RuleOptions = {}): Rule {
+export function deny<TInput = any>(tools: string | string[], opts: RuleOptions<TInput> = {}): Rule {
   return { effect: 'deny', tools: Array.isArray(tools) ? tools : [tools], ...opts }
 }
 
 /** Pause matching calls until a human approves (via the approval engine). */
-export function ask(tools: string | string[], opts: RuleOptions = {}): Rule {
+export function ask<TInput = any>(tools: string | string[], opts: RuleOptions<TInput> = {}): Rule {
   return { effect: 'ask', tools: Array.isArray(tools) ? tools : [tools], ...opts }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "nominee-ai",
-  "version": "2.1.0",
+  "version": "2.0.2",
   "description": "Nominee adapter for the Vercel AI SDK — policy, approvals, receipts, and fresh tokens for AI SDK tools (guardTools / nomineeTool)",
   "type": "module",
   "main": "./dist/index.cjs",

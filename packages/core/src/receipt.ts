@@ -65,6 +65,14 @@ export interface ReceiptOptions {
   input?: 'hash' | 'raw' | 'none'
   /** Called with every appended receipt — persist to a file, DB, or log sink. */
   onReceipt?: (receipt: Receipt) => void
+  /**
+   * Continue an existing chain instead of starting a new one — for agents
+   * that persist receipts externally and reload across restarts (e.g. a
+   * hibernating Durable Object). `seq` is the next sequence number to assign
+   * (the count of already-persisted receipts); `prev` is the hash of the
+   * last persisted receipt (or `"genesis"` if none exist yet).
+   */
+  resume?: { seq: number; prev: string }
 }
 
 export interface VerifyResult {
@@ -87,14 +95,29 @@ function computeHash(receipt: Omit<Receipt, 'hash'>, key?: string): string {
 /**
  * Verify a receipt chain (e.g. one exported via {@link ReceiptLedger.toJSONL},
  * or read back from your log sink). Pass the same `key` used to write it.
+ *
+ * Pass `resume` to verify one segment of a longer chain — e.g. the receipts
+ * appended since a hibernating agent last checkpointed — starting from the
+ * expected `seq`/`prev` rather than genesis. Verifying the full, concatenated
+ * chain from the start needs no `resume`.
  */
-export function verifyReceipts(receipts: Receipt[], opts: { key?: string } = {}): VerifyResult {
-  let prev = GENESIS
+export function verifyReceipts(
+  receipts: Receipt[],
+  opts: { key?: string; resume?: { seq: number; prev: string } } = {},
+): VerifyResult {
+  let prev = opts.resume?.prev ?? GENESIS
+  const baseSeq = opts.resume?.seq ?? 0
   for (let i = 0; i < receipts.length; i++) {
     const r = receipts[i]
-    if (!r) return { ok: false, checked: i, brokenAt: i, reason: 'missing receipt' }
-    if (r.seq !== i) {
-      return { ok: false, checked: i, brokenAt: r.seq, reason: `expected seq ${i}, got ${r.seq}` }
+    const expectedSeq = baseSeq + i
+    if (!r) return { ok: false, checked: i, brokenAt: expectedSeq, reason: 'missing receipt' }
+    if (r.seq !== expectedSeq) {
+      return {
+        ok: false,
+        checked: i,
+        brokenAt: r.seq,
+        reason: `expected seq ${expectedSeq}, got ${r.seq}`,
+      }
     }
     if (r.prev !== prev) {
       return { ok: false, checked: i, brokenAt: r.seq, reason: 'broken chain link (prev mismatch)' }
@@ -111,7 +134,9 @@ export function verifyReceipts(receipts: Receipt[], opts: { key?: string } = {})
 /** An append-only, hash-chained log of everything nominee authorized. */
 export class ReceiptLedger {
   private receipts: Receipt[] = []
-  private prev = GENESIS
+  private prev: string
+  private readonly baseSeq: number
+  private readonly resumeFrom?: { seq: number; prev: string }
   private readonly key?: string
   readonly inputMode: 'hash' | 'raw' | 'none'
   private readonly onReceipt?: (receipt: Receipt) => void
@@ -120,6 +145,9 @@ export class ReceiptLedger {
     this.key = options.key
     this.inputMode = options.input ?? 'hash'
     this.onReceipt = options.onReceipt
+    this.baseSeq = options.resume?.seq ?? 0
+    this.prev = options.resume?.prev ?? GENESIS
+    this.resumeFrom = options.resume
   }
 
   /**
@@ -133,7 +161,7 @@ export class ReceiptLedger {
     const body: Omit<Receipt, 'hash'> = {
       ...rest,
       ...this.recordInput(input),
-      seq: this.receipts.length,
+      seq: this.baseSeq + this.receipts.length,
       at: Date.now(),
       prev: this.prev,
     }
@@ -159,9 +187,14 @@ export class ReceiptLedger {
     return this.receipts.length
   }
 
-  /** Re-verify the whole chain (hashes, links, sequence). */
+  /**
+   * Re-verify the receipts this ledger instance appended (hashes, links,
+   * sequence). If constructed with `resume`, this verifies the segment
+   * starting at that checkpoint — use {@link verifyReceipts} directly on the
+   * full persisted history to verify the chain from genesis.
+   */
   verify(): VerifyResult {
-    return verifyReceipts(this.receipts, { key: this.key })
+    return verifyReceipts(this.receipts, { key: this.key, resume: this.resumeFrom })
   }
 
   /** Export as JSON Lines — one receipt per line, ready for a log pipeline. */

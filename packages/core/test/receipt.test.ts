@@ -100,4 +100,39 @@ describe('ReceiptLedger', () => {
     ledger.append(entry({ effect: 'allow' }))
     expect(seen.map((r) => r.seq)).toEqual([0, 1])
   })
+
+  it('resumes an existing chain instead of starting a second genesis', () => {
+    const first = new ReceiptLedger()
+    first.append(entry({ tool: 't0' }))
+    first.append(entry({ tool: 't1' }))
+    const checkpoint = first.all[1] as Receipt
+
+    const resumed = new ReceiptLedger({ resume: { seq: first.size, prev: checkpoint.hash } })
+    const r2 = resumed.append(entry({ tool: 't2' }))
+    expect(r2.seq).toBe(2)
+    expect(r2.prev).toBe(checkpoint.hash)
+
+    // The resumed segment verifies on its own from the checkpoint...
+    expect(resumed.verify()).toEqual({ ok: true, checked: 1 })
+    // ...and the full concatenated history verifies as one chain from genesis.
+    const full = [...first.all, ...resumed.all]
+    expect(verifyReceipts(full)).toEqual({ ok: true, checked: 3 })
+  })
+
+  it('detects tampering across a resume checkpoint', () => {
+    const first = new ReceiptLedger()
+    first.append(entry({ tool: 't0' }))
+    const checkpoint = first.all[0] as Receipt
+
+    const resumed = new ReceiptLedger({ resume: { seq: first.size, prev: checkpoint.hash } })
+    resumed.append(entry({ tool: 't1' }))
+
+    const tampered = [{ ...checkpoint, tool: 'doctored' }, ...resumed.all] as Receipt[]
+    expect(verifyReceipts(tampered).ok).toBe(false)
+
+    // Verifying just the resumed segment against the wrong checkpoint prev fails too.
+    expect(
+      verifyReceipts([...resumed.all], { resume: { seq: first.size, prev: 'genesis' } }).ok,
+    ).toBe(false)
+  })
 })
