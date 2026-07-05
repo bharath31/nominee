@@ -29,36 +29,29 @@ npx remotion render compositions/Proof.tsx   ../site/assets/nominee-proof.mp4
 See `compositions/` for the composition source. `Og.tsx` and `Banner.tsx`
 already read `brand.taglineFull` / `brand.subhead` dynamically — they were
 correct the moment `content.ts` was, the *render step* was just never run
-after the authorization pivot. `Proof.tsx` renders the token-race video only;
-there is no composition yet for a policy-blocked-exfiltration video or for
-per-package/blog OG images (those are hand-authored SVGs, see below).
+after the authorization pivot. Their footer chips are still hardcoded to the
+old token-race copy (`naive refresh 7/8 fail → nominee 8/8`,
+`framework → nominee → vault`) — fix those before re-rendering.
 
-**Fallback used for the authorization pivot (no Remotion project on hand):**
-`site/assets/*.svg` and `.github/media/banner*.svg` are plain, hand-editable
-SVGs — the actual committed PNGs are lossless rasterizations of them, not
-Remotion output. Edit the SVG text directly to match `content.ts`, then
-rasterize with `sharp` (already a transitive dep in this workspace) rather
-than standing up Remotion for a one-off:
+> ⚠️ **The committed PNGs are the LIGHT brand (paper `#faf9f5` bg), rendered
+> from the Remotion compositions — NOT from the `*.svg` files in this repo.**
+> `site/assets/banner.svg`, `.github/media/banner*.svg`, and `og.svg` are
+> STALE DARK (`#0A1020`) orphans from before the brand went light; nothing
+> renders from them. Do **not** rasterize them to regenerate the banners — that
+> produces dark, off-brand art (this exact mistake shipped once and was
+> reverted). Regenerate with Remotion, matching the light `brand.colors`.
 
-```js
-const sharp = require('sharp') // resolve via node_modules/.pnpm/sharp@*/node_modules/sharp if not hoisted
-await sharp(svgBuffer, { density: 300 }) // supersample for crisp text, then...
-  .resize(targetWidth, targetHeight, { fit: 'fill' }) // ...downscale to an exact target (only distortion-free if target keeps the SVG's own aspect ratio)
-  .png()
-  .toFile(outPath)
-```
+The per-package banners (`banner-ai.png`, `banner-eve.png`, `banner-auth0.png` —
+the light "Letter of Authority" card design) were rendered from compositions
+that are **not in this repo** and appear to be lost. Restoring the committed
+PNGs is the only faithful option until those compositions are rebuilt; they
+still carry the old token copy. `banner-auth0.png` is still accurate
+(Token Vault + CIBA).
 
-Package banners (`banner-ai.svg`, `banner-eve.svg`, `banner-auth0.svg`) and
-blog OG images (`og-blog-token.svg`, `og-blog-launch.svg`) were never Remotion
-compositions to begin with — they're hand-authored SVGs edited the same way.
-`banner-auth0.svg` still accurately describes `nominee-auth0` (Token Vault +
-CIBA) and was left untouched by the pivot.
-
-**Not regenerated in the pivot:** a video/GIF proof of the policy-blocked
-exfiltration story (the `#how` section on the homepage still shows the older
-`nominee-proof.mp4` token race — real and still true, just not the lead demo
-anymore). Needs either a new Remotion composition + a real render environment,
-or a screen recording of `examples/prompt-injection-blocked`.
+**Not regenerated in the pivot** (still old token-freshness copy, needs a real
+Remotion render environment to redo in the light brand): the main `banner.png`,
+`og.png`, the per-package banners, and the `nominee-proof.mp4` video (the
+`#how` homepage video is the still-true token race, no longer the lead demo).
 
 ## Surface registry — everywhere positioning copy lives
 
