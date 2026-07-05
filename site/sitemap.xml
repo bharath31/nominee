@@ -27,6 +27,10 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <!-- site/blog/your-agent-logs-in-as-you/ intentionally omitted: shell only,
-       add once the real copy replaces the placeholders (see brand/README.md). -->
+  <url>
+    <loc>https://nominee.dev/blog/your-agent-logs-in-as-you/</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
 </urlset>
