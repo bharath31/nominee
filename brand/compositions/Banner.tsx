@@ -73,10 +73,10 @@ export const Banner: React.FC = () => {
             padding: '9px 16px',
           }}
         >
-          naive refresh 7/8 fail → nominee 8/8
+          injected exfiltration → blocked before the tool runs
         </span>
         <span style={{ fontFamily: mono, fontSize: 18, color: c.inkSoft }}>
-          framework → nominee → vault
+          framework → nominee → tool
         </span>
       </div>
     </AbsoluteFill>

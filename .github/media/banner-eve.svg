@@ -36,7 +36,7 @@
   </g>
   <text class="mono" x="82" y="106" font-size="13" letter-spacing="3" fill="#D9A441" fill-opacity="0.95">FOR VERCEL EVE</text>
   <text class="mono" x="80" y="184" font-size="58" font-weight="600" letter-spacing="-2" fill="#E8ECF6">nominee-eve</text>
-  <text class="sans" x="82" y="226" font-size="20" fill="#7E8BA6">Policy enforcement and portable approvals for Eve tools.</text>
+  <text class="sans" x="82" y="226" font-size="20" fill="#7E8BA6">Token injection and approval gates for Eve agent tools.</text>
   <g transform="translate(82 258)">
     <rect width="447.5" height="50" rx="11" fill="#D9A441" fill-opacity="0.08" stroke="#D9A441" stroke-opacity="0.55"/>
     <text class="mono" x="22" y="33" font-size="23" fill="#E8ECF6"><tspan fill="#D9A441">›</tspan>  npm i nominee nominee-eve</text>
