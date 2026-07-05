@@ -1,4 +1,6 @@
-<h1 align="center">nominee</h1>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=6" alt="nominee — the authorization layer for AI agents" width="100%" />
+</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nominee"><img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0a0a0f&colorB=7c3aed&label=nominee" alt="npm nominee" /></a>
