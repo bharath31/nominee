@@ -35,12 +35,15 @@ class_name = "AgentSession"
 tag = "v1"
 new_sqlite_classes = ["AgentSession"]
 
-# Demo funnel events (session_start/blocked/approved/denied/published/error) -
-# queryable via the Analytics Engine SQL API or the CF dashboard. Optional in
-# code (Env.FUNNEL is `?:`), so local dev without this binding still works.
-[[analytics_engine_datasets]]
-binding = "FUNNEL"
-dataset = "nominee_agent_funnel"
+# Demo funnel events (session_start/blocked/approved/denied/published/error).
+# DISABLED until Analytics Engine is enabled on the account (dashboard →
+# Workers → Analytics Engine); a worker with this binding fails to deploy
+# otherwise (error 10089). The code guards `Env.FUNNEL?`, so with the binding
+# absent the funnel just no-ops — the demo works fully without it. To turn it
+# back on: enable Analytics Engine in the dashboard, then uncomment this block.
+# [[analytics_engine_datasets]]
+# binding = "FUNNEL"
+# dataset = "nominee_agent_funnel"
 
 # Secrets (set with `wrangler secret put <NAME>`):
 #   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, SESSION_SECRET, RESEND_API_KEY,
