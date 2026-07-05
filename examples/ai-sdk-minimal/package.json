@@ -1,6 +1,6 @@
 {
   "name": "ai-sdk-minimal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Drop nominee into a Vercel AI SDK tool in one wrapper — fresh token + human approval + audit, no SaaS.",
