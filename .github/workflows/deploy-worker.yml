@@ -22,6 +22,12 @@ jobs:
       # (the Pages token lives in CLOUDFLARE_API_TOKEN, used by deploy-site.yml).
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # HMAC signing key for the receipt chain. GitHub is the source of truth;
+      # the sync step below pushes it to the worker on every deploy so it
+      # survives a worker recreation. (The other worker secrets — AUTH0_*,
+      # SESSION_SECRET, RESEND_API_KEY — are set manually on Cloudflare and
+      # persist; only this one is CI-managed.)
+      NOMINEE_RECEIPT_KEY: ${{ secrets.NOMINEE_RECEIPT_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,6 +40,12 @@ jobs:
       - name: Deploy worker
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         run: cd site/agent-worker && npx --yes wrangler@4 deploy
+      # Push the receipt-signing key to the worker after deploy. Idempotent
+      # (re-sets the same value each run); the secret is read from env as a
+      # shell var, never interpolated into the command string.
+      - name: Sync receipt key
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.NOMINEE_RECEIPT_KEY != '' }}
+        run: cd site/agent-worker && printf '%s' "$NOMINEE_RECEIPT_KEY" | npx --yes wrangler@4 secret put NOMINEE_RECEIPT_KEY
       - name: Note missing token
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
         run: echo "::warning::Set the CLOUDFLARE_WORKERS_API_TOKEN repo secret with Workers Scripts Edit to enable worker auto-deploy."
