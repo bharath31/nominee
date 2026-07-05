@@ -1,5 +1,19 @@
-export { Nominee, ApprovalDeniedError } from './nominee.js'
-export type { NomineeOptions, TokenParams } from './nominee.js'
+export { Nominee, ApprovalDeniedError, PolicyDeniedError } from './nominee.js'
+export type {
+  NomineeOptions,
+  TokenParams,
+  AuthorizeParams,
+  Authorization,
+  GuardOptions,
+} from './nominee.js'
+
+export { allow, deny, ask, matchTool, PolicyEngine } from './policy.js'
+export type { Policy, Rule, RuleOptions, Effect, ToolCall, PolicyDecision } from './policy.js'
+
+export { ReceiptLedger, verifyReceipts } from './receipt.js'
+export type { Receipt, ReceiptOptions, VerifyResult } from './receipt.js'
+
+export { sha256, hmacSha256, canonicalJson } from './hash.js'
 
 export { ApprovalEngine } from './approval.js'
 export type { ApprovalRequest } from './approval.js'

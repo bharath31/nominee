@@ -1,11 +1,36 @@
-# github-agent — a PR review-and-merge agent that survives the pause
+# github-agent — a PR review-and-merge agent, scoped by policy
 
 An [Eve](https://eve.dev) agent that reviews a real pull request and merges it
-**on your behalf**. The point it proves: a long-running agent's access goes stale
-during the wait for approval — but nominee re-resolves **fresh access at merge
-time**, so the merge just works no matter how long the pause was.
+**on your behalf** — gated by a real `nominee` policy (`lib/nominee.ts`): reads
+run free, a merge asks a human, and every decision is sealed into a receipt.
+Levels 2 and 3 below also prove the supporting-act problem policy alone
+doesn't solve: a long-running agent's *access* goes stale during the wait for
+approval — nominee re-resolves **fresh access at merge time**, so the merge
+just works no matter how long the pause was.
 
 Everything here is **real** — including the token expiry. No mocking.
+
+## Policy, not just tokens
+
+`lib/nominee.ts` (Level 2's nominee instance) carries the policy every
+`merge_pr_with_nominee*` call runs against:
+
+```ts
+policy: {
+  rules: [
+    allow('github.review_pr'),
+    ask('github.merge_pr_with_nominee', { reason: 'a merge is a real write' }),
+  ],
+  fallback: 'deny',
+},
+receipts: { key: process.env.NOMINEE_RECEIPT_KEY ?? 'demo-signing-key' },
+```
+
+The `ask` is settled honestly by the *real* human decision Eve's own
+`needsApproval: always()` gate already collects in the chat before the tool's
+`execute()` — and hence this policy's `authorize()` call — ever runs. Inspect
+`nominee.receipts` after a merge to see the chain: `policy.decision` →
+`approval.requested` → `approval.resolved` → `token.issued`.
 
 ## The setup: a merge-access broker
 

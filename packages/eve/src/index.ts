@@ -91,10 +91,15 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
     async execute(input: z.infer<TSchema>, ctx: ToolContext): Promise<TOutput> {
       const user = await resolveUser(config.user, ctx)
 
-      if (config.approval) {
-        // Throws ApprovalDeniedError if the human denies / it expires.
-        await nominee.approve({ user, action, detail: input })
-      }
+      // Enforce the nominee policy (allow / deny / ask) for this call. Throws
+      // PolicyDeniedError on a deny rule; ApprovalDeniedError if a human (or
+      // timeout) refuses an escalated call. `approval: true` forces the ask.
+      await nominee.authorize({
+        tool: action,
+        input,
+        user,
+        requireApproval: config.approval,
+      })
 
       let token: string | undefined
       if (config.connection) {

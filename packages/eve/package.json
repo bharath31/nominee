@@ -1,7 +1,7 @@
 {
   "name": "nominee-eve",
   "version": "2.0.2",
-  "description": "Nominee adapter for Vercel Eve — fresh tokens and human-in-the-loop approval for Eve agent tools",
+  "description": "Nominee adapter for Vercel Eve — policy, approvals, receipts, and fresh tokens for Eve agent tools",
   "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,7 +18,19 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["eve", "vercel", "ai", "agents", "auth", "token", "nominee"],
+  "keywords": [
+    "eve",
+    "vercel",
+    "ai",
+    "agents",
+    "auth",
+    "token",
+    "nominee",
+    "authorization",
+    "permissions",
+    "human-in-the-loop",
+    "guardrails"
+  ],
   "author": "Bharath",
   "license": "MIT",
   "repository": {

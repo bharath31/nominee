@@ -10,7 +10,7 @@
 
 <p align="center">
   <strong>Vercel AI SDK adapter for nominee.</strong><br />
-  Fresh tokens and human-in-the-loop approval — injected automatically into every tool call.
+  Policy, approvals, and receipts on every AI SDK tool call — one line to wrap your whole tools object.
 </p>
 
 ---
@@ -29,36 +29,66 @@ Also works with **Cloudflare Agents** — they use the same AI SDK internals.
 
 ```mermaid
 flowchart LR
-    LLM["LLM decides to\ncall a tool"] --> T["nomineeTool()"]
-    T --> A{approval?}
-    A -->|yes| AP["nominee.approve()\n⏸ wait for human"]
+    LLM["LLM decides to\ncall a tool"] --> G["guardTools() /\nnomineeTool()"]
+    G --> P{"policy:\nallow / deny / ask"}
+    P -->|deny| X["PolicyDeniedError\n(tool never runs)"]
+    P -->|ask| AP["⏸ wait for a\nhuman decision"]
     AP -->|approved| TOK
-    A -->|no| TOK["nominee.token()\nfresh OAuth token"]
-    TOK --> EX["execute(input, ctx)\nctx.token = fresh token"]
-    EX --> LLM2["Result returned\nto LLM"]
+    P -->|allow| TOK["nominee.token()\nfresh token (optional)"]
+    TOK --> EX["execute(input, ctx)"]
+    EX --> R["receipt appended\nhash-chained record"]
 ```
+
+Every call is authorized against the nominee policy **before** the tool runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides; every outcome (including refusals) lands on the receipt chain.
 
 ---
 
-## Quickstart
+## Quickstart — `guardTools`
+
+Wrap your existing AI SDK tools object in one line. The object key is the tool name your policy matches on:
 
 ```ts
-import { Nominee, tokens } from 'nominee'
-import { nomineeTool } from 'nominee-ai'
+import { Nominee, allow, deny, ask } from 'nominee'
+import { guardTools } from 'nominee-ai'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import { z } from 'zod'
 
 const nominee = new Nominee({
-  strategy: tokens(({ connection }) =>
-    process.env[`${connection.toUpperCase()}_TOKEN`]!
-  ),
+  policy: {
+    rules: [
+      allow('searchEmail'),
+      deny('forwardEmail', { reason: 'external forwarding is exfiltration' }),
+      ask('mergePr'), // a human decides, every time
+    ],
+    fallback: 'deny',
+  },
+  onApprovalRequest: (req) => notifySlack(req), // req.approve() / req.deny()
 })
+
+const { text } = await generateText({
+  model: openai('gpt-4o'),
+  tools: guardTools(nominee, { searchEmail, forwardEmail, mergePr }, { user: 'alice' }),
+  prompt: 'Triage my inbox',
+})
+```
+
+Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.authorize({ tool, input, user })`, and only then runs the original. Client-executed tools (no `execute`) pass through untouched. `user` can also be an async resolver of the tool-call options: `(options) => session.userId`.
+
+---
+
+## `nomineeTool` — Per-Tool Config
+
+When a tool also needs a fresh third-party token, a forced approval, or its own policy action name, build it with `nomineeTool`:
+
+```ts
+import { nomineeTool } from 'nominee-ai'
+import { z } from 'zod'
 
 const starRepo = nomineeTool({
   nominee,
   user: 'user_123',
-  connection: 'github',                       // fresh token injected into ctx.token
+  connection: 'github',       // fresh token injected into ctx.token at call time
+  action: 'github.star',      // the tool name your policy rules match on
   description: 'Star a GitHub repository',
   inputSchema: z.object({ repo: z.string() }),
   execute: async ({ repo }, ctx) => {
@@ -69,26 +99,22 @@ const starRepo = nomineeTool({
     return `Starred ${repo}`
   },
 })
-
-const { text } = await generateText({
-  model: openai('gpt-4o'),
-  tools: { starRepo },
-  prompt: 'Star the vercel/ai repo for me',
-})
 ```
+
+The policy is enforced here too — `nomineeTool` authorizes `action` (default `"tool"`) before `execute` runs, then resolves the token via your nominee strategy (fresh at call time, single-flight refresh).
 
 ---
 
-## Human Approval
+## Forcing an Approval
 
-Gate any tool behind a real-time approval before it runs:
+`approval: true` forces an `ask` even when the policy allows the call — the tool pauses until a human decides, and a denial throws `ApprovalDeniedError` before `execute`:
 
 ```ts
 const deleteRepo = nomineeTool({
   nominee,
   user: 'user_123',
   connection: 'github',
-  approval: true,               // ⏸ pauses until user approves
+  approval: true,               // ⏸ pauses until a human approves
   action: 'repo.delete',
   description: 'Delete a GitHub repository',
   inputSchema: z.object({ repo: z.string() }),
@@ -103,6 +129,8 @@ const deleteRepo = nomineeTool({
 })
 ```
 
+For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditions, `max` budgets), put it in the policy instead — the decision and its resolution are sealed into the receipt chain either way.
+
 ---
 
 ## `withNominee` — Set Defaults Once
@@ -113,7 +141,7 @@ Apply a shared `nominee` instance and user context across all tools in one call:
 import { withNominee } from 'nominee-ai'
 
 const nomineeTool = withNominee(nominee, {
-  user: 'user_123',      // can also be an async resolver: async (ctx) => ctx.userId
+  user: 'user_123',      // or an async resolver of the tool-call options
 })
 
 // All tools share the same user by default
@@ -129,12 +157,12 @@ const starRepo = nomineeTool({
 
 ## Tool Context
 
-The `execute` function receives a rich context object:
+The `execute` function of a `nomineeTool` receives a rich context object:
 
 ```ts
 execute: async (input, ctx) => {
-  ctx.token     // string — fresh OAuth token for the configured connection
-  ctx.user      // string — the current user ID
+  ctx.token     // string — fresh token for the configured connection (if any)
+  ctx.user      // string — the resolved principal
   ctx.ai        // the raw AI SDK tool context (messages, toolCallId, etc.)
 }
 ```
@@ -153,6 +181,8 @@ const tool = nomineeTool({
   },
 })
 ```
+
+`guardTools` preserves the type of the tools object you pass in.
 
 ---
 

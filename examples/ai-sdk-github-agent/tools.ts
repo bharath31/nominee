@@ -17,16 +17,18 @@ const prInput = z.object({
 })
 
 /**
- * Build the two GitHub tools, both brokered by one nominee instance:
- *  - get_pr   — a read. No approval; nominee just supplies a fresh token.
- *  - merge_pr — a write. approval:true, so it pauses for a human, and the token
- *               is fetched at merge time (even after the approval pause).
+ * Build the two GitHub tools, both brokered by one nominee instance and both
+ * named actions the policy in agent.ts matches on:
+ *  - github.get_pr   — a read. The policy allows it; nominee supplies a fresh token.
+ *  - github.merge_pr — a write. The policy's ask() rule pauses it for a human, and
+ *               the token is fetched at merge time (even after the approval pause).
  */
 export function createTools(nominee: Nominee, user: string) {
   const get_pr = nomineeTool({
     nominee,
     user,
     connection: 'github',
+    action: 'github.get_pr',
     description: 'Read a GitHub pull request: title, diff size, and mergeability.',
     inputSchema: prInput,
     async execute({ owner, repo, number }, { token }) {
@@ -53,7 +55,6 @@ export function createTools(nominee: Nominee, user: string) {
     nominee,
     user,
     connection: 'github',
-    approval: true,
     action: 'github.merge_pr',
     description: "Merge a GitHub pull request on the user's behalf. Requires human approval.",
     inputSchema: prInput,

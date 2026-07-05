@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=4" alt="nominee" width="100%" />
-</p>
+<h1 align="center">nominee</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nominee"><img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0a0a0f&colorB=7c3aed" alt="npm" /></a>
@@ -8,23 +6,10 @@
 </p>
 
 <p align="center">
-  <strong>Identity and token delegation for AI agents.</strong><br />
-  Fresh third-party tokens at call time · Human-in-the-loop approval · Unified audit trail.
+  <strong>The authorization layer for AI agents.</strong><br />
+  Your agent logs in as you. nominee decides what it can <em>do</em> as you.<br />
+  Policy · approvals · receipts — zero dependencies, framework-neutral, no SaaS.
 </p>
-
----
-
-## Table of Contents
-
-- [Installation](#installation)
-- [The Problem](#the-problem)
-- [Quickstart](#quickstart)
-- [Strategies](#strategies)
-- [Human-in-the-Loop Approvals](#human-in-the-loop-approvals)
-- [Audit Log](#audit-log)
-- [Full API](#full-api)
-- [Adapters](#adapters)
-- [Contributing](#contributing)
 
 ---
 
@@ -34,213 +19,192 @@
 npm i nominee
 ```
 
-No signup. No SaaS account. No vendor lock-in.
+No signup. No SaaS account. No vendor lock-in. Zero runtime dependencies.
 
 ---
 
 ## The Problem
 
-Agents that act on behalf of users need **fresh** OAuth tokens at the moment of each tool call — not the token you captured at session start. Token expiry, long-running Durable Objects, and durable workflows all cause silent `401 Unauthorized` failures.
+Your agent authenticates as you — and then it's authorized as you. **All of you.** One injected sentence in an email or web page, and the model will use that authority against you. Vaults hide the key but still execute the request. `needsApproval: true` gives you a Y/N prompt for everything, which is why everyone ends up skipping permissions entirely.
 
-nominee caches tokens per `(user, connection)` and transparently refreshes them just before expiry. You call `nominee.token()` at call time. nominee handles everything else.
+nominee sits between the model and your tools, in-process, and gives every tool call:
 
----
-
-## How It Works
-
-```mermaid
-flowchart LR
-    A[Agent Tool Call] --> B{nominee.token}
-    B -->|Cache hit, fresh| C[Return token ✅]
-    B -->|Expired or missing| D[Call strategy.getToken]
-    D --> E[Store in cache]
-    E --> C
-    C --> F[Tool executes with fresh token]
-```
+1. **Policy** — declarative `allow` / `deny` / `ask` rules: glob patterns, argument-level conditions, call budgets. The model cannot talk its way past a `deny`.
+2. **Approvals** — `ask` pauses the call until a human decides, with the full arguments in front of them.
+3. **Receipts** — every decision (including refusals) sealed into a hash-chained, optionally HMAC-signed, tamper-evident log. Inputs hashed, never stored.
 
 ---
 
 ## Quickstart
 
 ```ts
-import { Nominee, tokens } from 'nominee'
+import { Nominee, allow, deny, ask } from 'nominee'
 
 const nominee = new Nominee({
-  // Pass any function that returns a token: DB, env var, literal
-  strategy: tokens(async ({ user, connection }) =>
-    db.getFreshToken(user, connection)
-  ),
-
-  // Optional: audit sink
-  onAudit: (e) => logger.info(e),
-
-  agent: 'triage-bot',
+  policy: {
+    rules: [
+      allow('email.read'),
+      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
+      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
+      ask('email.delete'),               // a human decides, every time
+      allow('search.web', { max: 20 }),  // budget: call #21 asks a human
+    ],
+    fallback: 'deny',
+  },
+  onApprovalRequest: (req) => notifySlack(req), // req.approve() / req.deny()
 })
 
-// Call at tool-call time — never cache the result yourself
-const token = await nominee.token({ user: 'alice', connection: 'github' })
+// One line. Works with plain functions or any framework's { execute } tools.
+const tools = nominee.guard(
+  { 'email.read': readEmail, 'email.forward': forwardEmail },
+  { user: 'alice' },
+)
+```
+
+Denied calls throw `PolicyDeniedError` **before the tool runs**. Escalated calls block until a human decides (denial throws `ApprovalDeniedError`). Every outcome lands on the receipt chain.
+
+Watch a prompt-injected agent fail to exfiltrate, with no API keys:
+[`examples/prompt-injection-blocked`](https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked).
+
+---
+
+## Policy semantics
+
+- **First match wins** within a policy; rules are checked in order.
+- **No match → `fallback`** (default `'ask'`; set `'deny'` for default-deny).
+- **`when` predicates** see `{ tool, input, user, chain }`.
+- **Budgets**: `allow('search.*', { max: 20 })` — the 21st call escalates to a human.
+- **Delegation can only narrow**: across `delegate()` chains the strictest outcome wins (deny > ask > allow).
+
+```ts
+const researcher = nominee.delegate('researcher', {
+  policy: [deny('email.*'), deny('github.merge_*')],
+})
+// researcher's receipts carry chain: ['orchestrator', 'researcher']
+
+// Dry-run without consuming budgets or asking anyone:
+await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'deny', … }
 ```
 
 ---
 
-## Strategies
-
-| Strategy | Description |
-|---|---|
-| `tokens(fn)` | Wraps any async function — env vars, your DB, a literal |
-| `OAuth2({ connections })` | Generic refresh-token flow, zero runtime deps |
-| `Memory({ tokens })` | In-memory store for dev and testing |
-| [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA (optional managed upgrade) |
+## Receipts
 
 ```ts
-import { tokens, OAuth2, Memory } from 'nominee'
-
-// Function strategy (simplest)
-tokens(({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!)
-
-// OAuth2 refresh strategy
-OAuth2({
-  connections: {
-    github: {
-      tokenEndpoint: 'https://github.com/login/oauth/access_token',
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      refreshToken: async ({ user }) => db.getRefreshToken(user, 'github'),
-    },
+const nominee = new Nominee({
+  policy,
+  receipts: {
+    key: process.env.RECEIPT_KEY,          // optional HMAC signing
+    onReceipt: (r) => auditLog.write(r),   // stream to your sink
   },
 })
 
-// In-memory (dev/test)
-Memory({
-  tokens: {
-    alice: {
-      github: { token: 'ghp_test', expiresAt: Date.now() + 3_600_000 },
-    },
-  },
-})
+nominee.receipts          // the chain so far
+nominee.verifyReceipts()  // { ok: true, checked: 128 }
+
+// Later, offline, from your exported log:
+import { verifyReceipts } from 'nominee'
+verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
+
+Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
+
+A durable or hibernating agent that reconstructs its `Nominee` instance across restarts can persist receipts itself and pass `receipts: { resume: { seq, prev } }` — the sequence number and hash to continue from — so the new ledger picks up the same chain instead of starting a second genesis.
 
 ---
 
 ## Human-in-the-Loop Approvals
 
-Gate any agent action behind real-time human approval — independent of the LLM or framework.
-
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant Nominee
-    participant User as User (phone/slack/UI)
-
-    Agent->>Nominee: approve({ user, action, detail })
-    Nominee->>User: onApprovalRequest fires
-    Note over Agent,Nominee: ⏸ Execution paused
-
-    alt Approved
-        User->>Nominee: resolveApproval(id, 'approved')
-        Nominee-->>Agent: ✅ promise resolves
-    else Denied or expired
-        User->>Nominee: resolveApproval(id, 'denied')
-        Nominee-->>Agent: ❌ throws ApprovalDeniedError
-    end
-```
-
 ```ts
-import { Nominee, tokens, ApprovalDeniedError } from 'nominee'
+// Gate an action — blocks until the user responds (via an ask rule, or directly):
+await nominee.approve({ user: 'alice', action: 'repo.delete', detail: { repo: 'a/b' } })
 
-const nominee = new Nominee({
-  strategy: tokens(({ connection }) => getToken(connection)),
-
-  onApprovalRequest: async ({ id, user, action, detail }) => {
-    // Send a Slack message, push notification, or UI update
-    await slack.send(user, { text: `Approve: ${action} — ${detail}`, id })
-  },
-})
-
-try {
-  // Blocks until the user responds
-  await nominee.approve({
-    user: 'alice',
-    action: 'repo.delete',
-    detail: 'Delete repository: alice/old-project',
-  })
-  // ✅ Continues here on approval
-  await deleteRepo('alice/old-project')
-} catch (e) {
-  if (e instanceof ApprovalDeniedError) {
-    console.log('User denied the action')
-  }
-}
-
-// Settle from your webhook (Slack action, push notification callback, etc.)
-nominee.resolveApproval(approvalId, 'approved')
+// Settle from your webhook (Slack button, push notification, UI):
+nominee.resolveApproval(approvalId, 'approved') // or 'denied'
 ```
+
+Strategies can carry native approval flows — [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) does CIBA push approvals.
 
 ---
 
-## Audit Log
+## Tokens (the supporting act)
 
-Every token fetch and approval decision is emitted as an audit event.
+Tools that act on third-party APIs need credentials — fresh ones, at call time, never in the model's context:
 
 ```ts
-// Subscribe to the audit stream
-const unsubscribe = nominee.on((event) => {
-  // event.type: 'token.issued' | 'token.cached' | 'approval.requested' | 'approval.resolved'
-  console.log(`[${event.type}] agent=${event.agent} user=${event.user}`)
-  auditDb.insert(event)
+import { Nominee, tokens } from 'nominee'
+
+const nominee = new Nominee({
+  policy,
+  strategy: tokens(({ user, connection }) => db.getFreshToken(user, connection)),
 })
 
-// Or use the constructor shorthand
-new Nominee({
-  strategy: myStrategy,
-  onAudit: (event) => auditDb.insert(event),
-})
+// Inside a tool: valid *now*, cached, auto-refreshed, single-flight under concurrency.
+const token = await nominee.token({ user: 'alice', connection: 'github' })
 ```
+
+| Strategy | Use case |
+|---|---|
+| `tokens(fn)` | Simple function — env vars, your DB, a literal string |
+| `OAuth2({ connections })` | Generic refresh-token flow, zero deps. `onRefreshToken` persists rotation (GitHub Apps, Google, Okta, Auth0) |
+| `Memory({ tokens })` | Dev & test in-memory store |
+| [`nominee-supabase`](https://www.npmjs.com/package/nominee-supabase) | Provider tokens stored in Supabase *(optional)* |
+| [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA push approvals *(optional)* |
+
+Proof that naive refresh breaks under rotation + concurrency (7/8 fail; nominee 8/8):
+[`examples/token-refresh-correctness`](https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness).
 
 ---
 
 ## Full API
 
 ```ts
-// Fetch a fresh token (cached per user+connection, auto-refreshed before expiry)
-await nominee.token({ user: string, connection: string })
+// Authorization
+await nominee.authorize({ tool, input, user })   // allow | throws PolicyDeniedError / ApprovalDeniedError
+await nominee.check({ tool, input, user })       // dry-run: the decision, no side effects
+nominee.guard(tools, { user })                   // wrap once, enforce everywhere
 
-// Gate on human approval. Throws ApprovalDeniedError if denied or expired.
-await nominee.approve({ user: string, action: string, detail?: unknown })
+// Approvals
+await nominee.approve({ user, action, detail })
+nominee.resolveApproval(id, 'approved' | 'denied')
 
-// Settle an approval from your webhook
-nominee.resolveApproval(id: string, decision: 'approved' | 'denied')
+// Receipts
+nominee.receipts
+nominee.verifyReceipts()
+verifyReceipts(receipts, { key })
 
-// Fine-grained authorization (requires strategy to implement can())
-await nominee.can({ user: string, action: string, resource: string })
+// Delegation (policies can only narrow; shared receipt chain)
+const sub = nominee.delegate('research-agent', { policy })
 
-// Subscribe to audit events — returns an unsubscribe function
-const unsub = nominee.on((event: AuditEvent) => void)
+// Tokens
+await nominee.token({ user, connection })
+await nominee.exchange({ user, connection, actor, scopes }) // RFC 8693
+nominee.invalidate(user, connection)
+
+// Fine-grained authz via strategy (e.g. Auth0 FGA)
+await nominee.can({ user, action, resource })
+
+// Audit stream (in-process listeners, alongside receipts)
+const unsub = nominee.on((event) => log(event))
 ```
 
 ---
 
 ## Adapters
 
-Use nominee inside your framework's tool system with zero boilerplate:
-
-| Framework | Package |
+| Where your agent runs | Integration |
 |---|---|
-| Vercel AI SDK | [`nominee-ai`](https://www.npmjs.com/package/nominee-ai) |
-| Vercel Eve | [`nominee-eve`](https://www.npmjs.com/package/nominee-eve) |
-| Cloudflare Agents | [`nominee-ai`](https://www.npmjs.com/package/nominee-ai) |
-| Auth0 Token Vault + CIBA | [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) |
+| **Vercel AI SDK** | [`nominee-ai`](https://www.npmjs.com/package/nominee-ai) — `guardTools()` / `nomineeTool()` |
+| **Vercel Eve** | [`nominee-eve`](https://www.npmjs.com/package/nominee-eve) — `nomineeTool()` |
+| **Cloudflare Agents** | via `nominee-ai` |
+| **Mastra / OpenAI Agents / MCP / anything** | core `nominee.guard()` wraps any object of functions or `{ execute }` tools |
 
 ---
+
+Upgrading from 2.0? It's fully additive — see [Migrating from 2.0](https://nominee.dev/docs/#migrating).
 
 ## Contributing
 
-Community strategies for Clerk, Supabase, WorkOS and others are very welcome. See [CONTRIBUTING.md](https://github.com/bharath31/nominee/blob/main/CONTRIBUTING.md) for the Strategy contract.
+PRs for community strategies and framework adapters are enthusiastically welcome — see [CONTRIBUTING.md](https://github.com/bharath31/nominee/blob/main/.github/CONTRIBUTING.md).
 
----
-
-<p align="center">
-  <a href="https://github.com/bharath31/nominee">GitHub</a> ·
-  <a href="https://github.com/bharath31/nominee/blob/main/CONTRIBUTING.md">Contributing</a> ·
-  MIT License
-</p>
+MIT License · [github.com/bharath31/nominee](https://github.com/bharath31/nominee)

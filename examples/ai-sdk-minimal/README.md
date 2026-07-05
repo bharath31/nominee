@@ -1,7 +1,8 @@
 # Minimal Vercel AI SDK drop-in
 
-Drop nominee into any Vercel AI SDK tool in **one wrapper** — a fresh token at
-call time, human approval, and an audit trail. No SaaS, no provider signup.
+Drop nominee into any Vercel AI SDK tool in **one wrapper** — the call is
+authorized against your policy, gated on human approval, and handed a fresh
+token at call time, with a receipt of every decision. No SaaS, no provider signup.
 
 ```bash
 pnpm install
@@ -9,15 +10,19 @@ cp .env.example .env   # set GITHUB_TOKEN and OPENROUTER_API_KEY
 node --env-file=.env --import tsx agent.ts
 ```
 
-The whole integration is `nomineeTool({ ... })`:
+The whole integration is one `policy` and one `nomineeTool({ ... })`:
 
 ```ts
+const nominee = new Nominee({
+  policy: [ask('star_repo')],   // the policy gates execute behind a human OK
+  strategy: ({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!,
+})
+
 const starRepo = nomineeTool({
   nominee,
   user: 'demo-user',
   connection: 'github',
-  approval: true,            // gates execute behind a human OK
-  action: 'star_repo',
+  action: 'star_repo',          // what the policy above matches on
   description: 'Star a GitHub repository on behalf of the user',
   inputSchema: z.object({ owner: z.string(), repo: z.string() }),
   async execute({ owner, repo }, { token }) {
@@ -34,6 +39,8 @@ gates the sensitive call. The same `nominee` instance works in Eve or standalone
 
 ## When you don't need this
 
-If you're already on a managed connector (Vercel Connect, Auth0 Token Vault),
-use it — you don't need nominee. This is for the framework-neutral, no-lock-in,
-bring-your-own-token case.
+If your agent is read-only with no authority worth guarding, or your platform's
+native permission system already covers you end-to-end, you don't need nominee.
+Managed connectors (Vercel Connect, Auth0 Token Vault) can still sit *under*
+nominee as the token strategy — nominee adds the policy, approvals, and receipts
+they don't.

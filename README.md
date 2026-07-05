@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=5" alt="nominee — fresh tokens, human approval, and an audit trail for agents that act on your users' behalf" width="100%" />
-</p>
+<h1 align="center">nominee</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nominee"><img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0a0a0f&colorB=7c3aed&label=nominee" alt="npm nominee" /></a>
@@ -11,8 +9,9 @@
 </p>
 
 <p align="center">
-  <strong>Fresh tokens, human approval, and an audit trail for agents that act on your users' behalf.</strong><br />
-  Framework-neutral, no SaaS — the Passport.js of agent auth, for the multi-framework / no-lock-in / standalone tail.
+  <strong>The authorization layer for AI agents.</strong><br />
+  Your agent logs in as you. nominee decides what it can <em>do</em> as you.<br />
+  Policy · approvals · receipts — dependency-free, framework-neutral, no SaaS.
 </p>
 
 <p align="center">
@@ -22,273 +21,226 @@
   <a href=".github/SECURITY.md">Security</a>
 </p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-proof.gif?v=1" alt="Terminal: naive OAuth refresh under rotation and concurrency fails 7/8 with invalid_grant; nominee gets 8/8 with the same agent code." width="100%" />
-</p>
-
-<p align="center">
-  <em>▶ <a href="https://nominee.dev">Watch it live at nominee.dev</a></em>
-</p>
-
-<p align="center">
-  <strong>Want proof?</strong> <a href="examples/token-refresh-correctness">Run the example</a> — naive concurrent
-  refresh fails <strong>7/8</strong>, nominee gets <strong>8/8</strong> with the same agent code. No mocks that cheat.
-</p>
-
 ---
 
 ## The Problem
 
-You authorized the agent at **9am**. By **3pm**, the GitHub token has expired — but the agent is still running in a Durable Object, pausing for human input, or looping over a massive codebase.
+Your agent authenticates as you — and then it's authorized as you. **All of you.** The token in its context can read every email, merge every PR, delete every repo. One injected sentence in a web page, an email, an issue comment, and the model will happily use that authority against you. Vaults hide the key but still execute the request. Sandboxes contain the process, not the OAuth token. `needsApproval: true` gives you a Y/N prompt for *everything* — which is why everyone ends up running the agent equivalent of `--dangerously-skip-permissions`.
 
-```
-❌ 401 Unauthorized — silent failures in long-running agents
-```
+Authentication is solved. **Authorization isn't.**
 
-An agent acting on behalf of a user needs a **fresh** third-party token at the exact moment of a tool call. Sometimes that action is sensitive and needs human approval. It always needs an audit trail.
+## What nominee does
 
-"Just refresh the token" is a five-line happy path — until you meet **short-lived access tokens** and **rotating refresh tokens** (GitHub Apps, Google one-time-use, Okta, Auth0 rotation). Then grab-up-front breaks across an approval pause, and naive refresh breaks under concurrency: fire 8 tool calls at once and **7/8 fail with `invalid_grant`** as rotation invalidates the tokens the others are still holding. Runnable proof (naive 7/8 fail vs nominee 8/8, no mocks that cheat): [`examples/token-refresh-correctness`](examples/token-refresh-correctness).
+nominee sits between the model and your tools, in-process, and gives every tool call three things:
 
-**nominee** is the framework-neutral, no-SaaS layer that makes this correct — fresh at call time, single-flight refresh, rotation persisted via `onRefreshToken` — with the same agent code.
+1. **Policy** — declarative `allow` / `deny` / `ask` rules over tool calls: glob patterns, argument-level conditions, call budgets. The model cannot talk its way past a `deny`.
+2. **Approvals** — `ask` pauses the call until a human decides, from any channel (Slack, push, your UI), with the full arguments in front of them. Deny means deny.
+3. **Receipts** — every decision (including refusals) is sealed into a hash-chained, optionally HMAC-signed, tamper-evident log. Inputs are hashed, not stored — you can prove what the agent saw without logging user data.
 
----
-
-## How It Works
-
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant Nominee
-    participant Cache
-    participant Strategy
-    participant API as Third-party API
-
-    Agent->>Nominee: nominee.token({ user, connection })
-    Nominee->>Cache: check cache (user + connection)
-    alt token is fresh
-        Cache-->>Nominee: return cached token
-    else token expired or missing
-        Nominee->>Strategy: getToken(user, connection)
-        Strategy-->>Nominee: fresh token + expiry
-        Nominee->>Cache: store until near-expiry
-    end
-    Nominee-->>Agent: fresh token
-    Agent->>API: make API call with token
-```
-
----
-
-## Installation
+Zero dependencies. Works with the Vercel AI SDK, Eve, Mastra, Cloudflare Agents, OpenAI Agents, MCP servers, or a bare `async function`.
 
 ```bash
 npm i nominee
 ```
 
-No signup. No SaaS account. No vendor lock-in.
-
----
-
-## Quickstart
+## 60 seconds
 
 ```ts
-import { Nominee, tokens } from 'nominee'
+import { Nominee, allow, deny, ask } from 'nominee'
 
 const nominee = new Nominee({
-  // Provide a function that fetches tokens — from your DB, env vars, anywhere
-  strategy: tokens(async ({ user, connection }) =>
-    db.getFreshToken(user, connection)
-  ),
-
-  // Optional: audit every token fetch and approval
-  onAudit: (e) => console.log(`[${e.type}] agent=${e.agent} user=${e.user}`),
-
-  agent: 'triage-bot',
+  policy: {
+    rules: [
+      allow('email.read'),
+      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
+      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
+      ask('email.delete'),               // a human decides, every time
+      allow('search.web', { max: 20 }),  // budget: call #21 asks a human
+    ],
+    fallback: 'deny',
+  },
+  onApprovalRequest: (req) => notifySlack(req), // req.approve() / req.deny()
 })
 
-// Always call at request time — nominee handles caching & refresh automatically
-const token = await nominee.token({ user: 'alice', connection: 'github' })
-```
-
-> **Design rule:** never cache the token yourself. Call `nominee.token()` at call time, every time. nominee handles freshness transparently.
-
----
-
-## Human-in-the-Loop Approvals
-
-Gate any agent action behind a real-time human approval — independent of the LLM or framework.
-
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant Nominee
-    participant User
-
-    Agent->>Nominee: nominee.approve({ user, action, detail })
-    Nominee->>User: onApprovalRequest fires → push notification / Slack / UI
-    Note over Nominee,User: Execution is paused ⏸
-
-    alt User approves
-        User->>Nominee: resolveApproval(id, 'approved')
-        Nominee-->>Agent: ✅ resolves — agent continues
-    else User denies / timeout
-        User->>Nominee: resolveApproval(id, 'denied')
-        Nominee-->>Agent: ❌ throws ApprovalDeniedError
-    end
-```
-
-```ts
-// Gate an action — blocks until user responds
-await nominee.approve({
+// One line. Works with plain functions or any framework's { execute } tools.
+const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardEmail }, {
   user: 'alice',
-  action: 'repo.delete',
-  detail: 'Delete repo: alice/old-project',
 })
-
-// From your webhook (Slack button, push notification, UI)
-nominee.resolveApproval(approvalId, 'approved') // or 'denied'
 ```
 
----
+Denied calls throw `PolicyDeniedError` **before the tool runs**. Escalated calls block until a human decides. Every outcome lands on the receipt chain.
 
-## Framework Adapters
+## Watch an injected agent fail
 
-Nominee plugs directly into your AI framework's tool system.
+[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) — no API keys, one command:
 
-| Adapter | Package | Links |
-|---|---|---|
-| **Vercel AI SDK** | `nominee-ai` | [![npm](https://img.shields.io/npm/v/nominee-ai?style=flat-square&colorA=0a0a0f&colorB=3b82f6)](https://www.npmjs.com/package/nominee-ai) |
-| **Vercel Eve** | `nominee-eve` | [![npm](https://img.shields.io/npm/v/nominee-eve?style=flat-square&colorA=0a0a0f&colorB=10b981)](https://www.npmjs.com/package/nominee-eve) |
-| **Cloudflare Agents** | `nominee-ai` | Uses the AI SDK adapter |
-| **Standalone Node** | `nominee` | Built-in |
-
----
-
-## Examples
-
-Runnable, in [`examples/`](examples):
-
-| Example | What it shows |
-|---|---|
-| [`token-refresh-correctness`](examples/token-refresh-correctness) | The proof. Naive concurrent + rotating refresh fails 7/8; nominee gets 8/8 — same agent code. `node run.mjs`, no mocks that cheat. |
-| [`ai-sdk-minimal`](examples/ai-sdk-minimal) | Drop nominee into a Vercel AI SDK tool in one `nomineeTool` wrapper — fresh token + approval + audit. |
-| [`ai-sdk-github-agent`](examples/ai-sdk-github-agent) | An AI SDK agent that merges a PR on your behalf: fresh token at merge time, human approval, full audit. |
-| [`github-agent`](examples/github-agent) | The same idea on Eve, with an Auth0 Token Vault + CIBA phone-approval tier. |
-
----
-
-## Strategies
-
-| Strategy | Use case |
-|---|---|
-| `tokens(fn)` | Simple function — env vars, your DB, a literal string |
-| `OAuth2({ connections })` | Generic refresh-token flow, zero deps. Set `onRefreshToken` for rotating providers (GitHub Apps, Google, Okta, Auth0) |
-| `Memory({ tokens })` | Dev & test in-memory store |
-| [`nominee-supabase`](https://www.npmjs.com/package/nominee-supabase) | Read & refresh provider tokens stored in Supabase *(optional)* |
-| [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA push approvals *(optional)* |
-
----
-
-## Auth0 — Optional Managed Upgrade
-
-Don't want to manage refresh tokens yourself? `nominee-auth0` uses Auth0's Token Vault and CIBA (Client-Initiated Backchannel Authentication) to handle everything automatically.
-
-```bash
-npm i nominee nominee-auth0
 ```
+2. The model obeys the injection and tries to exfiltrate
+
+  ✓ BLOCKED before the tool ran: nominee: policy denied "email.forward" for alice
+    (rule deny:email.forward) — external forwarding is exfiltration
+
+5. The receipt chain (signed, tamper-evident)
+
+  #0 policy.decision email.read       allow    5493c2c54cd54072
+  #1 policy.decision email.forward    deny     ca6a069febdb740d
+  #2 policy.decision email.delete     ask      d2fe628a52024a1d
+  #4 approval.resolved email.delete   denied   2b0ac4aa3ad82dc7
+  #5 policy.decision email.forward    allow    fd17436d92c0a162
+
+  chain verifies: ✓ 6 receipts intact
+  doctored log (deny receipts removed): ✓ detected — broken at #1
+```
+
+The model was fully compromised. The policy didn't care.
+
+## Policy semantics
+
+Small enough to hold in your head:
+
+- **First match wins** within a policy; rules are checked in order.
+- **No match → `fallback`** (default `'ask'` — unknown actions reach a human; set `'deny'` for default-deny).
+- **`when` predicates** see `{ tool, input, user, chain }` — gate on arguments, not just names.
+- **Budgets**: `allow('search.*', { max: 20 })` — the 21st call escalates to a human instead of failing.
+- **Delegation can only narrow**: across `nominee.delegate('sub-agent', { policy })` chains, the strictest outcome wins (deny > ask > allow). A sub-agent can never allow what its parent denies.
 
 ```ts
-import { Nominee } from 'nominee'
-import { Auth0 } from 'nominee-auth0'
+const researcher = nominee.delegate('researcher', {
+  policy: [deny('email.*'), deny('github.merge_*')],
+})
+// researcher's receipts carry chain: ['orchestrator', 'researcher']
+```
 
+Dry-run any call without consuming budgets or asking anyone:
+
+```ts
+await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'deny', ... }
+```
+
+## Approvals
+
+`ask` rules route through one portable approval engine — independent of your framework's (broken, binary) flavor:
+
+```ts
 const nominee = new Nominee({
-  strategy: Auth0({
-    domain: 'your-tenant.us.auth0.com',
-    clientId: process.env.AUTH0_CLIENT_ID,
-    clientSecret: process.env.AUTH0_CLIENT_SECRET,
-    subjectToken: ({ user }) => sessionStore.getRefreshToken(user),
-    ciba: { bindingMessage: (req) => `Approve: ${req.action}` },
-  }),
+  policy: [ask('github.merge_pr', { timeoutMs: 3600_000 })],
+  onApprovalRequest: async (req) => {
+    // req.action, req.detail (the full tool input), req.id
+    await slack.post(approvalCard(req))   // then req.approve() / req.deny(),
+  },                                      // or nominee.resolveApproval(req.id, …) from a webhook
 })
 ```
 
-> Auth0 is entirely optional. The core has zero dependencies and zero lock-in.
+Denied or expired approvals throw `ApprovalDeniedError` — the tool never runs, and the denial is on the record. Strategies can carry native flows (Auth0 CIBA push approvals via [`nominee-auth0`](packages/auth0)).
 
----
+## Receipts
 
-## Full API
+Every decision, approval, and token grant appends to a hash chain — each receipt's hash covers its content plus the previous hash, so editing or deleting *any* record breaks verification of everything after it:
 
 ```ts
-// Fetch a fresh token (cached, auto-refreshed)
-await nominee.token({ user, connection })
+const nominee = new Nominee({
+  policy,
+  receipts: {
+    key: process.env.RECEIPT_KEY,          // optional HMAC signing
+    onReceipt: (r) => auditLog.write(r),   // stream to your sink
+  },
+})
 
-// Gate on human approval — throws ApprovalDeniedError if denied/expired
-await nominee.approve({ user, action, detail })
+nominee.receipts          // the chain so far
+nominee.verifyReceipts()  // { ok: true, checked: 128 }
 
-// Settle an approval from your webhook
-nominee.resolveApproval(id, 'approved' | 'denied')
+// Later, offline, from your log sink:
+import { verifyReceipts } from 'nominee'
+verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
+```
 
-// Fine-grained authorization (throws unless strategy implements it)
-await nominee.can({ user, action, resource })
+By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
 
-// Drop the cached token for a user+connection (force re-resolve next call)
+A durable or hibernating agent that reconstructs its `Nominee` instance across restarts (a Durable Object, a resumed job) can persist receipts itself and pass `receipts: { resume: { seq, prev } }` to continue the same chain instead of starting a second genesis — see the live agent demo at [nominee.dev/agent](https://nominee.dev/agent) for a worked example.
+
+## Framework adapters
+
+| Where your agent runs | Integration |
+|---|---|
+| **Vercel AI SDK** | `guardTools(nominee, tools, { user })` from [`nominee-ai`](packages/ai) — or `nomineeTool` for per-tool config |
+| **Vercel Eve** | `nomineeTool` from [`nominee-eve`](packages/eve) — policy + portable approvals inside Eve tools |
+| **Cloudflare Agents** | via `nominee-ai` |
+| **Mastra / OpenAI Agents / MCP / anything** | core `nominee.guard()` wraps any object of functions or `{ execute }` tools |
+| **Standalone** | `nominee.authorize({ tool, input, user })` anywhere you like |
+
+```ts
+// Vercel AI SDK — one line around your existing tools:
+import { guardTools } from 'nominee-ai'
+
+const result = await generateText({
+  model,
+  tools: guardTools(nominee, { searchEmail, forwardEmail, mergePr }, { user: session.userId }),
+})
+```
+
+## Tokens (the supporting act)
+
+Tools that act on third-party APIs also need credentials — fresh ones, at call time, never in the model's context. nominee's strategy layer does that too: call-time resolution, single-flight refresh under concurrency, rotation persistence, and swappable backends (your DB → OAuth2 → Auth0 Token Vault → Supabase) without touching agent code.
+
+```ts
+const nominee = new Nominee({
+  policy,
+  strategy: tokens(({ user, connection }) => db.getFreshToken(user, connection)),
+})
+
+// In a tool: a token that is valid *now*, auto-refreshed, audited.
+const token = await nominee.token({ user, connection: 'github' })
+```
+
+Runnable proof that naive refresh breaks under rotation + concurrency (7/8 fail; nominee 8/8): [`examples/token-refresh-correctness`](examples/token-refresh-correctness).
+
+## API
+
+```ts
+// Authorization
+await nominee.authorize({ tool, input, user })   // allow | throws PolicyDeniedError / ApprovalDeniedError
+await nominee.check({ tool, input, user })       // dry-run: the decision, no side effects
+nominee.guard(tools, { user })                   // wrap once, enforce everywhere
+
+// Approvals
+await nominee.approve({ user, action, detail })  // block until a human decides
+nominee.resolveApproval(id, 'approved')          // settle from your webhook
+
+// Receipts
+nominee.receipts                                 // hash-chained record
+nominee.verifyReceipts()                         // tamper check
+verifyReceipts(receipts, { key })                // offline / exported verification
+
+// Delegation
+const sub = nominee.delegate('research-agent', { policy })  // can only narrow
+
+// Tokens
+await nominee.token({ user, connection })        // fresh at call time, single-flight refresh
+await nominee.exchange({ user, connection, actor, scopes }) // RFC 8693 downscoping
 nominee.invalidate(user, connection)
 
-// Spawn a sub-agent — its audit events carry user → orchestrator → sub-agent
-const researcher = nominee.delegate('research-agent')
-await researcher.token({ user, connection }) // shares the parent cache + audit stream
-
-// Exchange for a downscoped token bound to a sub-agent (RFC 8693; needs strategy support)
-await nominee.exchange({ user, connection, actor: 'research-agent', scopes })
-
-// Subscribe to all audit events
-const unsub = nominee.on((event) => console.log(event))
+// Audit stream (in-process listeners, alongside receipts)
+const unsub = nominee.on((event) => log(event))
 ```
 
----
+## Why not …?
 
-## Why nominee
-
-The hard part of agent auth isn't the OAuth dance — it's keeping a token *fresh across a long run*, gating the risky calls, and proving who authorized what. nominee is a thin, neutral **seam** that does all three: your agent asks for a token at call time, nominee keeps it fresh and gated, and your vault stays swappable underneath.
-
-```
-  your agent / framework        AI SDK · Eve · Cloudflare Agents · standalone
-    asks for a token at call time
-        │
-        ▼   nominee.token({ user, connection })
-  nominee                       single-flight refresh · rotation persistence
-    freshness · approval · audit · delegation        · human-in-the-loop
-        │
-        ▼   strategy.getToken()
-  your vault / store            env · DB · OAuth2 · Auth0 Token Vault · Supabase · Nango
-    where the refresh token actually lives
-```
-
-Start on your DB → Auth0 → Nango: only the `strategy` line changes, your agent code never does.
+- **`needsApproval: true`** — binary, per-tool, no argument conditions, no budgets, no record of the decision, broken for dynamic/MCP tools. nominee is a policy, not a flag — and it's the same policy on every framework.
+- **Credential vaults / proxies** — they stop the model *seeing* the key, but the agent can still do anything *through* them. Authorization is the missing half; nominee is that half (and composes fine with a vault as its strategy).
+- **Sandboxes** — contain the filesystem and network of the process. Your OAuth authority isn't in the sandbox; it's in the token. Use both.
+- **Hosted agent-auth platforms** (Arcade, Composio, Auth0 for AI, Vercel Connect) — good products, but they're SaaS: per-call billing, per-vendor lock-in, and the policy brain lives on their side. nominee is MIT, in-process, and bring-your-own-everything. Use them *under* nominee as strategies if you like them.
 
 ### When you *don't* need nominee
 
-- **You're on Eve**, or a framework that already brokers fresh third-party access — use its native auth.
-- **You use the Vercel AI SDK with Vercel Connect** for connectors — Connect already manages the tokens.
-- **One provider, a long-lived non-rotating token, no pause, no concurrency** — a plain refresh is genuinely enough.
-- **You want one fully-managed vendor** — use Auth0 Token Vault or Nango directly.
+- A read-only agent with no authority worth guarding.
+- Your platform's native permission system already covers you end-to-end and you're happy inside it.
+- You want one fully-managed vendor for tools + auth + policy — use Arcade or Composio directly.
 
-Reach for nominee when you want freshness + approval + audit that's **framework-neutral, no-SaaS, and bring-your-own-store** — and want to swap the vault without rewriting your agent.
-
----
-
-## "Doesn't the AI SDK already have approvals?"
-
-Yes — AI SDK v6 added tool approvals. Nominee adds three things it doesn't cover:
-
-1. **Token lifecycle** — tool calls happen hours after authorization. Nominee manages refresh so you never pass a stale token.
-2. **Provider-neutral** — works with Cloudflare Agents, Eve, standalone loops — not just the AI SDK.
-3. **Unified audit trail** — one stream across all agents, all frameworks.
-
----
+Upgrading from 2.0? It's fully additive, nothing changed shape — see [Migrating from 2.0](https://nominee.dev/docs/#migrating).
 
 ## Contributing
 
-PRs for community strategies (Clerk, WorkOS, Firebase, etc.) are enthusiastically welcome — `nominee-auth0` and `nominee-supabase` show the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md) to learn how to build a strategy. By participating you agree to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
+PRs for community strategies (Clerk, WorkOS, Firebase, …) and framework adapters (Mastra, OpenAI Agents, LangGraph) are enthusiastically welcome — `nominee-auth0` and `nominee-supabase` show the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md). By participating you agree to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 Found a security issue? Please report it privately — see [SECURITY.md](.github/SECURITY.md).
 
