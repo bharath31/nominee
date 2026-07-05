@@ -72,7 +72,7 @@ export const Og: React.FC = () => {
             padding: '10px 18px',
           }}
         >
-          naive refresh 7/8 fail → nominee 8/8
+          injected exfiltration → blocked before the tool runs
         </span>
         <span style={{ fontFamily: mono, fontSize: 20, color: c.inkSoft }}>nominee.dev</span>
       </div>

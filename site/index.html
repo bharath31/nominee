@@ -335,15 +335,15 @@
         <div class="how-grid">
           <figure class="how-video" aria-label="nominee in action">
             <video
-              src="/assets/nominee-proof.mp4"
-              poster="/assets/nominee-proof-poster.png"
+              src="/assets/nominee-blocked.mp4"
+              poster="/assets/nominee-blocked-poster.png"
               autoplay
               muted
               loop
               playsinline
               preload="metadata"
             ></video>
-            <figcaption>Naive OAuth refresh under rotation + concurrency fails 7/8 with invalid_grant; nominee gets 8/8 with the same agent code.</figcaption>
+            <figcaption>A prompt-injected agent tries to exfiltrate the inbox; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a signed receipt of every decision.</figcaption>
           </figure>
           <ul class="how-points">
             <li>

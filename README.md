@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=6" alt="nominee — the authorization layer for AI agents" width="100%" />
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner.png?v=7" alt="nominee — the authorization layer for AI agents" width="100%" />
 </p>
 
 <p align="center">
@@ -73,6 +73,10 @@ const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardE
 Denied calls throw `PolicyDeniedError` **before the tool runs**. Escalated calls block until a human decides. Every outcome lands on the receipt chain.
 
 ## Watch an injected agent fail
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-injection.gif?v=1" alt="A prompt-injected agent tries to forward the whole inbox to an attacker; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a tamper-evident receipt of every decision." width="100%" />
+</p>
 
 [`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) — no API keys, one command:
 

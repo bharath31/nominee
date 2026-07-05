@@ -15,50 +15,45 @@ of hand-editing a dozen files and missing three.
 
 ## Rendering the assets
 
-The Remotion project lives outside the workspace to avoid adding heavy deps to
-the monorepo. From a Remotion project that imports `../brand/content.ts`:
+Every committed banner/OG PNG and the injection proof video is the **light
+brand** (paper `#faf9f5`), rendered with [Remotion](https://remotion.dev) from
+`compositions/` — all of which import `content.ts`, so a positioning change
+flows straight into the art.
+
+> ⚠️ **Never rasterize the `*.svg` files.** `site/assets/*.svg` and
+> `.github/media/banner*.svg` are STALE DARK (`#0A1020`) orphans from before the
+> brand went light — nothing renders from them. Rasterizing them produces dark,
+> off-brand banners (this shipped once and had to be reverted). Regenerate with
+> Remotion, below.
+
+Compositions (all read `content.ts`; registered in `Root.tsx`):
+
+| Composition | Size | Output |
+|---|---|---|
+| `Banner` | 1600×520 still | `.github/media/banner.png` |
+| `Og` | 1200×630 still | `site/assets/og.png` |
+| `PackageBanner` (parameterized) | 1600×520 still | `banner-ai.png` / `banner-eve.png` / `banner-auth0.png` |
+| `Injection` | 1280×720 video | the prompt-injection-blocked proof (lead demo) |
+| `Proof` | 1280×720 video | the older token-race demo (still true, no longer lead) |
+
+The Remotion project lives outside the workspace to avoid heavy deps in the
+monorepo. Scaffold one with `remotion @remotion/cli @remotion/google-fonts
+@remotion/renderer react react-dom`, copy `content.ts` + `compositions/*` into
+its `src/` (flip the compositions' `../content` import to `./content` for a flat
+`src/`), then:
 
 ```bash
 # stills
-npx remotion still compositions/Banner.tsx  ../.github/media/banner.png
-npx remotion still compositions/Og.tsx       ../site/assets/og.png
-# video (then convert to gif if needed)
-npx remotion render compositions/Proof.tsx   ../site/assets/nominee-proof.mp4
+npx remotion still  src/index.ts Banner       ../.github/media/banner.png
+npx remotion still  src/index.ts Og            ../site/assets/og.png
+npx remotion still  src/index.ts BannerAi      ../.github/media/banner-ai.png
+npx remotion still  src/index.ts BannerEve     ../.github/media/banner-eve.png
+npx remotion still  src/index.ts BannerAuth0   ../.github/media/banner-auth0.png
+# injection video — MP4 for the site, GIF for the README
+npx remotion render src/index.ts Injection ../site/assets/nominee-blocked.mp4 --codec=h264
+npx remotion still  src/index.ts Injection ../site/assets/nominee-blocked-poster.png --frame=210
+npx remotion render src/index.ts Injection ../.github/media/nominee-injection.gif --codec=gif --every-nth-frame=2 --scale=0.7
 ```
-
-See `compositions/` for the composition source. `Og.tsx` and `Banner.tsx`
-already read `brand.taglineFull` / `brand.subhead` dynamically — they were
-correct the moment `content.ts` was, the *render step* was just never run
-after the authorization pivot. `Proof.tsx` renders the token-race video only;
-there is no composition yet for a policy-blocked-exfiltration video or for
-per-package/blog OG images (those are hand-authored SVGs, see below).
-
-**Fallback used for the authorization pivot (no Remotion project on hand):**
-`site/assets/*.svg` and `.github/media/banner*.svg` are plain, hand-editable
-SVGs — the actual committed PNGs are lossless rasterizations of them, not
-Remotion output. Edit the SVG text directly to match `content.ts`, then
-rasterize with `sharp` (already a transitive dep in this workspace) rather
-than standing up Remotion for a one-off:
-
-```js
-const sharp = require('sharp') // resolve via node_modules/.pnpm/sharp@*/node_modules/sharp if not hoisted
-await sharp(svgBuffer, { density: 300 }) // supersample for crisp text, then...
-  .resize(targetWidth, targetHeight, { fit: 'fill' }) // ...downscale to an exact target (only distortion-free if target keeps the SVG's own aspect ratio)
-  .png()
-  .toFile(outPath)
-```
-
-Package banners (`banner-ai.svg`, `banner-eve.svg`, `banner-auth0.svg`) and
-blog OG images (`og-blog-token.svg`, `og-blog-launch.svg`) were never Remotion
-compositions to begin with — they're hand-authored SVGs edited the same way.
-`banner-auth0.svg` still accurately describes `nominee-auth0` (Token Vault +
-CIBA) and was left untouched by the pivot.
-
-**Not regenerated in the pivot:** a video/GIF proof of the policy-blocked
-exfiltration story (the `#how` section on the homepage still shows the older
-`nominee-proof.mp4` token race — real and still true, just not the lead demo
-anymore). Needs either a new Remotion composition + a real render environment,
-or a screen recording of `examples/prompt-injection-blocked`.
 
 ## Surface registry — everywhere positioning copy lives
 
