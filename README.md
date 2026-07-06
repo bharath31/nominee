@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=2" alt="nominee — the authorization layer for AI agents. A prompt-injected tool call travels toward the tool and is denied at the policy gate before it lands." width="100%" />
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=3" alt="nominee — the authorization layer for AI agents. A prompt-injected tool call travels toward the tool and is denied at the policy gate before it lands." width="100%" />
 </p>
 
 <p align="center">

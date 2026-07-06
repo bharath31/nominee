@@ -35,8 +35,6 @@ export const BannerMotion: React.FC = () => {
   const cmdR = rise(40, 62)
   const cardR = rise(50, 78)
 
-  const sealScale = interpolate(frame, [6, 30], [0, 1], clamp(overshoot))
-
   // ── the wire: agent —— nominee —— tool ──
   const wireY = 320
   const x0 = 92
@@ -88,9 +86,20 @@ export const BannerMotion: React.FC = () => {
               translate: brandR.translate,
             }}
           >
-            <div style={{ scale: sealScale, display: 'flex' }}>
-              <Seal size={40} color={c.seal} />
-            </div>
+            {/* Bigger, bold, fully-opaque seal so its lines carry enough pixel
+                mass to survive GIF palette quantization (thin strokes vanish).
+                A faint oxblood disc backs it so the mark reads even if the
+                finest curves drop a pixel. */}
+            <svg width={58} height={58} viewBox="0 0 40 40" style={{ display: 'block' }}>
+              <circle cx="20" cy="20" r="16" fill={hexA(c.seal, 0.07)} />
+              <g fill="none" stroke={c.seal} strokeWidth={2}>
+                <circle cx="20" cy="20" r="15" />
+                <circle cx="20" cy="20" r="10.5" />
+                <ellipse cx="20" cy="20" rx="15" ry="5.5" />
+                <ellipse cx="20" cy="20" rx="15" ry="5.5" transform="rotate(60 20 20)" />
+                <ellipse cx="20" cy="20" rx="15" ry="5.5" transform="rotate(120 20 20)" />
+              </g>
+            </svg>
             <div
               style={{
                 fontFamily: display,
