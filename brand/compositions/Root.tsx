@@ -1,5 +1,6 @@
 import { Composition, Still } from 'remotion'
 import { Banner } from './Banner'
+import { BannerMotion } from './BannerMotion'
 import { Injection } from './Injection'
 import { Og } from './Og'
 import { PackageBanner } from './PackageBanner'
@@ -44,6 +45,14 @@ export const RemotionRoot = () => {
           subhead: 'Token Vault tokens and CIBA phone approvals — one strategy under nominee.',
           install: 'npm i nominee nominee-auth0',
         }}
+      />
+      <Composition
+        id="BannerMotion"
+        component={BannerMotion}
+        durationInFrames={120}
+        fps={30}
+        width={1280}
+        height={400}
       />
       <Composition
         id="Injection"
