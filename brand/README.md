@@ -30,7 +30,8 @@ Compositions (all read `content.ts`; registered in `Root.tsx`):
 
 | Composition | Size | Output |
 |---|---|---|
-| `Banner` | 1600×520 still | `.github/media/banner.png` |
+| `BannerMotion` | 1280×400 video | `.github/media/banner-motion.gif` — the **animated README header** (an injected call blocked at the policy gate); `banner-motion.png` is a static poster |
+| `Banner` | 1600×520 still | `.github/media/banner.png` (static banner, kept for non-animated contexts) |
 | `Og` | 1200×630 still | `site/assets/og.png` |
 | `PackageBanner` (parameterized) | 1600×520 still | `banner-ai.png` / `banner-eve.png` / `banner-auth0.png` |
 | `Injection` | 1280×720 video | the prompt-injection-blocked proof (lead demo) |
@@ -49,6 +50,9 @@ npx remotion still  src/index.ts Og            ../site/assets/og.png
 npx remotion still  src/index.ts BannerAi      ../.github/media/banner-ai.png
 npx remotion still  src/index.ts BannerEve     ../.github/media/banner-eve.png
 npx remotion still  src/index.ts BannerAuth0   ../.github/media/banner-auth0.png
+# animated README header banner (GIF) + static poster
+npx remotion render src/index.ts BannerMotion ../.github/media/banner-motion.gif --codec=gif --every-nth-frame=2
+npx remotion still  src/index.ts BannerMotion ../.github/media/banner-motion.png --frame=90
 # injection video — MP4 for the site, GIF for the README
 npx remotion render src/index.ts Injection ../site/assets/nominee-blocked.mp4 --codec=h264
 npx remotion still  src/index.ts Injection ../site/assets/nominee-blocked-poster.png --frame=210
