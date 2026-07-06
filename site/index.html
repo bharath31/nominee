@@ -163,6 +163,7 @@
             <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
               <span class="prompt">›</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
             </button>
+            <a class="text-link" href="#proof">Run the proof — no keys →</a>
             <a class="text-link" href="/agent">Live demo →</a>
             <a class="text-link" href="/docs/">Docs →</a>
           </div>
@@ -387,7 +388,8 @@
           </div>
           <pre data-panel="default"><code><span class="k">import</span> { Nominee, allow, deny, ask } <span class="k">from</span> <span class="s">'nominee'</span>
 
-<span class="c">// the whole setup — allow / deny / ask rules over your tools</span>
+<span class="c">// a boolean flag (needsApproval: true) is one Y/N prompt for everything.</span>
+<span class="c">// a policy is allow / deny / ask — per tool, argument-aware:</span>
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   policy: [
     <span class="fn">allow</span>(<span class="s">'email.read'</span>),
