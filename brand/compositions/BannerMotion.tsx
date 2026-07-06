@@ -36,7 +36,6 @@ export const BannerMotion: React.FC = () => {
   const cardR = rise(50, 78)
 
   const sealScale = interpolate(frame, [6, 30], [0, 1], clamp(overshoot))
-  const idle = 0.5 + 0.5 * Math.sin(frame / 11)
 
   // ── the wire: agent —— nominee —— tool ──
   const wireY = 320
@@ -89,13 +88,7 @@ export const BannerMotion: React.FC = () => {
               translate: brandR.translate,
             }}
           >
-            <div
-              style={{
-                scale: sealScale,
-                filter: `drop-shadow(0 0 ${6 + idle * 8}px ${hexA(c.seal, 0.4)})`,
-                display: 'flex',
-              }}
-            >
+            <div style={{ scale: sealScale, display: 'flex' }}>
               <Seal size={40} color={c.seal} />
             </div>
             <div
