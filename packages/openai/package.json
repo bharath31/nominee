@@ -1,0 +1,49 @@
+{
+  "name": "nominee-openai",
+  "version": "2.1.0",
+  "description": "Decision-bound tools for the OpenAI Agents SDK",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["openai", "agents", "tools", "authorization", "nominee"],
+  "author": "Bharath",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bharath31/nominee.git",
+    "directory": "packages/openai"
+  },
+  "homepage": "https://github.com/bharath31/nominee#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@openai/agents": ">=0.14.1",
+    "nominee": "workspace:^",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@openai/agents": "^0.14.1",
+    "@types/node": "^22.10.2",
+    "nominee": "workspace:*",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
+  }
+}

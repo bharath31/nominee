@@ -101,6 +101,39 @@ describe('ReceiptLedger', () => {
     expect(seen.map((r) => r.seq)).toEqual([0, 1])
   })
 
+  it('flushes async receipt sinks in sequence', async () => {
+    const seen: number[] = []
+    const ledger = new ReceiptLedger({
+      onReceipt: async (receipt) => {
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        seen.push(receipt.seq)
+      },
+    })
+    ledger.append(entry())
+    ledger.append(entry({ effect: 'allow' }))
+
+    expect(seen).toEqual([])
+    await ledger.flush()
+    expect(seen).toEqual([0, 1])
+  })
+
+  it('surfaces async sink failures and stops later delivery', async () => {
+    const seen: number[] = []
+    const ledger = new ReceiptLedger({
+      onReceipt: async (receipt) => {
+        seen.push(receipt.seq)
+        if (receipt.seq === 0) throw new Error('sink unavailable')
+      },
+    })
+    ledger.append(entry())
+    ledger.append(entry({ effect: 'allow' }))
+
+    await expect(ledger.flush()).rejects.toThrow('sink unavailable')
+    ledger.append(entry({ effect: 'deny' }))
+    await expect(ledger.flush()).rejects.toThrow('sink unavailable')
+    expect(seen).toEqual([0])
+  })
+
   it('resumes an existing chain instead of starting a second genesis', () => {
     const first = new ReceiptLedger()
     first.append(entry({ tool: 't0' }))

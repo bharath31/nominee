@@ -1,0 +1,48 @@
+{
+  "name": "nominee-postgres",
+  "version": "2.1.0",
+  "description": "Transactional PostgreSQL action, budget, and receipt stores for nominee",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["postgres", "postgresql", "durable", "ai", "agents", "authorization", "nominee"],
+  "author": "Bharath",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bharath31/nominee.git",
+    "directory": "packages/postgres"
+  },
+  "homepage": "https://github.com/bharath31/nominee#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "nominee": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
+    "nominee": "workspace:*",
+    "pg": "^8.22.0",
+    "pg-mem": "^3.0.14",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.10"
+  }
+}

@@ -71,6 +71,7 @@
         <a href="#strategies">Strategies</a>
         <span class="grp">Build</span>
         <a href="#adapters">Framework adapters</a>
+        <a href="#production">Production</a>
         <span class="grp">Reference</span>
         <a href="#api">Core API</a>
         <a href="#errors">Errors</a>
@@ -82,35 +83,32 @@
         <h1>Documentation</h1>
         <p class="lede">
           <strong>The authorization layer for AI agents.</strong> Your agent logs in as
-          you — nominee decides what it can <em>do</em> as you. Policy, approvals, and
-          receipts on every agent tool call — dependency-free, framework-neutral, no SaaS.
+          you — nominee decides what it can <em>do</em> as you. Bind application
+          authorization, exact-call capability, credential delivery, and durable evidence —
+          dependency-free core, framework-neutral, self-hostable.
         </p>
 
         <section id="what" class="doc-section">
           <h2>What nominee is</h2>
           <p>
-            nominee sits in-process between the model and your tools. Every tool call is
-            checked against a declarative <code>allow</code> / <code>deny</code> /
-            <code>ask</code> policy before it runs (<code>nominee.authorize()</code>, or
-            <code>nominee.guard()</code> to wrap a whole tools object in one line), risky
-            calls pause for a human, and every decision — including refusals — is sealed
-            into a hash-chained, tamper-evident receipt log. Tools that need third-party
-            credentials get a fresh token at the instant they act, via a pluggable
-            <em>strategy</em> — freshness, refresh-token rotation, and single-flight are
-            handled for you.
+            nominee sits between the model and your tools. The primary <code>run()</code>
+            path checks application resource authorization and declarative
+            <code>allow</code> / <code>deny</code> / <code>ask</code> policy, reserves
+            budgets, pauses when needed, consumes one exact-input capability, resolves a
+            credential, runs the side effect once, and records its outcome.
           </p>
 
           <div class="layer-diagram" role="img" aria-label="Three layers: your agent or framework on top, nominee in the middle, your vault or store at the bottom.">
             <div class="layer">
               <span class="layer-tag">your agent / framework</span>
               <strong>calls a tool as your user</strong>
-              <span class="layer-eg">Vercel AI SDK · Eve · Mastra · Cloudflare Agents · MCP · standalone</span>
+              <span class="layer-eg">Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP</span>
             </div>
-            <div class="layer-arrow">▼&nbsp;&nbsp;<code>authorize({ tool, input, user })</code></div>
+            <div class="layer-arrow">▼&nbsp;&nbsp;<code>run({ user, tenant, tool, resource, input }, execute)</code></div>
             <div class="layer layer-mid">
               <span class="layer-tag">nominee</span>
-              <strong>policy · approvals · receipts · delegation</strong>
-              <span class="layer-eg">allow / deny / ask · budgets · hash-chained receipts · fresh tokens at call time</span>
+              <strong>decide · grant · prove</strong>
+              <span class="layer-eg">application authz · single-use capability · atomic budgets · durable evidence</span>
             </div>
             <div class="layer-arrow">▼&nbsp;&nbsp;<code>execute(input)</code></div>
             <div class="layer">
@@ -136,9 +134,10 @@
             <li><strong>You want one fully-managed vendor for tools + auth + policy.</strong> Use Arcade or Composio directly.</li>
           </ul>
           <p>
-            Reach for nominee when you want policy + approvals + receipts that are
-            <strong>framework-neutral, no-SaaS, and bring-your-own-everything</strong> — the
-            same policy wherever your agent runs, with the vault swappable underneath.
+            Reach for nominee when you need application authorization, constrained
+            credential delivery, and evidence that are
+            <strong>framework-neutral and self-hostable</strong> — the same enforcement
+            contract wherever your agent runs.
           </p>
         </section>
 
@@ -167,8 +166,9 @@ const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardE
 })</code></pre>
           <p>
             <strong>Denied calls throw <code>PolicyDeniedError</code> before the tool runs.</strong>
-            Escalated (<code>ask</code>) calls block until a human decides. Every outcome — allow,
-            deny, ask, and the eventual approval — lands on the
+            An <code>ask</code> can resolve inline or surface <code>ActionPendingError</code>
+            with a durable action id for later resume. Every outcome — allow, deny, ask, and
+            the eventual approval — lands on the
             <a href="#receipts">receipt chain</a>.
           </p>
 
@@ -207,7 +207,7 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })</code
           <ul>
             <li><strong>First match wins</strong> within a policy; rules are checked in order.</li>
             <li><strong>No match → <code>fallback</code></strong> (default <code>'ask'</code> — unknown actions reach a human; set <code>'deny'</code> for default-deny, or <code>'allow'</code> for report-only auditing).</li>
-            <li><strong><code>when</code> predicates</strong> see <code>{ tool, input, user, chain }</code> — gate on arguments, not just tool names.</li>
+            <li><strong><code>when</code> predicates</strong> see <code>{ tool, input, user, tenant, resource, chain }</code> — gate on trusted application context and arguments, not just tool names.</li>
             <li><strong>Glob patterns</strong> match tool names: <code>allow('github.*')</code>, <code>deny('*.delete')</code>.</li>
             <li><strong>Budgets</strong>: <code>allow('search.*', { max: 20 })</code> — the 21st call escalates to a human instead of failing silently.</li>
           </ul>
@@ -223,7 +223,7 @@ allow('search.web', { max: 20 })  // budget: call #21 asks a human</code></pre>
 
         <section id="approval" class="doc-section">
           <h2>Approvals</h2>
-          <p>Gate sensitive actions. <code>approve()</code> blocks until a decision and throws <code>ApprovalDeniedError</code> if denied or expired.</p>
+          <p>The legacy single-process <code>approve()</code> API blocks until a decision and throws <code>ApprovalDeniedError</code> if denied or expired.</p>
           <pre><code>try {
   await nominee.approve({
     user: 'alice',
@@ -244,6 +244,13 @@ onApprovalRequest: (req) => notifyUser(req), // req.id, req.user, req.action, re
 
 // later, from your approval webhook/handler:
 nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
+          <p>
+            For a durable workflow, use <code>prepareAction()</code>. Persist the pending
+            action id, settle it with <code>resolveActionApproval()</code> (or poll a provider
+            with <code>resumeAction()</code>), then execute the returned one-use capability.
+            <code>run()</code> and framework adapters throw <code>ActionPendingError</code>
+            when that approval outlives the current request.
+          </p>
         </section>
 
         <section id="receipts" class="doc-section">
@@ -275,25 +282,26 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
             <code>receipts: false</code> to disable receipts entirely.
           </p>
           <p>
-            For a durable or hibernating agent that reconstructs its <code>Nominee</code>
-            instance across restarts (a Durable Object, a resumed job), persist the receipts
-            yourself and pass <code>resume: { seq, prev }</code> — the sequence number and hash
-            to continue from — so the new ledger picks up the same chain instead of starting a
-            second genesis:
+            For multi-replica production, use the atomic receipt store from
+            <code>nominee-postgres</code>. It sequences one stream transactionally:
           </p>
-          <pre><code>const last = persistedReceipts.at(-1)
+          <pre><code>const control = new PostgresControlStore(postgresDatabase(pool))
 const nominee = new Nominee({
+  production: true,
   policy,
+  actionStore: control,
   receipts: {
+    store: control,
+    stream: `tenant:${tenantId}`,
     key,
-    onReceipt: (r) => persistedReceipts.push(r),
-    resume: last ? { seq: persistedReceipts.length, prev: last.hash } : undefined,
+    delivery: 'strict',
   },
 })</code></pre>
           <p>
-            See <a href="https://nominee.dev/agent">the live agent demo</a> for a worked example:
-            a Cloudflare Durable Object that hibernates mid-session and resumes the same receipt
-            chain when it wakes.
+            The action store also persists budgets, approvals, capabilities, outcomes, and an
+            immutable transition journal. In-memory stores remain available for local work.
+            Anchor signed stream tips outside the primary database when the threat model
+            includes rollback of both receipts and their internal checkpoint.
           </p>
         </section>
 
@@ -402,7 +410,7 @@ const token = await nominee.token({ user, connection: 'github' }) // always fres
 
         <section id="adapters" class="doc-section">
           <h2>Framework adapters</h2>
-          <p>Drop nominee into any tool: an adapter wraps it so every call is checked against your policy, gated on approval when asked, and handed a fresh token automatically. Both expose <code>nomineeTool()</code> and <code>withNominee()</code>; <code>nominee-ai</code> also exports <code>guardTools(nominee, tools, { user })</code> to wrap a whole AI SDK tools object in one line.</p>
+          <p>Drop nominee into any tool: every official adapter routes the side effect through the decision-bound action lifecycle and resolves credentials only after capability consumption.</p>
           <pre><code>import { nomineeTool } from 'nominee-ai' // or 'nominee-eve'
 import { z } from 'zod'
 
@@ -430,6 +438,42 @@ const starRepo = nomineeTool({
             <a href="https://github.com/bharath31/nominee/tree/main/examples/ai-sdk-minimal">ai-sdk-minimal</a>
             example is the whole integration in ~25 lines.
           </p>
+          <table class="api-table">
+            <thead><tr><th>Runtime</th><th>Package</th></tr></thead>
+            <tbody>
+              <tr><td>Vercel AI SDK / Cloudflare Agents</td><td><code>nominee-ai</code></td></tr>
+              <tr><td>Vercel Eve</td><td><code>nominee-eve</code></td></tr>
+              <tr><td>OpenAI Agents SDK</td><td><code>nominee-openai</code> — ask rules use native resumable approval</td></tr>
+              <tr><td>Mastra</td><td><code>nominee-mastra</code> — native or portable approval</td></tr>
+              <tr><td>MCP server SDK</td><td><code>nominee-mcp</code> — registered decision-bound handlers</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="production" class="doc-section">
+          <h2>Production</h2>
+          <p>
+            Set <code>production: true</code> on consequential paths. Nominee refuses to
+            start without a default-deny policy, durable action state, an atomic durable
+            receipt store, strict receipt delivery, and durable state for provider-native
+            approvals.
+          </p>
+          <pre><code>const control = new PostgresControlStore(postgresDatabase(pool))
+const nominee = new Nominee({
+  production: true,
+  policy: { rules, fallback: 'deny' },
+  policyVersion: '2026-07-29.1',
+  actionStore: control,
+  receipts: { store: control, stream: `tenant:${tenant}`, key, delivery: 'strict' },
+  authorizer: ({ user, action, resource, tenant }) =>
+    appAuthz.can({ user, action, resource, tenant }),
+  strategy: credentialBroker,
+})</code></pre>
+          <p>
+            Use the Nominee action id as the downstream API idempotency key. Keep raw tools and
+            root credentials outside model-controlled code. See the repository production
+            runbook for recovery, monitoring, and known boundaries.
+          </p>
         </section>
 
         <section id="api" class="doc-section">
@@ -437,11 +481,15 @@ const starRepo = nomineeTool({
           <table class="api-table">
             <thead><tr><th>Method</th><th>Returns / behavior</th></tr></thead>
             <tbody>
+              <tr><td><code>run({ tool, input, user, resource?, tenant?, connection?, scopes? }, execute)</code></td><td>Recommended decision-bound path: authorize, issue and consume a single-use capability, resolve the credential, execute, and record the outcome.</td></tr>
+              <tr><td><code>prepareAction()</code> · <code>resumeAction()</code> · <code>executeCapability()</code></td><td>Durable pause/resume API for jobs, approvals, and cross-process execution.</td></tr>
+              <tr><td><code>resolveActionApproval(actionId, resolution)</code></td><td>Resolve a durable dashboard or webhook approval with approver identity and mechanism.</td></tr>
               <tr><td><code>authorize({ tool, input?, user })</code></td><td><code>Promise&lt;Authorization&gt;</code> — checks the call against the policy. Resolves when it may proceed; throws <code>PolicyDeniedError</code> / <code>ApprovalDeniedError</code> otherwise. <code>requireApproval: true</code> forces an ask.</td></tr>
+              <tr><td><code>await assertUnchanged(authorization, input)</code></td><td>Verifies that the input about to execute matches the canonical fingerprint evaluated by policy and any approver. Official wrappers call it automatically.</td></tr>
               <tr><td><code>check({ tool, input?, user })</code></td><td><code>Promise&lt;PolicyDecision&gt;</code> — dry run: the decision a call <em>would</em> get, with no side effects (no budgets, no approvals, no receipts).</td></tr>
               <tr><td><code>guard(tools, { user })</code></td><td>Wraps a whole tools object (plain async functions or <code>{ execute }</code> tools) so every call is authorized first — the one-line integration.</td></tr>
-              <tr><td><code>receipts</code> · <code>verifyReceipts()</code></td><td>The hash-chained, optionally HMAC-signed receipt log and its tamper check. <code>verifyReceipts(receipts, { key })</code> (top-level export) verifies an exported log offline.</td></tr>
-              <tr><td><code>token({ user, connection, scopes?, force? })</code></td><td><code>Promise&lt;string&gt;</code> — a fresh token. Cached per (user, connection) until just before expiry; <code>force: true</code> bypasses the cache.</td></tr>
+              <tr><td><code>receipts</code> · <code>verifyReceipts()</code> · <code>flushReceipts()</code></td><td>The hash-chained, optionally HMAC-signed receipt log, tamper check, and async sink checkpoint. <code>delivery: 'strict'</code> waits for the sink before async authorization returns.</td></tr>
+              <tr><td><code>token({ user, connection, scopes?, force? })</code></td><td><code>Promise&lt;string&gt;</code> — a fresh token. Cached per canonical (user, connection, scope set) until just before expiry; <code>force: true</code> bypasses the cache.</td></tr>
               <tr><td><code>approve({ user, action, detail?, timeoutMs? })</code></td><td><code>Promise&lt;ApprovalResult&gt;</code> — resolves on approval; throws <code>ApprovalDeniedError</code> on deny/expiry.</td></tr>
               <tr><td><code>resolveApproval(id, 'approved' | 'denied')</code></td><td><code>boolean</code> — settle a built-in-engine approval from your webhook. Returns false for unknown ids.</td></tr>
               <tr><td><code>can({ user, action, resource })</code></td><td><code>Promise&lt;boolean&gt;</code> — fine-grained authz. Requires a strategy that implements it (else throws).</td></tr>
@@ -451,14 +499,17 @@ const starRepo = nomineeTool({
               <tr><td><code>on((event) =&gt; ...)</code></td><td><code>() =&gt; void</code> — subscribe to audit events; returns an unsubscribe function.</td></tr>
             </tbody>
           </table>
-          <p>Constructor options: <code>policy?</code> (rules array, or <code>{ rules, fallback }</code>), <code>receipts?</code> (<code>{ key?, onReceipt? }</code>, or <code>false</code>), <code>strategy?</code>, <code>onApprovalRequest?</code>, <code>onAudit?</code>, <code>approvalTimeoutMs?</code>, <code>expiryLeewayMs?</code> (default 60s), <code>agent?</code>.</p>
+          <p>Constructor options also include <code>actionStore?</code>, <code>authorizer?</code>, <code>policyVersion?</code>, <code>production?</code>, and <code>onGovernedAction?</code>. Use <code>usageReporter()</code> for opt-in pseudonymous governed-principal measurement.</p>
         </section>
 
         <section id="errors" class="doc-section">
           <h2>Errors</h2>
           <ul>
             <li><code>PolicyDeniedError</code> — thrown by <code>authorize()</code> and <code>guard()</code>-wrapped tools when a <code>deny</code> rule (or the fallback) matches — before the tool runs. Carries the decision and the matched rule.</li>
-            <li><code>ApprovalDeniedError</code> — thrown by <code>approve()</code> (and adapter tools with <code>approval: true</code>) when a request is denied or expires. Carries <code>.result</code>.</li>
+            <li><code>ActionPendingError</code> — a decision-bound action is durably waiting for approval. Carries <code>.actionId</code> and <code>.approvalId</code>.</li>
+            <li><code>ApprovalDeniedError</code> — thrown by <code>approve()</code> or <code>run()</code> when a request is denied or expires. Carries <code>.result</code>.</li>
+            <li><code>AuthorizationInputChangedError</code> — thrown when the arguments about to execute differ from those authorized.</li>
+            <li><code>ActionOutcomePersistenceError</code> — a governed action reached or needed to record a terminal result, but its durable outcome or evidence failed to persist. Inspect the action and downstream idempotency state before retrying.</li>
             <li>Strategy errors propagate from <code>token()</code> — e.g. a refresh failure or an unknown connection. A <code>token.error</code> audit event is emitted first.</li>
             <li><code>can()</code> throws if the active strategy doesn't implement authorization.</li>
           </ul>
@@ -467,36 +518,30 @@ const starRepo = nomineeTool({
         <section id="security" class="doc-section">
           <h2>Security model</h2>
           <ul>
-            <li><strong>Never hold tokens.</strong> Call <code>token()</code> at the moment of use. nominee caches in memory only and never persists third-party tokens itself — your strategy/store owns the refresh token.</li>
-            <li><strong>Gate the irreversible.</strong> Require <code>approval</code> for deletes, payments, outbound mail, and anything you couldn't easily undo.</li>
-            <li><strong>Keep the audit stream.</strong> Pipe <code>onAudit</code> to durable storage so you can always answer "who authorized this?".</li>
+            <li><strong>Use the decision-bound path.</strong> <code>run()</code> or prepare/resume/execute binds the exact call through outcome; legacy <code>authorize()</code> and unbound <code>token()</code> are disabled in production mode.</li>
+            <li><strong>Use durable stores.</strong> <code>nominee-postgres</code> makes budgets and capability consumption atomic and sequences receipts across replicas.</li>
+            <li><strong>Keep root authority outside the runtime.</strong> Only the execution callback receives the resolved credential after capability consumption.</li>
+            <li><strong>Make downstream writes idempotent.</strong> Use the action id as the third-party API idempotency key.</li>
             <li><strong>Attribute delegated actions.</strong> Use <code>delegate()</code> / <code>exchange()</code> so a sub-agent's actions carry the full identity chain.</li>
             <li>Report vulnerabilities privately — see <a href="https://github.com/bharath31/nominee/blob/main/SECURITY.md">SECURITY.md</a>.</li>
           </ul>
         </section>
 
         <section id="migrating" class="doc-section">
-          <h2>Migrating from 2.0</h2>
+          <h2>Migrating to 2.2</h2>
           <p>
-            2.1 is fully additive — nothing from 2.0's constructor options or method signatures
-            changed shape. A 2.0 nominee that only used <code>strategy</code>,
-            <code>token()</code>, <code>approve()</code>, and <code>onAudit</code> keeps working
-            exactly as written.
+            Existing non-production uses of <code>authorize()</code>, <code>token()</code>,
+            <code>approve()</code>, and <code>onAudit</code> remain available. The 2.2
+            adapters now execute through the decision-bound action lifecycle, so upgrade
+            <code>nominee</code> and its adapters together.
           </p>
-          <p>What's new to opt into:</p>
+          <p>What changed:</p>
           <ul>
-            <li><code>policy</code> — add rules and call <code>authorize()</code> / <code>guard()</code> to start enforcing before tools run, instead of only brokering tokens.</li>
-            <li><code>receipts</code> — on by default (with a fresh, empty chain) unless you pass <code>receipts: false</code>.</li>
-            <li><code>delegate()</code> — new, for sub-agent narrowing.</li>
+            <li><code>run()</code> and prepare/resume/execute bind policy, resource authorization, approval, capability, credential, exact input, and outcome.</li>
+            <li>Long-lived adapter approvals may now throw <code>ActionPendingError</code>; persist the action id and resume it instead of holding a process open.</li>
+            <li><code>production: true</code> disables unbound <code>authorize()</code> / <code>token()</code> and requires default-deny policy plus durable action, receipt, and provider-approval state.</li>
+            <li><code>nominee-postgres</code>, <code>nominee-openai</code>, <code>nominee-mastra</code>, and <code>nominee-mcp</code> are new first-class packages.</li>
           </ul>
-          <p>
-            One behavior note: <code>nomineeTool</code>'s <code>approval: true</code> (in
-            <code>nominee-ai</code> and <code>nominee-eve</code>) now routes through
-            <code>authorize({ requireApproval: true })</code> under the hood instead of calling
-            <code>approve()</code> directly — the user-visible behavior (blocks until a human
-            decides, throws <code>ApprovalDeniedError</code> on denial) is unchanged, but the
-            decision and the approval now both land on the receipt chain.
-          </p>
         </section>
       </article>
     </div>

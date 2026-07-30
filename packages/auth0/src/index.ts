@@ -1,4 +1,30 @@
-import type { ApprovalParams, ApprovalResult, GetTokenParams, Strategy, TokenResult } from 'nominee'
+import { createRemoteJWKSet, jwtVerify } from 'jose'
+import type {
+  ApprovalParams,
+  ApprovalPollResult,
+  ApprovalResult,
+  GetTokenParams,
+  PendingApproval,
+  PollApprovalParams,
+  StartApprovalParams,
+  Strategy,
+  TokenResult,
+} from 'nominee'
+
+interface PostgresQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
+  rows: Row[]
+}
+
+interface PostgresClient {
+  query<Row extends Record<string, unknown> = Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ): Promise<PostgresQueryResult<Row>>
+}
+
+interface PostgresDatabase {
+  transaction<T>(operation: (client: PostgresClient) => Promise<T>): Promise<T>
+}
 
 const FEDERATED_GRANT =
   'urn:auth0:params:oauth:grant-type:token-exchange:federated-connection-access-token'
@@ -28,6 +54,15 @@ export interface Auth0CibaOptions {
   audience?: string
   /** Override the server-provided poll interval (ms). */
   pollIntervalMs?: number
+  /** Durable request state used to resume polling after restart. */
+  store?: CibaStore
+  /** Per-request fetch deadline. Default 15 seconds. */
+  requestTimeoutMs?: number
+  /**
+   * Override ID-token verification. The callback MUST verify signature,
+   * issuer, audience, expiry, and return a trusted `sub`.
+   */
+  verifyIdToken?: (idToken: string) => Promise<Record<string, unknown>>
 }
 
 export interface Auth0Options {
@@ -54,7 +89,8 @@ export interface Auth0Options {
 }
 
 interface TokenResponse {
-  access_token: string
+  access_token?: string
+  id_token?: string
   expires_in?: number
   scope?: string
 }
@@ -65,10 +101,153 @@ interface BcAuthorizeResponse {
   interval?: number
 }
 
+export interface CibaState {
+  id: string
+  user: string
+  action: string
+  expectedApprover: string
+  inputHash?: string
+  policyVersion?: string
+  resource?: string
+  tenant?: string
+  intervalMs: number
+  nextPollAt: number
+  expiresAt: number
+}
+
+export interface CibaStore {
+  readonly durable: boolean
+  get(id: string): Promise<CibaState | null>
+  put(state: CibaState): Promise<void>
+  /**
+   * Atomically claim a due poll and move `nextPollAt` forward. Returns null
+   * when another worker already claimed it or the request does not exist.
+   */
+  claimPoll(id: string, now: number): Promise<CibaState | null>
+  update(id: string, patch: Partial<CibaState>): Promise<CibaState>
+  delete(id: string): Promise<void>
+}
+
+export class MemoryCibaStore implements CibaStore {
+  readonly durable = false
+  private readonly states = new Map<string, CibaState>()
+
+  async get(id: string): Promise<CibaState | null> {
+    const state = this.states.get(id)
+    return state ? structuredClone(state) : null
+  }
+
+  async put(state: CibaState): Promise<void> {
+    this.states.set(state.id, structuredClone(state))
+  }
+
+  async claimPoll(id: string, now: number): Promise<CibaState | null> {
+    const state = this.states.get(id)
+    if (!state || state.nextPollAt > now) return null
+    const claimed = { ...state, nextPollAt: now + state.intervalMs }
+    this.states.set(id, claimed)
+    return structuredClone(claimed)
+  }
+
+  async update(id: string, patch: Partial<CibaState>): Promise<CibaState> {
+    const state = this.states.get(id)
+    if (!state) throw new Error(`nominee-auth0: CIBA request "${id}" was not found`)
+    const next = { ...state, ...patch }
+    this.states.set(id, structuredClone(next))
+    return next
+  }
+
+  async delete(id: string): Promise<void> {
+    this.states.delete(id)
+  }
+}
+
+/** Idempotent PostgreSQL schema for {@link PostgresCibaStore}. */
+export const POSTGRES_CIBA_SCHEMA = `
+CREATE TABLE IF NOT EXISTS nominee_ciba_requests (
+  id text PRIMARY KEY,
+  state jsonb NOT NULL,
+  next_poll_at bigint NOT NULL,
+  expires_at bigint NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS nominee_ciba_requests_expiry_idx
+  ON nominee_ciba_requests (expires_at);
+`
+
+/** Durable Auth0 CIBA request state using nominee-postgres' transaction adapter. */
+export class PostgresCibaStore implements CibaStore {
+  readonly durable = true
+
+  constructor(private readonly database: PostgresDatabase) {}
+
+  async get(id: string): Promise<CibaState | null> {
+    return this.database.transaction(async (client) => readCibaState(client, id, false))
+  }
+
+  async put(state: CibaState): Promise<void> {
+    await this.database.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO nominee_ciba_requests (id, state, next_poll_at, expires_at)
+         VALUES ($1, $2::jsonb, $3, $4)`,
+        [state.id, JSON.stringify(state), state.nextPollAt, state.expiresAt],
+      )
+    })
+  }
+
+  async claimPoll(id: string, now: number): Promise<CibaState | null> {
+    return this.database.transaction(async (client) => {
+      const state = await readCibaState(client, id, true)
+      if (!state || state.nextPollAt > now) return null
+      const claimed = { ...state, nextPollAt: now + state.intervalMs }
+      await writeCibaState(client, claimed)
+      return claimed
+    })
+  }
+
+  async update(id: string, patch: Partial<CibaState>): Promise<CibaState> {
+    return this.database.transaction(async (client) => {
+      const state = await readCibaState(client, id, true)
+      if (!state) throw new Error(`nominee-auth0: CIBA request "${id}" was not found`)
+      const next = { ...state, ...patch }
+      await writeCibaState(client, next)
+      return next
+    })
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.database.transaction(async (client) => {
+      await client.query('DELETE FROM nominee_ciba_requests WHERE id = $1', [id])
+    })
+  }
+}
+
+async function readCibaState(
+  client: PostgresClient,
+  id: string,
+  lock: boolean,
+): Promise<CibaState | null> {
+  const result = await client.query<{ state: unknown }>(
+    `SELECT state FROM nominee_ciba_requests WHERE id = $1${lock ? ' FOR UPDATE' : ''}`,
+    [id],
+  )
+  const state = result.rows[0]?.state
+  if (!state) return null
+  return (typeof state === 'string' ? JSON.parse(state) : state) as CibaState
+}
+
+async function writeCibaState(client: PostgresClient, state: CibaState): Promise<void> {
+  await client.query(
+    `UPDATE nominee_ciba_requests
+     SET state = $2::jsonb, next_poll_at = $3, expires_at = $4
+     WHERE id = $1`,
+    [state.id, JSON.stringify(state), state.nextPollAt, state.expiresAt],
+  )
+}
+
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, ms)
-    t.unref?.()
+    setTimeout(resolve, ms)
   })
 
 /**
@@ -107,6 +286,26 @@ export function Auth0(options: Auth0Options): Strategy {
   const base = `https://${options.domain}`
   const subjectTokenType =
     options.subjectTokenType === 'access_token' ? SUBJECT_ACCESS : SUBJECT_REFRESH
+  const cibaStore = options.ciba?.store ?? new MemoryCibaStore()
+  const requestTimeoutMs = options.ciba?.requestTimeoutMs ?? 15_000
+  const jwks = createRemoteJWKSet(new URL(`${base}/.well-known/jwks.json`))
+
+  const signal = () => AbortSignal.timeout(requestTimeoutMs)
+
+  async function verifyApprover(idToken: string): Promise<string> {
+    const payload = options.ciba?.verifyIdToken
+      ? await options.ciba.verifyIdToken(idToken)
+      : (
+          await jwtVerify(idToken, jwks, {
+            issuer: `${base}/`,
+            audience: options.clientId,
+          })
+        ).payload
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      throw new Error('nominee-auth0: verified CIBA ID token has no subject')
+    }
+    return payload.sub
+  }
 
   async function getToken(params: GetTokenParams): Promise<TokenResult> {
     const subjectToken = await options.subjectToken(params)
@@ -125,6 +324,7 @@ export function Auth0(options: Auth0Options): Strategy {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
       body: JSON.stringify(body),
+      signal: signal(),
     })
 
     if (!res.ok) {
@@ -135,13 +335,16 @@ export function Auth0(options: Auth0Options): Strategy {
     }
 
     const json = (await res.json()) as TokenResponse
+    if (!json.access_token) {
+      throw new Error('nominee-auth0: Token Vault exchange returned no access_token')
+    }
     const result: TokenResult = { token: json.access_token }
     if (typeof json.expires_in === 'number') result.expiresAt = Date.now() + json.expires_in * 1000
     if (json.scope) result.scopes = json.scope.split(' ')
     return result
   }
 
-  async function requestApproval(params: ApprovalParams): Promise<ApprovalResult> {
+  async function startApproval(params: StartApprovalParams): Promise<PendingApproval> {
     const ciba = options.ciba
     if (!ciba) {
       throw new Error(
@@ -153,9 +356,27 @@ export function Auth0(options: Auth0Options): Strategy {
     // Auth0 CIBA requires `login_hint` as an `iss_sub` JSON object, not a bare
     // subject. Accept a pre-built JSON string (passed through as-is) or wrap a
     // plain subject — so callers can just return the user's `sub`.
-    const loginHint = rawHint.trim().startsWith('{')
-      ? rawHint
-      : JSON.stringify({ format: 'iss_sub', iss: `${base}/`, sub: rawHint })
+    let expectedApprover = rawHint
+    let loginHint: string
+    if (rawHint.trim().startsWith('{')) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(rawHint)
+      } catch {
+        throw new Error('nominee-auth0: CIBA login_hint is not valid JSON')
+      }
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        typeof (parsed as { sub?: unknown }).sub !== 'string'
+      ) {
+        throw new Error('nominee-auth0: CIBA login_hint JSON must contain a subject')
+      }
+      expectedApprover = (parsed as { sub: string }).sub
+      loginHint = rawHint
+    } else {
+      loginHint = JSON.stringify({ format: 'iss_sub', iss: `${base}/`, sub: rawHint })
+    }
     const bindingMessage = ciba.bindingMessage
       ? await ciba.bindingMessage(params)
       : `Approve: ${params.action}`
@@ -174,52 +395,142 @@ export function Auth0(options: Auth0Options): Strategy {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
       body: authBody,
+      signal: signal(),
     })
     if (!authRes.ok) {
       const text = await authRes.text().catch(() => '')
       throw new Error(`nominee-auth0: CIBA bc-authorize failed (${authRes.status}) ${text}`.trim())
     }
     const auth = (await authRes.json()) as BcAuthorizeResponse
-    const id = auth.auth_req_id
-
-    // 2. Poll the token endpoint until the user decides (or it expires).
-    const pollMs = ciba.pollIntervalMs ?? (auth.interval ?? 5) * 1000
-    const ttlMs = params.timeoutMs ?? (auth.expires_in ?? 300) * 1000
-    const deadline = Date.now() + ttlMs
-
-    while (Date.now() < deadline) {
-      await sleep(pollMs)
-      const pollRes = await doFetch(`${base}/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          accept: 'application/json',
-        },
-        body: new URLSearchParams({
-          grant_type: CIBA_GRANT,
-          auth_req_id: id,
-          client_id: options.clientId,
-          client_secret: options.clientSecret,
-        }),
-      })
-
-      if (pollRes.ok) return { id, decision: 'approved' }
-
-      const err = (await pollRes.json().catch(() => ({}))) as { error?: string }
-      if (err.error === 'authorization_pending' || err.error === 'slow_down') continue
-      if (err.error === 'access_denied') return { id, decision: 'denied' }
-      if (err.error === 'expired_token') return { id, decision: 'expired' }
-      throw new Error(
-        `nominee-auth0: CIBA poll failed (${pollRes.status}) ${err.error ?? ''}`.trim(),
-      )
+    if (!auth.auth_req_id) {
+      throw new Error('nominee-auth0: CIBA bc-authorize returned no auth_req_id')
     }
-
-    return { id, decision: 'expired' }
+    const now = Date.now()
+    const intervalMs = ciba.pollIntervalMs ?? (auth.interval ?? 5) * 1000
+    const serverExpiresAt = now + (auth.expires_in ?? 300) * 1000
+    const expiresAt = params.timeoutMs
+      ? Math.min(serverExpiresAt, now + params.timeoutMs)
+      : serverExpiresAt
+    await cibaStore.put({
+      id: auth.auth_req_id,
+      user: params.user,
+      action: params.action,
+      expectedApprover,
+      inputHash: params.inputHash,
+      policyVersion: params.policyVersion,
+      resource: params.resource,
+      tenant: params.tenant,
+      intervalMs,
+      nextPollAt: now + intervalMs,
+      expiresAt,
+    })
+    return { id: auth.auth_req_id, expiresAt, nextPollAt: now + intervalMs }
   }
 
-  const strategy: Strategy = { name: 'auth0', getToken }
-  if (options.ciba) strategy.requestApproval = requestApproval
-  return strategy
+  async function pollApproval(params: PollApprovalParams): Promise<ApprovalPollResult> {
+    const existing = await cibaStore.get(params.id)
+    if (!existing) {
+      throw new Error(`nominee-auth0: CIBA request "${params.id}" was not found`)
+    }
+    const now = Date.now()
+    if (existing.expiresAt <= now) {
+      await cibaStore.delete(params.id)
+      return { id: params.id, decision: 'expired', via: 'ciba' }
+    }
+    if (existing.nextPollAt > now) {
+      return { id: params.id, decision: 'pending', nextPollAt: existing.nextPollAt }
+    }
+    const state = await cibaStore.claimPoll(params.id, now)
+    if (!state) {
+      const latest = await cibaStore.get(params.id)
+      return {
+        id: params.id,
+        decision: 'pending',
+        ...(latest ? { nextPollAt: latest.nextPollAt } : {}),
+      }
+    }
+
+    const pollRes = await doFetch(`${base}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+      },
+      body: new URLSearchParams({
+        grant_type: CIBA_GRANT,
+        auth_req_id: state.id,
+        client_id: options.clientId,
+        client_secret: options.clientSecret,
+      }),
+      signal: signal(),
+    })
+
+    if (pollRes.ok) {
+      const token = (await pollRes.json()) as TokenResponse
+      if (!token.id_token) {
+        await cibaStore.delete(state.id)
+        throw new Error('nominee-auth0: CIBA approval returned no id_token')
+      }
+      const approver = await verifyApprover(token.id_token)
+      await cibaStore.delete(state.id)
+      if (approver !== state.expectedApprover) {
+        throw new Error(
+          `nominee-auth0: CIBA approver mismatch (expected "${state.expectedApprover}")`,
+        )
+      }
+      return { id: state.id, decision: 'approved', approver, via: 'ciba' }
+    }
+
+    const err = (await pollRes.json().catch(() => ({}))) as { error?: string }
+    if (err.error === 'authorization_pending') {
+      return { id: state.id, decision: 'pending', nextPollAt: state.nextPollAt }
+    }
+    if (err.error === 'slow_down') {
+      const slowed = await cibaStore.update(state.id, {
+        intervalMs: state.intervalMs + 5_000,
+        nextPollAt: Date.now() + state.intervalMs + 5_000,
+      })
+      return { id: state.id, decision: 'pending', nextPollAt: slowed.nextPollAt }
+    }
+    if (err.error === 'access_denied' || err.error === 'expired_token') {
+      await cibaStore.delete(state.id)
+      return {
+        id: state.id,
+        decision: err.error === 'access_denied' ? 'denied' : 'expired',
+        via: 'ciba',
+      }
+    }
+    throw new Error(`nominee-auth0: CIBA poll failed (${pollRes.status}) ${err.error ?? ''}`.trim())
+  }
+
+  async function requestApproval(params: ApprovalParams): Promise<ApprovalResult> {
+    const pending = await startApproval({
+      ...params,
+      actionId: `legacy_${Date.now()}`,
+      inputHash: 'legacy',
+      policyVersion: 'legacy',
+    })
+    while (Date.now() < pending.expiresAt) {
+      const state = await cibaStore.get(pending.id)
+      if (!state) throw new Error(`nominee-auth0: CIBA request "${pending.id}" was not found`)
+      await sleep(Math.max(0, state.nextPollAt - Date.now()))
+      const result = await pollApproval({ id: pending.id })
+      if (result.decision !== 'pending') return result
+    }
+    await cibaStore.delete(pending.id)
+    return { id: pending.id, decision: 'expired', via: 'ciba' }
+  }
+
+  return options.ciba
+    ? {
+        name: 'auth0',
+        durableApprovals: cibaStore.durable,
+        getToken,
+        startApproval,
+        pollApproval,
+        requestApproval,
+      }
+    : { name: 'auth0', getToken }
 }
 
 export interface Auth0AutoOptions extends Partial<Auth0Options> {

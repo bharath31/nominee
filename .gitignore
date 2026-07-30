@@ -10,6 +10,10 @@ coverage/
 INTERNAL_NOTES.md
 marketing_plan.md
 
+# Positioning / GTM working notes — local only, never committed
+.agents/
+docs/launch-500-dau.md
+
 # Superpowers planning notes — local only, never committed
 docs/superpowers/
 PROGRESS.md

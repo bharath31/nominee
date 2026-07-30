@@ -1,6 +1,8 @@
 import { Nominee } from 'nominee'
+import { type PostgresPool, postgresDatabase } from 'nominee-postgres'
+import { newDb } from 'pg-mem'
 import { describe, expect, it, vi } from 'vitest'
-import { Auth0 } from '../src/index.js'
+import { Auth0, MemoryCibaStore, POSTGRES_CIBA_SCHEMA, PostgresCibaStore } from '../src/index.js'
 
 interface MockCall {
   url: string
@@ -109,7 +111,7 @@ describe('nominee-auth0 — CIBA approval', () => {
       bcAuthorize: { auth_req_id: 'req_1', interval: 0, expires_in: 300 },
       pollResults: [
         { ok: false, body: { error: 'authorization_pending' } },
-        { ok: true, body: { access_token: 'approved_tok' } },
+        { ok: true, body: { id_token: 'verified-id-token' } },
       ],
     })
     const strategy = Auth0({
@@ -117,7 +119,7 @@ describe('nominee-auth0 — CIBA approval', () => {
       clientId: 'c',
       clientSecret: 's',
       subjectToken: () => 'rt',
-      ciba: { pollIntervalMs: 1 },
+      ciba: { pollIntervalMs: 1, verifyIdToken: async () => ({ sub: 'u1' }) },
       fetch,
     })
     const result = await strategy.requestApproval!({ user: 'u1', action: 'close_issue' })
@@ -155,7 +157,7 @@ describe('nominee-auth0 — CIBA approval', () => {
   it('integrates with nominee.approve end-to-end', async () => {
     const { fetch } = mockAuth0({
       bcAuthorize: { auth_req_id: 'req_3', interval: 0, expires_in: 300 },
-      pollResults: [{ ok: true, body: { access_token: 'ok' } }],
+      pollResults: [{ ok: true, body: { id_token: 'verified-id-token' } }],
     })
     const nominee = new Nominee({
       strategy: Auth0({
@@ -163,12 +165,137 @@ describe('nominee-auth0 — CIBA approval', () => {
         clientId: 'c',
         clientSecret: 's',
         subjectToken: () => 'rt',
-        ciba: { pollIntervalMs: 1, loginHint: (u) => `auth0|${u}` },
+        ciba: {
+          pollIntervalMs: 1,
+          loginHint: (u) => `auth0|${u}`,
+          verifyIdToken: async () => ({ sub: 'auth0|u1' }),
+        },
         fetch,
       }),
     })
     await expect(nominee.approve({ user: 'u1', action: 'wire_money' })).resolves.toMatchObject({
       decision: 'approved',
     })
+  })
+
+  it('resumes a pending approval in another strategy instance', async () => {
+    const store = new MemoryCibaStore()
+    const { fetch } = mockAuth0({
+      bcAuthorize: { auth_req_id: 'req_resume', interval: 0, expires_in: 300 },
+      pollResults: [{ ok: true, body: { id_token: 'verified-id-token' } }],
+    })
+    const makeStrategy = () =>
+      Auth0({
+        domain: 't.auth0.com',
+        clientId: 'c',
+        clientSecret: 's',
+        subjectToken: () => 'rt',
+        ciba: {
+          store,
+          pollIntervalMs: 0,
+          verifyIdToken: async () => ({ sub: 'u1' }),
+        },
+        fetch,
+      })
+    const pending = await makeStrategy().startApproval!({
+      user: 'u1',
+      action: 'wire_money',
+      actionId: 'act_1',
+      inputHash: 'input',
+      policyVersion: 'v1',
+    })
+
+    await expect(makeStrategy().pollApproval!({ id: pending.id })).resolves.toMatchObject({
+      id: 'req_resume',
+      decision: 'approved',
+      approver: 'u1',
+      via: 'ciba',
+    })
+  })
+
+  it('persists resumable approval state in PostgreSQL', async () => {
+    const memory = newDb()
+    memory.public.none(POSTGRES_CIBA_SCHEMA)
+    const adapter = memory.adapters.createPg()
+    const pool = new adapter.Pool()
+    const database = postgresDatabase(pool as unknown as PostgresPool)
+    const { fetch } = mockAuth0({
+      bcAuthorize: { auth_req_id: 'req_postgres', interval: 0, expires_in: 300 },
+      pollResults: [{ ok: true, body: { id_token: 'verified-id-token' } }],
+    })
+    const makeStrategy = () =>
+      Auth0({
+        domain: 't.auth0.com',
+        clientId: 'c',
+        clientSecret: 's',
+        subjectToken: () => 'rt',
+        ciba: {
+          store: new PostgresCibaStore(database),
+          pollIntervalMs: 0,
+          verifyIdToken: async () => ({ sub: 'u1' }),
+        },
+        fetch,
+      })
+    try {
+      const pending = await makeStrategy().startApproval!({
+        user: 'u1',
+        action: 'wire_money',
+        actionId: 'act_pg',
+        inputHash: 'input',
+        policyVersion: 'v1',
+      })
+      await expect(makeStrategy().pollApproval!({ id: pending.id })).resolves.toMatchObject({
+        decision: 'approved',
+        approver: 'u1',
+      })
+    } finally {
+      await pool.end()
+    }
+  })
+
+  it('fails closed when approval has no verified ID token', async () => {
+    const { fetch } = mockAuth0({
+      bcAuthorize: { auth_req_id: 'req_missing_id', interval: 0, expires_in: 300 },
+      pollResults: [{ ok: true, body: { access_token: 'not-identity-proof' } }],
+    })
+    const strategy = Auth0({
+      domain: 't.auth0.com',
+      clientId: 'c',
+      clientSecret: 's',
+      subjectToken: () => 'rt',
+      ciba: { pollIntervalMs: 0, verifyIdToken: async () => ({ sub: 'u1' }) },
+      fetch,
+    })
+    const pending = await strategy.startApproval!({
+      user: 'u1',
+      action: 'delete',
+      actionId: 'act_2',
+      inputHash: 'input',
+      policyVersion: 'v1',
+    })
+    await expect(strategy.pollApproval!({ id: pending.id })).rejects.toThrow(/no id_token/)
+  })
+
+  it('rejects a valid token from the wrong approver', async () => {
+    const { fetch } = mockAuth0({
+      bcAuthorize: { auth_req_id: 'req_wrong_user', interval: 0, expires_in: 300 },
+      pollResults: [{ ok: true, body: { id_token: 'verified-id-token' } }],
+    })
+    const strategy = Auth0({
+      domain: 't.auth0.com',
+      clientId: 'c',
+      clientSecret: 's',
+      subjectToken: () => 'rt',
+      ciba: { pollIntervalMs: 0, verifyIdToken: async () => ({ sub: 'attacker' }) },
+      fetch,
+    })
+    const pending = await strategy.startApproval!({
+      user: 'u1',
+      action: 'delete',
+      actionId: 'act_3',
+      inputHash: 'input',
+      policyVersion: 'v1',
+    })
+    await expect(strategy.pollApproval!({ id: pending.id })).rejects.toThrow(/approver mismatch/)
   })
 })

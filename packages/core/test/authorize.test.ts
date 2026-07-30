@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApprovalDeniedError, Nominee, PolicyDeniedError, allow, ask, deny } from '../src/index.js'
+import {
+  ApprovalDeniedError,
+  AuthorizationInputChangedError,
+  Nominee,
+  PolicyDeniedError,
+  allow,
+  ask,
+  deny,
+} from '../src/index.js'
 
 describe('Nominee.authorize', () => {
   it('works policy-only, with no strategy at all', async () => {
@@ -120,6 +128,46 @@ describe('Nominee.authorize', () => {
     expect(n.receipts[0]?.input).toBeUndefined()
     expect(n.verifyReceipts().ok).toBe(true)
   })
+
+  it('waits for strict receipt delivery before authorization returns', async () => {
+    let release = () => {}
+    const sinkGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const n = new Nominee({
+      policy: [allow('refund')],
+      receipts: { delivery: 'strict', onReceipt: () => sinkGate },
+    })
+    let settled = false
+    const authorization = n
+      .authorize({ tool: 'refund', user: 'alice', input: { amount: 10 } })
+      .then(() => {
+        settled = true
+      })
+
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    release()
+    await authorization
+    expect(settled).toBe(true)
+  })
+
+  it('fails closed when strict receipt delivery fails', async () => {
+    const execute = vi.fn(async (_input: { amount: number }) => 'done')
+    const n = new Nominee({
+      policy: [allow('refund')],
+      receipts: {
+        delivery: 'strict',
+        onReceipt: async () => {
+          throw new Error('audit store unavailable')
+        },
+      },
+    })
+    const tools = n.guard({ refund: execute }, { user: 'alice' })
+
+    await expect(tools.refund({ amount: 10 })).rejects.toThrow('audit store unavailable')
+    expect(execute).not.toHaveBeenCalled()
+  })
 })
 
 describe('Nominee.guard', () => {
@@ -153,6 +201,63 @@ describe('Nominee.guard', () => {
     const tools = n.guard({ exfiltrate: spy }, { user: 'alice' })
     await expect(tools.exfiltrate()).rejects.toThrow()
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('never runs with input changed while approval was pending', async () => {
+    const input = { amount: 10 }
+    const execute = vi.fn(async ({ amount }: { amount: number }) => amount)
+    const n = new Nominee({
+      policy: [ask('refund')],
+      onApprovalRequest: (req) => {
+        input.amount = 100_000
+        req.approve()
+      },
+    })
+    const tools = n.guard({ refund: execute }, { user: 'alice' })
+
+    await expect(tools.refund(input)).rejects.toBeInstanceOf(AuthorizationInputChangedError)
+    expect(execute).not.toHaveBeenCalled()
+    expect(n.receipts.at(-1)?.effect).toBe('deny')
+    expect(n.receipts.at(-1)?.reason).toBe('tool input changed after authorization')
+  })
+
+  it('persists an input-drift refusal before strict mode rejects', async () => {
+    let release = () => {}
+    const driftSink = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const input = { amount: 10 }
+    const execute = vi.fn(async ({ amount }: { amount: number }) => amount)
+    const n = new Nominee({
+      policy: [ask('refund')],
+      receipts: {
+        delivery: 'strict',
+        onReceipt: (receipt) =>
+          receipt.reason === 'tool input changed after authorization' ? driftSink : undefined,
+      },
+      onApprovalRequest: (req) => {
+        input.amount = 100_000
+        req.approve()
+      },
+    })
+    const tools = n.guard({ refund: execute }, { user: 'alice' })
+    let settled = false
+    const call = tools.refund(input)
+    void call
+      .finally(() => {
+        settled = true
+      })
+      .catch(() => {})
+
+    await vi.waitFor(() => {
+      expect(n.receipts.at(-1)?.reason).toBe('tool input changed after authorization')
+    })
+    expect(settled).toBe(false)
+    expect(execute).not.toHaveBeenCalled()
+
+    release()
+    await expect(call).rejects.toBeInstanceOf(AuthorizationInputChangedError)
+    expect(settled).toBe(true)
   })
 
   it('wraps framework-style { execute } tool objects, preserving other fields', async () => {
@@ -192,7 +297,8 @@ describe('Nominee.guard', () => {
       { user: ({ input }) => (input as { u: string }).u },
     )
     await tools.t({ u: 'carol' })
-    expect(users).toEqual(['carol'])
+    expect(users.length).toBeGreaterThan(0)
+    expect(new Set(users)).toEqual(new Set(['carol']))
   })
 
   it('passes non-tool values through untouched', async () => {

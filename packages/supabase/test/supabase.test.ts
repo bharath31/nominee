@@ -12,7 +12,11 @@ interface Call {
  * Routes the two endpoints the strategy touches: PostgREST on the project URL
  * (GET reads the row, PATCH persists), and the provider OAuth token endpoint.
  */
-function mock(opts: { row?: Record<string, unknown> | null; token?: unknown }) {
+function mock(opts: {
+  row?: Record<string, unknown> | null
+  token?: unknown
+  patchError?: { status: number; body: string }
+}) {
   const calls: Call[] = []
   const fetch = vi.fn(async (url: string, init?: { method?: string; body?: unknown }) => {
     const method = init?.method ?? 'GET'
@@ -25,6 +29,14 @@ function mock(opts: { row?: Record<string, unknown> | null; token?: unknown }) {
     })
     if (url.includes('/rest/v1/')) {
       if (method === 'GET') return ok(opts.row == null ? [] : [opts.row])
+      if (opts.patchError) {
+        return {
+          ok: false,
+          status: opts.patchError.status,
+          json: async () => ({}),
+          text: async () => opts.patchError?.body ?? '',
+        }
+      }
       return ok(null) // PATCH persist
     }
     return ok(opts.token) // provider token endpoint
@@ -88,6 +100,21 @@ describe('Supabase strategy', () => {
       strategy: Supabase({ url: 'https://p.supabase.co', key: 'k', connections: conn, fetch }),
     })
     expect(await n.token({ user: 'u1', connection: 'github' })).toBe('minted')
+  })
+
+  it('fails closed when a rotated refresh token cannot be persisted', async () => {
+    const { fetch } = mock({
+      row: { refresh_token: 'rt_1' },
+      token: { access_token: 'fresh_at', expires_in: 3600, refresh_token: 'rt_2' },
+      patchError: { status: 503, body: 'database unavailable' },
+    })
+    const n = new Nominee({
+      strategy: Supabase({ url: 'https://p.supabase.co', key: 'k', connections: conn, fetch }),
+    })
+
+    await expect(n.token({ user: 'u1', connection: 'github' })).rejects.toThrow(
+      /persist failed 503 database unavailable/,
+    )
   })
 
   it('throws a clear error when the row is missing', async () => {

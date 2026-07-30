@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nominee — the authorization layer for AI agents</title>
+    <title>nominee — authorize the action, not the agent</title>
     <meta
       name="description"
-      content="The authorization layer for AI agents. Your agent logs in as you — nominee decides what it can do as you. Policy, approvals, and receipts on every agent tool call — dependency-free, framework-neutral, no SaaS."
+      content="Authorize the action, not the agent. Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof."
     />
     <link rel="canonical" href="https://nominee.dev/" />
     <meta name="theme-color" content="#faf9f5" />
-    <meta property="og:title" content="nominee — the authorization layer for AI agents" />
+    <meta property="og:title" content="nominee — authorize the action, not the agent" />
     <meta
       property="og:description"
-      content="Your agent logs in as you — nominee decides what it can do as you. Allow / deny / ask policy on every tool call, human approvals, and hash-chained tamper-evident receipts — framework-neutral, no SaaS."
+      content="Keep your agent framework and IAM. nominee enforces user-aware policy at the tool boundary, resolves call-time credentials, and keeps tamper-evident proof."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nominee.dev/" />
@@ -21,10 +21,10 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="nominee — the authorization layer for AI agents" />
+    <meta name="twitter:title" content="nominee — authorize the action, not the agent" />
     <meta
       name="twitter:description"
-      content="Your agent logs in as you — nominee decides what it can do as you. Policy, approvals, and receipts on every agent tool call — framework-neutral, no SaaS."
+      content="Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof."
     />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
@@ -44,7 +44,7 @@
         "name": "nominee",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Node.js, Cloudflare Workers, any JS runtime",
-        "description": "The authorization layer for AI agents. Your agent logs in as you — nominee decides what it can do as you. Allow / deny / ask policy over tool calls, human approvals, and hash-chained tamper-evident receipts — framework-neutral, no SaaS.",
+        "description": "Authorize the action, not the agent. Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "url": "https://nominee.dev/",
         "license": "https://opensource.org/licenses/MIT",
@@ -61,7 +61,7 @@
             "name": "Isn't this just an if-statement with extra steps?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "The check itself, yes. What you're buying is everything around it: ask-rules that escalate to a human instead of silently failing, budgets that let 20 calls through and ask on the 21st, delegation that a sub-agent can only narrow, a tamper-evident receipt of every decision, and the same policy enforced whether your agent runs on the Vercel AI SDK, Eve, or a bare function."
+              "text": "For one low-risk tool, an if-statement may be enough. nominee is useful when the decision must use the real user and resource, stay bound to exact arguments, narrow delegated authority, control credential delivery, and produce one evidence stream across runtimes."
             }
           },
           {
@@ -93,7 +93,7 @@
             "name": "How is this different from Arcade, Composio, or Vercel Connect?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Those are hosted platforms for tool-calling and connectors — SaaS, with the policy brain on their side. nominee is an MIT, in-process, framework-neutral policy layer that can sit on top of any of them (or your own DB, OAuth2, or Auth0) as the token strategy."
+              "text": "Those products can manage connections and tools. nominee is the open-source enforcement layer that binds your application policy to the exact tool action. It can use a managed platform, your IAM, or your own token store underneath."
             }
           },
           {
@@ -153,11 +153,12 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="hero-tag">The authorization layer for AI agents <span class="ref">· MIT</span></p>
-          <h1>Your agent logs in as you.<br />It shouldn't get to be you.</h1>
+          <p class="hero-tag">Authorization for agent actions <span class="ref">· MIT</span></p>
+          <h1>Authorize the action.<br />Not the agent.</h1>
           <p class="lede">
-            Policy, approvals, and receipts on every agent tool call —
-            <strong>dependency-free, framework-neutral, no SaaS</strong>.
+            Enforce user-aware policy at the tool boundary, resolve credentials at execution
+            time, and keep tamper-evident proof —
+            <strong>open-source, framework-neutral core</strong>.
           </p>
           <div class="hero-actions">
             <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
@@ -325,12 +326,11 @@
       <section class="section how" id="how">
         <div class="section-head">
           <p class="eyebrow">How it works</p>
-          <h2>Checked against policy. Held for a human. On the record.</h2>
+          <h2>Checked as the user. Bound to the call. On the record.</h2>
           <p>
-            You're the principal; your agent is the nominee, acting for you within a
-            scope. nominee checks every tool call against your policy, holds the risky
-            ones for a person, and seals every decision — including refusals — into a
-            tamper-evident record. No SaaS in the middle.
+            Your framework controls the run and approval UI. nominee enforces the application
+            decision underneath it: who is acting, what exact input was authorized, which
+            credential the tool receives, and what evidence remains.
           </p>
         </div>
         <div class="how-grid">
@@ -350,22 +350,22 @@
             <li>
               <span class="hp-mark">¶</span>
               <div>
-                <h3>Policy on every call</h3>
-                <p>Declarative allow / deny / ask rules — glob patterns, argument-level conditions, call budgets. A deny fires before the tool runs; the model can't talk its way past it.</p>
+                <h3>User-aware policy on every call</h3>
+                <p>Declarative allow / deny / ask rules see the user, tool, arguments, and delegation chain. Async predicates can consult your existing RBAC, FGA, OPA, or application policy.</p>
               </div>
             </li>
             <li>
               <span class="hp-mark">⏸</span>
               <div>
-                <h3>Held for a countersignature</h3>
-                <p>Gate the risky calls behind a real person. The agent pauses, a human approves from a phone or a UI, then it resumes — no stale token on the other side.</p>
+                <h3>Exact-call enforcement</h3>
+                <p>Policy and approval bind to the user, tenant, resource, exact arguments, policy version, and a single-use execution capability. Credentials arrive only after capability consumption.</p>
               </div>
             </li>
             <li>
               <span class="hp-mark">§</span>
               <div>
                 <h3>On the register</h3>
-                <p>Every decision, approval, and token grant is a hash-chained, optionally signed receipt: you → agent → service, who authorized what, and when. Edit or delete a record and verification breaks.</p>
+                <p>Every decision, approval, capability, credential grant, and outcome is a hash-chained, optionally signed receipt. Mutated records and gaps break verification; externally anchored stream tips expose rollback.</p>
               </div>
             </li>
           </ul>
@@ -375,8 +375,8 @@
       <section class="section" id="install">
         <div class="section-head">
           <p class="eyebrow">Install and go</p>
-          <h2>A policy, not a platform. No service to sign up for.</h2>
-          <p>Give nominee a policy — ordered allow / deny / ask rules over your tools. Approvals, receipts, and fresh tokens ride on top, same API wherever your agent runs.</p>
+          <h2>Keep your framework. Keep your IAM. Enforce them at the tool boundary.</h2>
+          <p>Start with ordered allow / deny / ask rules, then connect async predicates and token strategies to the authorization and credential systems you already run.</p>
         </div>
         <div class="code-card" data-tabs>
           <div class="code-top" role="tablist" aria-label="Setup examples">
@@ -388,8 +388,7 @@
           </div>
           <pre data-panel="default"><code><span class="k">import</span> { Nominee, allow, deny, ask } <span class="k">from</span> <span class="s">'nominee'</span>
 
-<span class="c">// a boolean flag (needsApproval: true) is one Y/N prompt for everything.</span>
-<span class="c">// a policy is allow / deny / ask — per tool, argument-aware:</span>
+<span class="c">// native approvals control the run; nominee enforces application policy:</span>
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   policy: [
     <span class="fn">allow</span>(<span class="s">'email.read'</span>),
@@ -452,24 +451,22 @@
           <p class="eyebrow">Where nominee sits</p>
           <h2>A thin, neutral seam — not another platform.</h2>
           <p>
-            Your framework runs the agent, but authorization is left as a Y/N flag —
-            or nothing at all. nominee is the layer in between: every tool call is
-            checked against your policy before it runs, risky ones pause for a human,
-            every decision lands on the receipt chain — and your tools and vault stay
-            swappable underneath.
+            Your framework should run the agent and its approval UI. nominee enforces the
+            application decision underneath: whether this user may take this exact action on
+            this tenant's resource, which authority reaches execution, and what evidence remains.
           </p>
         </div>
         <div class="layers" role="img" aria-label="Three layers: your agent or framework on top, nominee in the middle, your tools and vault at the bottom.">
           <div class="layer">
             <span class="layer-tag">your agent / framework</span>
             <strong>calls a tool as your user</strong>
-            <span class="layer-eg">Vercel AI SDK · Eve · Mastra · Cloudflare Agents · MCP · standalone</span>
+            <span class="layer-eg">Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP</span>
           </div>
-          <div class="layer-arrow"><span>▼</span> <code>authorize({ tool, input, user })</code></div>
+          <div class="layer-arrow"><span>▼</span> <code>run({ user, tenant, action, resource, input }, execute)</code></div>
           <div class="layer layer-mid">
             <span class="layer-tag">nominee</span>
-            <strong>policy · approvals · receipts · delegation</strong>
-            <span class="layer-eg">allow / deny / ask · budgets · hash-chained receipts · fresh tokens at call time</span>
+            <strong>decide · grant · prove</strong>
+            <span class="layer-eg">application authz · exact-call capabilities · atomic budgets · durable evidence</span>
           </div>
           <div class="layer-arrow"><span>▼</span> <code>execute(input)</code></div>
           <div class="layer">
@@ -486,9 +483,9 @@
             <li><strong>You want one fully-managed vendor</strong> for tools + auth + policy — use Arcade or Composio directly.</li>
           </ul>
           <p class="when-not-foot">
-            Reach for nominee when you want policy + approvals + receipts that are
-            <strong>framework-neutral, no-SaaS, and bring-your-own-everything</strong> — the
-            same policy wherever your agent runs.
+            Reach for nominee when the action must inherit the real user's resource
+            permissions, broad credentials must move behind the boundary, or several runtimes
+            need <strong>one enforcement and evidence contract</strong>.
           </p>
         </div>
       </section>
@@ -539,6 +536,38 @@
               <span class="prompt">$</span><span class="cmd">npm i nominee-auth0</span><span class="copy-hint">copy</span>
             </button>
           </div>
+          <div class="package-card">
+            <span class="pc-tag">Production storage</span>
+            <h3><a href="https://www.npmjs.com/package/nominee-postgres">nominee-postgres</a></h3>
+            <p>Transactional actions, budgets, single-use capabilities, outcomes, journals, and receipt streams.</p>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-postgres pg" aria-label="Copy: npm i nominee nominee-postgres pg">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-postgres pg</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
+            <span class="pc-tag">OpenAI Agents SDK</span>
+            <h3><a href="https://www.npmjs.com/package/nominee-openai">nominee-openai</a></h3>
+            <p>Decision-bound tools with Nominee ask rules mapped to native resumable approvals.</p>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-openai" aria-label="Copy: npm i nominee nominee-openai">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-openai</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
+            <span class="pc-tag">Mastra</span>
+            <h3><a href="https://www.npmjs.com/package/nominee-mastra">nominee-mastra</a></h3>
+            <p>Mastra tools with native or portable durable approval and execution-time credentials.</p>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-mastra" aria-label="Copy: npm i nominee nominee-mastra">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-mastra</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <div class="package-card">
+            <span class="pc-tag">Model Context Protocol</span>
+            <h3><a href="https://www.npmjs.com/package/nominee-mcp">nominee-mcp</a></h3>
+            <p>Register guarded tools on the official MCP server SDK with durable pending handles.</p>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-mcp" aria-label="Copy: npm i nominee nominee-mcp">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-mcp</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -551,12 +580,10 @@
           <details>
             <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
             <p>
-              The check itself, yes. What you're buying is everything around it: ask-rules
-              that escalate to a human instead of silently failing, budgets that let 20 calls
-              through and ask on the 21st, delegation that a sub-agent can only narrow, a
-              tamper-evident receipt of every decision, and the same policy enforced whether
-              your agent runs on the Vercel AI SDK, Eve, or a bare function — one enforcement
-              point instead of scattered if-statements per tool, per framework.
+              For one low-risk tool, an if-statement may be enough. nominee is useful when
+              the decision must use the real user and resource, stay bound to exact arguments,
+              narrow delegated authority, control credential delivery, and produce one
+              evidence stream across runtimes.
             </p>
           </details>
           <details>
@@ -591,11 +618,9 @@
           <details>
             <summary><span>How is this different from Arcade, Composio, or Vercel Connect?</span></summary>
             <p>
-              Those are hosted platforms for tool-calling and connectors — good products, but
-              SaaS: per-call billing, and the policy brain lives on their side. nominee is an
-              MIT, in-process, framework-neutral policy layer that can sit
-              <em>on top of</em> any of them (or your own DB, OAuth2, or Auth0) as the token
-              strategy. Bring your own vault; keep the policy, approvals, and receipts local.
+              Those products can manage connections and tools. nominee is the open-source
+              enforcement layer that binds your application policy to the exact tool action.
+              It can use a managed platform, your IAM, or your own token store underneath.
             </p>
           </details>
           <details>

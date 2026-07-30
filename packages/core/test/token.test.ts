@@ -63,6 +63,51 @@ describe('Nominee.token', () => {
     expect(getToken).toHaveBeenCalledTimes(3)
   })
 
+  it('separates cache entries by canonical scope set', async () => {
+    const getToken = vi.fn(async (params: { scopes?: string[] }) => ({
+      token: params.scopes?.join('+') ?? 'unscoped',
+      expiresAt: Date.now() + 3_600_000,
+    }))
+    const n = new Nominee({ strategy: { name: 'scoped', getToken } })
+
+    expect(
+      await n.token({ user: 'u1', connection: 'github', scopes: ['repo:read', 'user:read'] }),
+    ).toBe('repo:read+user:read')
+    expect(
+      await n.token({
+        user: 'u1',
+        connection: 'github',
+        scopes: ['user:read', 'repo:read', 'repo:read'],
+      }),
+    ).toBe('repo:read+user:read')
+    expect(await n.token({ user: 'u1', connection: 'github', scopes: ['repo:admin'] })).toBe(
+      'repo:admin',
+    )
+
+    expect(getToken).toHaveBeenCalledTimes(2)
+    expect(getToken.mock.calls[0]?.[0].scopes).toEqual(['repo:read', 'user:read'])
+  })
+
+  it('does not coalesce concurrent requests for different scopes', async () => {
+    const getToken = vi.fn(async (params: { scopes?: string[] }) => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      return {
+        token: params.scopes?.join('+') ?? 'unscoped',
+        expiresAt: Date.now() + 3_600_000,
+      }
+    })
+    const n = new Nominee({ strategy: { name: 'scoped', getToken } })
+
+    const [read, admin] = await Promise.all([
+      n.token({ user: 'u1', connection: 'github', scopes: ['repo:read'] }),
+      n.token({ user: 'u1', connection: 'github', scopes: ['repo:admin'] }),
+    ])
+
+    expect(read).toBe('repo:read')
+    expect(admin).toBe('repo:admin')
+    expect(getToken).toHaveBeenCalledTimes(2)
+  })
+
   it('propagates strategy errors', async () => {
     const n = new Nominee({ strategy: Memory() })
     await expect(n.token({ user: 'nope', connection: 'github' })).rejects.toThrow(/no token/)
@@ -116,6 +161,29 @@ describe('Nominee.token', () => {
     expect(await nom.token({ user: 'u1', connection: 'github' })).toBe('tok_2') // re-resolved
     expect(events).toContain('token.invalidated')
     expect(getToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('invalidate() drops every scoped cache variant for the connection', async () => {
+    let calls = 0
+    const getToken = vi.fn(async (params: { scopes?: string[] }) => ({
+      token: `${params.scopes?.join('+')}:${++calls}`,
+      expiresAt: Date.now() + 3_600_000,
+    }))
+    const nom = new Nominee({ strategy: { name: 'scoped', getToken } })
+
+    expect(await nom.token({ user: 'u1', connection: 'github', scopes: ['repo:read'] })).toBe(
+      'repo:read:1',
+    )
+    expect(await nom.token({ user: 'u1', connection: 'github', scopes: ['repo:admin'] })).toBe(
+      'repo:admin:2',
+    )
+    expect(nom.invalidate('u1', 'github')).toBe(true)
+    expect(await nom.token({ user: 'u1', connection: 'github', scopes: ['repo:read'] })).toBe(
+      'repo:read:3',
+    )
+    expect(await nom.token({ user: 'u1', connection: 'github', scopes: ['repo:admin'] })).toBe(
+      'repo:admin:4',
+    )
   })
 
   it('re-resolves after a durable resume (holds a resolver, not a token)', async () => {

@@ -2,7 +2,13 @@ import type { Effect } from './policy.js'
 import type { ApprovalDecision } from './strategy.js'
 
 export type AuditEventType =
+  | 'action.planned'
   | 'policy.decision'
+  | 'capability.issued'
+  | 'capability.consumed'
+  | 'execution.started'
+  | 'execution.succeeded'
+  | 'execution.failed'
   | 'token.issued'
   | 'token.cached'
   | 'token.error'
@@ -29,6 +35,9 @@ export interface AuditEvent {
   action?: string
   /** Resource, for authz events. */
   resource?: string
+  tenant?: string
+  actionId?: string
+  policyVersion?: string
   /** Outcome: approval decision, or boolean authz result. */
   decision?: ApprovalDecision | boolean
   /** Policy verdict, for `policy.decision` events. */

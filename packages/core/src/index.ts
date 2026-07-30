@@ -1,17 +1,62 @@
-export { Nominee, ApprovalDeniedError, PolicyDeniedError } from './nominee.js'
+export {
+  Nominee,
+  ApprovalDeniedError,
+  AuthorizationInputChangedError,
+  ExternalAuthorizationDeniedError,
+  ActionOutcomePersistenceError,
+  PolicyDeniedError,
+} from './nominee.js'
 export type {
   NomineeOptions,
   TokenParams,
   AuthorizeParams,
   Authorization,
   GuardOptions,
+  PrepareActionParams,
+  PreparedAction,
+  ExecuteActionContext,
+  GovernedActionEvent,
+  FrameworkApprovalEvidence,
 } from './nominee.js'
+
+export {
+  MemoryActionStore,
+  ActionNotFoundError,
+  ActionStateError,
+  ActionPendingError,
+  CapabilityInvalidError,
+} from './action.js'
+export type {
+  ActionStore,
+  ActionRecord,
+  ActionStatus,
+  ActionApproval,
+  ActionCapability,
+  ActionOutcome,
+  BudgetRequirement,
+  BudgetReservation,
+  ApplyActionDecision,
+  ApplyActionDecisionResult,
+  ResolveActionApproval,
+} from './action.js'
 
 export { allow, deny, ask, matchTool, PolicyEngine } from './policy.js'
 export type { Policy, Rule, RuleOptions, Effect, ToolCall, PolicyDecision } from './policy.js'
 
-export { ReceiptLedger, verifyReceipts } from './receipt.js'
-export type { Receipt, ReceiptOptions, VerifyResult } from './receipt.js'
+export {
+  ReceiptLedger,
+  MemoryAtomicReceiptStore,
+  sealReceipt,
+  verifyReceipts,
+} from './receipt.js'
+export type {
+  Receipt,
+  ReceiptEntry,
+  ReceiptOptions,
+  VerifyResult,
+  AtomicReceiptStore,
+  AtomicReceiptOptions,
+} from './receipt.js'
 
 export { sha256, hmacSha256, canonicalJson } from './hash.js'
 
@@ -34,8 +79,16 @@ export type {
   ApprovalParams,
   ApprovalResult,
   ApprovalDecision,
+  StartApprovalParams,
+  PendingApproval,
+  PollApprovalParams,
+  ApprovalPollResult,
+  CredentialAuthorizationContext,
   AuthzParams,
   ExchangeParams,
 } from './strategy.js'
 
 export type { AuditEvent, AuditEventType } from './audit.js'
+
+export { usageReporter } from './usage.js'
+export type { AnonymousUsageEvent, UsageReporterOptions } from './usage.js'
