@@ -11,7 +11,12 @@ including refusals — is sealed into a hash-chained, tamper-evident receipt log
 Tools that act on third-party APIs call `nominee.token()` at execution time to
 get a fresh access token for a user and connection.
 
-Three design commitments matter most:
+The framework decides *when* to call a tool. nominee decides *whether the call
+may execute* — and for high-impact actions that decision is bound to the exact
+arguments, consumable once, and recoverable across restarts. See
+[docs/production.md](docs/production.md) for that lifecycle.
+
+Four design commitments matter most:
 
 1. **Install-and-go by default.** A policy-only nominee needs no strategy, no
    provider, no signup. Core token usage works with a plain function that
@@ -22,15 +27,23 @@ Three design commitments matter most:
 3. **Enforcement is honest.** Deny means the tool never runs; receipts record
    refusals as faithfully as approvals; sub-agent policies can only narrow
    authority, never widen it.
+4. **Fail closed, and say so.** A store, sink, or authorizer that errors must
+   never degrade into `allow`. In-memory stores are conformance
+   implementations and deliberately refuse `production: true`.
 
 ## Layout
 
 ```text
 packages/
-  core/   published as nominee        - engine, Strategy interface, built-in strategies
-  ai/     published as nominee-ai     - Vercel AI SDK and Cloudflare Agents adapter
-  eve/    published as nominee-eve    - Vercel Eve adapter
-  auth0/  published as nominee-auth0  - optional Auth0 strategy
+  core/     published as nominee           - engine, action lifecycle, Strategy interface
+  ai/       published as nominee-ai        - Vercel AI SDK and Cloudflare Agents adapter
+  eve/      published as nominee-eve       - Vercel Eve adapter
+  openai/   published as nominee-openai    - OpenAI Agents SDK adapter
+  mastra/   published as nominee-mastra    - Mastra adapter
+  mcp/      published as nominee-mcp       - MCP server adapter
+  auth0/    published as nominee-auth0     - optional Auth0 strategy (+ CIBA stores)
+  supabase/ published as nominee-supabase  - optional Supabase strategy
+  postgres/ published as nominee-postgres  - durable action/receipt stores for multi-replica
 examples/
   prompt-injection-blocked/   flagship demo: injected exfiltration blocked by policy (no API keys)
   github-agent/               golden Eve + Auth0 example (PR review-and-merge agent)
@@ -64,12 +77,22 @@ const nominee = new Nominee({
 
 // Authorization
 await nominee.authorize({ tool, input, user }) // throws PolicyDeniedError / ApprovalDeniedError
+await nominee.assertUnchanged(authorization, input) // bind a manual authorize to execution
 await nominee.check({ tool, input, user })     // dry run, no side effects
 const tools = nominee.guard(rawTools, { user }) // wrap functions or { execute } tools
+
+// Decision-bound execution (required under `production: true`)
+await nominee.run({ tool, input, user, resource, tenant, connection, scopes }, execute)
+const prepared = await nominee.prepareAction({ tool, input, user }) // capability or pending id
+await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
+const resumed = await nominee.resumeAction(actionId)
+await nominee.executeCapability(resumed.capability, input, execute)
 
 // Receipts
 nominee.receipts
 nominee.verifyReceipts()
+await nominee.flushReceipts()        // await buffered async sinks before shutdown
+await nominee.verifyDurableReceipts() // verify the durable stream + checkpoint
 verifyReceipts(exported, { key })
 
 // Delegation (policies can only narrow; receipts share one chain)
@@ -83,6 +106,20 @@ await nominee.can({ user, action, resource })
 nominee.on((event) => auditDb.insert(event))
 ```
 
+The action lifecycle is
+`planned → policy_checked → pending_approval → approved → capability_issued →
+executing → succeeded | failed`. A capability is returned once, expires quickly,
+and executes once; `resumeAction()` before consumption rotates it and
+invalidates the old value. An approval is bound to a canonical hash of the
+input, so mutating the arguments after approval throws
+`AuthorizationInputChangedError` instead of executing. When an action names a
+`resource`, the application `authorizer` is consulted while planning *and* again
+after capability consumption, so a permission revoked mid-approval fails closed.
+
+`production: true` refuses construction unless a default-deny policy, a durable
+action store, an atomic durable receipt store, and `delivery: 'strict'` are all
+configured. `nominee-postgres` supplies the stores.
+
 Policy semantics: first matching rule wins within a policy; no match falls back
 to `fallback` (default `'ask'`); across a delegation chain the strictest
 outcome wins (deny > ask > allow). Sub-agent policies passed to `delegate()`
@@ -90,11 +127,14 @@ default their fallback to `'allow'` (they are restrictions on top of the
 chain).
 
 Adapters expose `nomineeTool(config)`, `withNominee(nominee, defaults)`, and —
-for `nominee-ai` — `guardTools(nominee, tools, { user })`. Adapter config uses
-`inputSchema`, optional `connection`, optional `approval` (forces an ask),
-optional `action` (the policy tool name), and an `execute(input, ctx)`
-function. The adapter context is `{ token?, user, ai }` for `nominee-ai` and
-`{ token?, user, eve }` for `nominee-eve`.
+for `nominee-ai` — `guardTools(nominee, tools, { user })`; `nominee-mcp` exposes
+`registerNomineeTool`. Adapter config uses `inputSchema`, optional `connection`,
+optional `approval` (forces an ask), optional `action` (the policy tool name),
+and an `execute(input, ctx)` function. The adapter context is `{ token?, user,
+ai }` for `nominee-ai` and `{ token?, user, eve }` for `nominee-eve`. Official
+adapters route through the decision-bound path, so they bind authorization to an
+argument fingerprint and surface `ActionPendingError` when an approval outlives
+the request.
 
 ## Commands
 
@@ -106,6 +146,8 @@ pnpm -r typecheck
 pnpm check
 pnpm format
 ```
+
+CI and the deploy workflows run Node 24; develop on Node 24+.
 
 Use per-package filters when working narrowly:
 
@@ -132,5 +174,9 @@ First-touch docs live in three places:
 - `README.md` for the GitHub landing page.
 - `packages/*/README.md` for npm package pages.
 - `site/` for nominee.dev.
+
+Deeper operator docs live in `docs/`: [production.md](docs/production.md) for the
+production runbook and [measurement.md](docs/measurement.md) for the opt-in usage
+reporter. Positioning and GTM working notes are gitignored and stay local.
 
 Keep examples aligned with the actual exported API before publishing.

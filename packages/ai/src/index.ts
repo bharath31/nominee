@@ -1,12 +1,34 @@
-import { type Tool, type ToolCallOptions, tool } from 'ai'
+import { tool } from 'ai'
 import type { Nominee } from 'nominee'
 import type { z } from 'zod'
+
+/**
+ * Stable subset of the execution context shared by AI SDK 5, 6, and 7.
+ * Version-specific fields still pass through at runtime without coupling
+ * nominee-ai's public types to one SDK release.
+ */
+export interface NomineeAiToolCallOptions {
+  toolCallId: string
+  messages: readonly unknown[]
+  abortSignal?: AbortSignal
+  context?: unknown
+  experimental_context?: unknown
+}
+
+/** Version-neutral structural shape returned by {@link nomineeTool}. */
+export interface NomineeAiTool<TSchema extends z.ZodType, TOutput> {
+  description: string
+  inputSchema: TSchema
+  execute(input: z.infer<TSchema>, options: NomineeAiToolCallOptions): Promise<TOutput>
+}
 
 /**
  * Resolves the principal the agent acts on behalf of. Either a fixed user id,
  * or a function of the AI SDK tool-call options.
  */
-export type UserResolver = string | ((options: ToolCallOptions) => string | Promise<string>)
+export type UserResolver =
+  | string
+  | ((options: NomineeAiToolCallOptions) => string | Promise<string>)
 
 /** Augmented context passed to your `execute`, on top of the AI SDK's options. */
 export interface NomineeAiContext {
@@ -15,7 +37,7 @@ export interface NomineeAiContext {
   /** The resolved principal. */
   user: string
   /** The AI SDK's native tool-call options (toolCallId, messages, abortSignal). */
-  ai: ToolCallOptions
+  ai: NomineeAiToolCallOptions
 }
 
 export interface NomineeAiToolConfig<TSchema extends z.ZodType, TOutput> {
@@ -27,6 +49,14 @@ export interface NomineeAiToolConfig<TSchema extends z.ZodType, TOutput> {
   connection?: string
   /** Optional scopes to request for the token. */
   scopes?: string[]
+  /** Application resource checked by Nominee's authorizer / strategy.can(). */
+  resource?:
+    | string
+    | ((input: z.infer<TSchema>, options: NomineeAiToolCallOptions) => string | Promise<string>)
+  /** Tenant boundary checked and recorded for the action. */
+  tenant?:
+    | string
+    | ((input: z.infer<TSchema>, options: NomineeAiToolCallOptions) => string | Promise<string>)
   /**
    * Require human approval (via your nominee strategy — e.g. Auth0 CIBA push)
    * before running `execute`. Throws and aborts the tool call if denied.
@@ -67,38 +97,41 @@ export interface NomineeAiToolConfig<TSchema extends z.ZodType, TOutput> {
  */
 export function nomineeTool<TSchema extends z.ZodType, TOutput>(
   config: NomineeAiToolConfig<TSchema, TOutput>,
-): Tool<z.infer<TSchema>, TOutput> {
+): NomineeAiTool<TSchema, TOutput> {
   const { nominee, action = 'tool' } = config
 
   const definition = {
     description: config.description,
     inputSchema: config.inputSchema,
-    async execute(input: z.infer<TSchema>, options: ToolCallOptions): Promise<TOutput> {
+    async execute(input: z.infer<TSchema>, options: NomineeAiToolCallOptions): Promise<TOutput> {
       const user = typeof config.user === 'function' ? await config.user(options) : config.user
 
-      // Enforce the nominee policy (allow / deny / ask) for this call. Throws
-      // PolicyDeniedError on a deny rule; ApprovalDeniedError if a human (or
-      // timeout) refuses an escalated call. `approval: true` forces the ask.
-      await nominee.authorize({
-        tool: action,
-        input,
-        user,
-        requireApproval: config.approval,
-      })
-
-      let token: string | undefined
-      if (config.connection) {
-        token = await nominee.token({ user, connection: config.connection, scopes: config.scopes })
-      }
-
-      return config.execute(input, { token, user, ai: options })
+      const resource =
+        typeof config.resource === 'function'
+          ? await config.resource(input, options)
+          : config.resource
+      const tenant =
+        typeof config.tenant === 'function' ? await config.tenant(input, options) : config.tenant
+      return nominee.run(
+        {
+          tool: action,
+          input,
+          user,
+          resource,
+          tenant,
+          connection: config.connection,
+          scopes: config.scopes,
+          requireApproval: config.approval,
+        },
+        ({ token }) => config.execute(input, { token, user, ai: options }),
+      )
     },
   }
 
   // AI SDK v6's tool() generics don't unify with our Zod-inferred public API,
   // so we keep types correct at this boundary and hand tool() the definition.
-  return tool(definition as unknown as Parameters<typeof tool>[0]) as unknown as Tool<
-    z.infer<TSchema>,
+  return tool(definition as unknown as Parameters<typeof tool>[0]) as unknown as NomineeAiTool<
+    TSchema,
     TOutput
   >
 }
@@ -123,26 +156,27 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
  * human decides. Tools without an `execute` (client-executed tools) pass
  * through untouched.
  */
-export function guardTools<T extends Record<string, Tool>>(
+export function guardTools<T extends Record<string, object>>(
   nominee: Nominee,
   tools: T,
   opts: { user: UserResolver },
 ): T {
-  const out: Record<string, Tool> = {}
+  const out: Record<string, object> = {}
   for (const [name, t] of Object.entries(tools)) {
-    const execute = t.execute as ((input: unknown, options: ToolCallOptions) => unknown) | undefined
+    const execute = (t as { execute?: unknown }).execute as
+      | ((input: unknown, options: NomineeAiToolCallOptions) => unknown)
+      | undefined
     if (typeof execute !== 'function') {
       out[name] = t
       continue
     }
     out[name] = {
       ...t,
-      async execute(input: unknown, options: ToolCallOptions) {
+      async execute(input: unknown, options: NomineeAiToolCallOptions) {
         const user = typeof opts.user === 'function' ? await opts.user(options) : opts.user
-        await nominee.authorize({ tool: name, input, user })
-        return execute.call(t, input, options)
+        return nominee.run({ tool: name, input, user }, () => execute.call(t, input, options))
       },
-    } as Tool
+    }
   }
   return out as T
 }

@@ -82,7 +82,7 @@
 
           <p>the token in its context can read every email, merge every PR, delete every repo, move every dollar your account can move. it got that authority the moment it logged in, and nothing narrows it after. one injected sentence — in a web page it fetched, an email it summarized, a github issue it read — and the model will use that authority against you. it won't feel attacked. it'll feel helpful.</p>
 
-          <p>we spent two years making agents good at <em>calling tools</em>. we spent almost none making them safe at it. authentication — proving who the user is — is solved five ways over. authorization — deciding what the agent may <em>do</em> as that user — is still a <code>needsApproval: true</code> flag that pops a yes/no for everything, which is why everyone flips it off and runs the agent equivalent of <code>--dangerously-skip-permissions</code>.</p>
+          <p>agent frameworks now do a credible job of pausing a run for approval. that solves an important workflow problem. it does not, by itself, decide whether this user may perform this exact action on this tenant's resource, or replace the broad credential in the tool with authority constrained to that decision. that authorization boundary is still left to every application team to build.</p>
 
           <p>nominee is the missing half. it sits in-process between the model and your tools, and gives every tool call three things: a policy that decides allow / deny / ask before the call runs, a real human approval for the calls that warrant one, and a tamper-evident receipt of every decision — including the refusals.</p>
 
@@ -113,9 +113,9 @@
 
           <hr class="post-rule" />
 
-          <h2>why this, and not a bigger yes/no prompt</h2>
+          <h2>why this, if your framework already supports approval</h2>
 
-          <p><code>needsApproval: true</code> is a flag. it's binary, it's per-tool, it has no idea what the arguments are, it keeps no record of what you decided, and it breaks the moment your tools are dynamic (mcp servers, generated tools). so it asks about <em>everything</em> — and a human asked about everything approves everything by tuesday.</p>
+          <p>keep the framework approval flow. nominee adds the application authorization decision underneath it: user, tenant, agent, action, resource, arguments, limits, and delegated authority. an approval can permit one bound call without turning into ambient permission for later calls, while the receipt records the policy decision and the exact input an approver saw.</p>
 
           <p>a policy is different in the ways that matter:</p>
 

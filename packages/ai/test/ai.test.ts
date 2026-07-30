@@ -1,4 +1,12 @@
-import { Memory, Nominee, PolicyDeniedError, allow, deny } from 'nominee'
+import {
+  AuthorizationInputChangedError,
+  Memory,
+  Nominee,
+  PolicyDeniedError,
+  allow,
+  ask,
+  deny,
+} from 'nominee'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { guardTools, nomineeTool, withNominee } from '../src/index.js'
@@ -101,6 +109,29 @@ describe('nominee-ai', () => {
       execute: executed,
     })
     await expect(exec(tool, {})).rejects.toThrow(/approval denied/)
+    expect(executed).not.toHaveBeenCalled()
+  })
+
+  it('aborts execute when input changes while approval is pending', async () => {
+    const input = { issue: 1 }
+    const executed = vi.fn(async () => 'done')
+    const nominee = makeNominee({
+      policy: [ask('close_issue')],
+      onApprovalRequest: (req) => {
+        input.issue = 999
+        req.approve()
+      },
+    })
+    const tool = nomineeTool({
+      nominee,
+      user: 'u1',
+      action: 'close_issue',
+      description: 'close',
+      inputSchema: z.object({ issue: z.number() }),
+      execute: executed,
+    })
+
+    await expect(exec(tool, input)).rejects.toBeInstanceOf(AuthorizationInputChangedError)
     expect(executed).not.toHaveBeenCalled()
   })
 

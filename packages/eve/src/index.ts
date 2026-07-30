@@ -1,5 +1,5 @@
 import { defineTool } from 'eve/tools'
-import type { NeedsApprovalContext, ToolContext } from 'eve/tools'
+import type { Approval, ToolContext } from 'eve/tools'
 import type { Nominee } from 'nominee'
 import type { z } from 'zod'
 
@@ -28,6 +28,10 @@ export interface NomineeEveToolConfig<TSchema extends z.ZodType, TOutput> {
   connection?: string
   /** Optional scopes to request for the token. */
   scopes?: string[]
+  /** Application resource checked by Nominee's authorizer / strategy.can(). */
+  resource?: string | ((input: z.infer<TSchema>, ctx: ToolContext) => string | Promise<string>)
+  /** Tenant boundary checked and recorded for the action. */
+  tenant?: string | ((input: z.infer<TSchema>, ctx: ToolContext) => string | Promise<string>)
   /**
    * Require human approval (via your nominee strategy — e.g. Auth0 CIBA push)
    * before running `execute`. Throws and aborts the tool if denied.
@@ -40,11 +44,16 @@ export interface NomineeEveToolConfig<TSchema extends z.ZodType, TOutput> {
   execute: (input: z.infer<TSchema>, ctx: NomineeEveContext) => TOutput | Promise<TOutput>
   /**
    * Eve-native approval gate (interactive web consent), passed straight through
-   * to `defineTool`. Independent of nominee's `approval` (which is provider-
-   * portable / CIBA). Use the `always`/`once`/`never` helpers from
-   * `eve/tools/approval`.
+   * to `defineTool` as Eve's `approval`. Independent of nominee's `approval`
+   * boolean (which is provider-portable / CIBA). Use the
+   * `always`/`once`/`never` helpers from `eve/tools/approval`.
    */
-  needsApproval?: (ctx: NeedsApprovalContext<z.infer<TSchema>>) => boolean
+  eveApproval?: Approval<z.infer<TSchema>>
+  /**
+   * @deprecated Eve renamed this field to `approval`; use `eveApproval` to
+   * distinguish it from nominee's portable `approval` boolean.
+   */
+  needsApproval?: Approval<z.infer<TSchema>>
 }
 
 async function resolveUser(user: UserResolver, ctx: ToolContext): Promise<string> {
@@ -87,26 +96,27 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
   const definition = {
     description: config.description,
     inputSchema: config.inputSchema,
-    needsApproval: config.needsApproval,
+    approval: config.eveApproval ?? config.needsApproval,
     async execute(input: z.infer<TSchema>, ctx: ToolContext): Promise<TOutput> {
       const user = await resolveUser(config.user, ctx)
 
-      // Enforce the nominee policy (allow / deny / ask) for this call. Throws
-      // PolicyDeniedError on a deny rule; ApprovalDeniedError if a human (or
-      // timeout) refuses an escalated call. `approval: true` forces the ask.
-      await nominee.authorize({
-        tool: action,
-        input,
-        user,
-        requireApproval: config.approval,
-      })
-
-      let token: string | undefined
-      if (config.connection) {
-        token = await nominee.token({ user, connection: config.connection, scopes: config.scopes })
-      }
-
-      return config.execute(input, { token, user, eve: ctx })
+      const resource =
+        typeof config.resource === 'function' ? await config.resource(input, ctx) : config.resource
+      const tenant =
+        typeof config.tenant === 'function' ? await config.tenant(input, ctx) : config.tenant
+      return nominee.run(
+        {
+          tool: action,
+          input,
+          user,
+          resource,
+          tenant,
+          connection: config.connection,
+          scopes: config.scopes,
+          requireApproval: config.approval,
+        },
+        ({ token }) => config.execute(input, { token, user, eve: ctx }),
+      )
     },
   }
 

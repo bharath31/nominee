@@ -109,7 +109,8 @@ per-request `subjectToken`, multi-tenancy, or custom CIBA options.
 
 ## CIBA — Push Approvals
 
-Require human approval before an agent action, delivered as a push notification to the user's phone:
+For a local or single-process integration, the legacy blocking approval API is
+the shortest way to try CIBA:
 
 ```ts
 const nominee = new Nominee({
@@ -126,13 +127,60 @@ const nominee = new Nominee({
   }),
 })
 
-// Blocks until the user approves on their phone
+// Blocks this process until the user approves or the request expires.
 await nominee.approve({
   user: 'auth0|user_123',
   action: 'repo.delete',
   detail: 'Delete repository: alice/old-project',
 })
 ```
+
+Production workflows should persist the CIBA request and resume the exact
+decision-bound action after a restart:
+
+```ts
+import { Pool } from 'pg'
+import { Nominee, ask } from 'nominee'
+import { Auth0, PostgresCibaStore } from 'nominee-auth0'
+import { PostgresControlStore, postgresDatabase } from 'nominee-postgres'
+
+const database = postgresDatabase(new Pool({ connectionString: process.env.DATABASE_URL }))
+const control = new PostgresControlStore(database)
+const ciba = new PostgresCibaStore(database)
+
+const nominee = new Nominee({
+  production: true,
+  policy: { rules: [ask('repo.delete')], fallback: 'deny' },
+  actionStore: control,
+  receipts: { store: control, delivery: 'strict' },
+  strategy: Auth0({
+    domain: process.env.AUTH0_DOMAIN!,
+    clientId: process.env.AUTH0_CLIENT_ID!,
+    clientSecret: process.env.AUTH0_CLIENT_SECRET!,
+    subjectToken: ({ user }) => sessionStore.getRefreshToken(user),
+    ciba: { store: ciba },
+  }),
+})
+
+const input = { repo: 'alice/old-project' }
+const prepared = await nominee.prepareAction({
+  tool: 'repo.delete',
+  user: 'auth0|user_123',
+  input,
+})
+
+if (prepared.status === 'pending_approval') {
+  await jobs.save({ actionId: prepared.action.id, input })
+  return
+}
+
+// In the resumed job, call resumeAction(actionId). When it returns `ready`,
+// execute the returned capability with the original, hash-matched input.
+```
+
+Apply both `POSTGRES_SCHEMA` from `nominee-postgres` and
+`POSTGRES_CIBA_SCHEMA` from this package through your migration system.
+Production mode rejects an in-memory CIBA store.
 
 ---
 

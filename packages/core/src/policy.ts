@@ -14,6 +14,7 @@
  *     for a user, further matches escalate to `'ask'` instead of failing —
  *     the human, not the model, decides whether the run keeps going.
  */
+import type { BudgetRequirement } from './action.js'
 
 /** What the policy says about a call: run it, refuse it, or ask a human. */
 export type Effect = 'allow' | 'deny' | 'ask'
@@ -26,6 +27,10 @@ export interface ToolCall {
   input?: unknown
   /** The principal the agent acts on behalf of. */
   user: string
+  /** Trusted application tenant boundary, when supplied by the integration. */
+  tenant?: string
+  /** Trusted application resource identifier, when supplied by the integration. */
+  resource?: string
   /** Delegation chain of agent identities, when known. */
   chain?: string[]
 }
@@ -97,6 +102,11 @@ export interface PolicyDecision {
   escalated?: 'budget'
   /** Index into the policy chain of the strictest (deciding) policy. */
   policyIndex?: number
+  /**
+   * Atomic reservations required before a durable action may execute.
+   * Populated by {@link PolicyEngine.evaluateForAction}.
+   */
+  budgets?: BudgetRequirement[]
 }
 
 /** `true` when `tool` matches `pattern` (`*` wildcards, case-sensitive). */
@@ -118,6 +128,14 @@ const STRICTNESS: Record<Effect, number> = { allow: 0, ask: 1, deny: 2 }
 interface PolicyOutcome extends PolicyDecision {
   /** Matched allow-rules with budgets, to commit if the call is finally allowed. */
   budgetKey?: string
+  budget?: BudgetRequirement
+}
+
+interface BudgetState {
+  /** Budget usage per (policy, rule, user). */
+  used: Map<string, number>
+  /** In-process mutex tail for atomic evaluate-and-commit operations. */
+  tail: Promise<void>
 }
 
 /**
@@ -125,21 +143,28 @@ interface PolicyOutcome extends PolicyDecision {
  * first, acting sub-agent last) and tracks allow-rule budgets.
  */
 export class PolicyEngine {
-  /** Budget usage per (policy, rule, user). */
-  private used = new Map<string, number>()
+  private readonly budgets: BudgetState
 
-  constructor(readonly policies: Policy[]) {}
+  constructor(
+    readonly policies: Policy[],
+    budgets: BudgetState = { used: new Map(), tail: Promise.resolve() },
+  ) {
+    this.budgets = budgets
+  }
 
   /** `true` when at least one policy is configured. */
   get active(): boolean {
     return this.policies.length > 0
   }
 
+  /** Whether every policy in the current chain denies unmatched calls. */
+  get defaultDeny(): boolean {
+    return this.active && this.policies.every((policy) => policy.fallback === 'deny')
+  }
+
   /** Derive a child engine that appends `policy` to the chain (shares budgets). */
   narrow(policy?: Policy): PolicyEngine {
-    const child = new PolicyEngine(policy ? [...this.policies, policy] : [...this.policies])
-    child.used = this.used
-    return child
+    return new PolicyEngine(policy ? [...this.policies, policy] : [...this.policies], this.budgets)
   }
 
   /**
@@ -149,33 +174,89 @@ export class PolicyEngine {
    */
   async evaluate(call: ToolCall, opts: { commit?: boolean } = {}): Promise<PolicyDecision> {
     if (!this.active) return { effect: 'allow', reason: 'no policy configured' }
+    if (!this.hasBudgets()) return this.evaluateAndCommit(call, opts.commit !== false)
 
+    if (opts.commit === false) {
+      await this.budgets.tail
+      return this.evaluateAndCommit(call, false)
+    }
+
+    const previous = this.budgets.tail
+    let release = () => {}
+    this.budgets.tail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await previous
+    try {
+      return await this.evaluateAndCommit(call, true)
+    } finally {
+      release()
+    }
+  }
+
+  /**
+   * Evaluate policy without consulting or mutating the process-local counters.
+   * Instead, return stable budget requirements for an {@link ActionStore} to
+   * reserve atomically with the durable action decision.
+   */
+  async evaluateForAction(call: ToolCall, policyVersion: string): Promise<PolicyDecision> {
+    if (!this.active) return { effect: 'allow', reason: 'no policy configured', budgets: [] }
+    const outcomes: PolicyOutcome[] = []
+    for (let i = 0; i < this.policies.length; i++) {
+      const policy = this.policies[i]
+      if (policy) {
+        outcomes.push(
+          await this.evaluateOne(policy, i, call, {
+            deferBudget: true,
+            namespace: policyVersion,
+          }),
+        )
+      }
+    }
+
+    const strictest = selectStrictest(outcomes)
+    if (!strictest) return { effect: 'allow', reason: 'no policy configured', budgets: [] }
+    const budgets =
+      strictest.effect === 'allow'
+        ? outcomes.flatMap((outcome) => (outcome.budget ? [outcome.budget] : []))
+        : []
+    const { budgetKey: _key, budget: _budget, ...decision } = strictest
+    return { ...decision, budgets }
+  }
+
+  private async evaluateAndCommit(call: ToolCall, commit: boolean): Promise<PolicyDecision> {
     const outcomes: PolicyOutcome[] = []
     for (let i = 0; i < this.policies.length; i++) {
       const policy = this.policies[i]
       if (policy) outcomes.push(await this.evaluateOne(policy, i, call))
     }
 
-    let strictest = outcomes[0]
+    const strictest = selectStrictest(outcomes)
     if (!strictest) return { effect: 'allow', reason: 'no policy configured' }
-    for (const o of outcomes) {
-      if (STRICTNESS[o.effect] > STRICTNESS[strictest.effect]) strictest = o
-    }
 
-    if (strictest.effect === 'allow' && opts.commit !== false) {
+    if (strictest.effect === 'allow' && commit) {
       for (const o of outcomes) {
-        if (o.budgetKey) this.used.set(o.budgetKey, (this.used.get(o.budgetKey) ?? 0) + 1)
+        if (o.budgetKey) {
+          this.budgets.used.set(o.budgetKey, (this.budgets.used.get(o.budgetKey) ?? 0) + 1)
+        }
       }
     }
 
-    const { budgetKey: _omitted, ...decision } = strictest
+    const { budgetKey: _omitted, budget: _budget, ...decision } = strictest
     return decision
+  }
+
+  private hasBudgets(): boolean {
+    return this.policies.some((policy) =>
+      policy.rules.some((rule) => rule.effect === 'allow' && rule.max !== undefined),
+    )
   }
 
   private async evaluateOne(
     policy: Policy,
     policyIndex: number,
     call: ToolCall,
+    opts: { deferBudget?: boolean; namespace?: string } = {},
   ): Promise<PolicyOutcome> {
     for (let r = 0; r < policy.rules.length; r++) {
       const rule = policy.rules[r]
@@ -185,8 +266,14 @@ export class PolicyEngine {
       if (rule.when && !(await rule.when(call))) continue
 
       if (rule.effect === 'allow' && rule.max !== undefined) {
-        const budgetKey = `${policyIndex}:${r}:${call.user}`
-        if ((this.used.get(budgetKey) ?? 0) >= rule.max) {
+        const budgetKey = JSON.stringify([
+          opts.namespace ?? 'local',
+          policyIndex,
+          r,
+          call.tenant ?? null,
+          call.user,
+        ])
+        if (!opts.deferBudget && (this.budgets.used.get(budgetKey) ?? 0) >= rule.max) {
           return {
             effect: 'ask',
             rule,
@@ -203,6 +290,7 @@ export class PolicyEngine {
           reason: rule.reason,
           policyIndex,
           budgetKey,
+          budget: { key: budgetKey, limit: rule.max },
         }
       }
 
@@ -212,4 +300,13 @@ export class PolicyEngine {
     const fallback = policy.fallback ?? 'ask'
     return { effect: fallback, reason: `no rule matched (fallback: ${fallback})`, policyIndex }
   }
+}
+
+function selectStrictest(outcomes: PolicyOutcome[]): PolicyOutcome | undefined {
+  let strictest = outcomes[0]
+  if (!strictest) return undefined
+  for (const outcome of outcomes) {
+    if (STRICTNESS[outcome.effect] > STRICTNESS[strictest.effect]) strictest = outcome
+  }
+  return strictest
 }

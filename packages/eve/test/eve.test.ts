@@ -1,4 +1,4 @@
-import { Memory, Nominee } from 'nominee'
+import { AuthorizationInputChangedError, Memory, Nominee, ask } from 'nominee'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { nomineeTool, withNominee } from '../src/index.js'
@@ -23,6 +23,20 @@ describe('nominee-eve', () => {
       execute: async ({ x }) => x,
     })
     expect(typeof tool.execute).toBe('function')
+  })
+
+  it('forwards Eve-native approval policy to the current approval field', () => {
+    const eveApproval = async () => 'user-approval' as const
+    const tool = nomineeTool({
+      nominee: makeNominee(),
+      user: 'u1',
+      eveApproval,
+      description: 'approve in Eve',
+      inputSchema: z.object({ x: z.number() }),
+      execute: async ({ x }) => x,
+    })
+
+    expect(tool.approval).toBe(eveApproval)
   })
 
   it('injects a fresh token for the connection', async () => {
@@ -94,6 +108,31 @@ describe('nominee-eve', () => {
       execute: executed,
     })
     await expect(tool.execute({}, fakeCtx)).rejects.toThrow(/approval denied/)
+    expect(executed).not.toHaveBeenCalled()
+  })
+
+  it('aborts execute when input changes while approval is pending', async () => {
+    const input = { issue: 1 }
+    const executed = vi.fn(async () => 'done')
+    const nominee = makeNominee({
+      policy: [ask('close_issue')],
+      onApprovalRequest: (req) => {
+        input.issue = 999
+        req.approve()
+      },
+    })
+    const tool = nomineeTool({
+      nominee,
+      user: 'u1',
+      action: 'close_issue',
+      description: 'close',
+      inputSchema: z.object({ issue: z.number() }),
+      execute: executed,
+    })
+
+    await expect(tool.execute(input, fakeCtx)).rejects.toBeInstanceOf(
+      AuthorizationInputChangedError,
+    )
     expect(executed).not.toHaveBeenCalled()
   })
 

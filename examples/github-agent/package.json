@@ -16,8 +16,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "ai": "7.0.0-beta.178",
-    "eve": "^0.11.7",
+    "ai": "^7.0.41",
+    "eve": "^0.27.12",
     "nominee": "workspace:*",
     "nominee-auth0": "workspace:*",
     "nominee-eve": "workspace:*",
@@ -25,7 +25,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.21",
+    "miniflare": "^4.20260722.1",
     "tsx": "^4.22.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.115.0"
   }
 }

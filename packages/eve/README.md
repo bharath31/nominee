@@ -105,7 +105,11 @@ export const deleteFile = nomineeTool({
 })
 ```
 
-Eve's own interactive web consent still works alongside: pass `needsApproval` (from `eve/tools/approval`) and it's forwarded straight to `defineTool`, independent of nominee's gate.
+Eve's own durable interactive consent still works alongside: pass
+`eveApproval: always()` (or `once()`, `never()`, or a custom policy from
+`eve/tools/approval`) and it is forwarded to Eve's `approval` field,
+independent of nominee's portable gate. The older `needsApproval` adapter
+option remains as a deprecated alias.
 
 ---
 

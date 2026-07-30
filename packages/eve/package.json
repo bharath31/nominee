@@ -43,17 +43,17 @@
     "access": "public"
   },
   "peerDependencies": {
-    "nominee": ">=2.0.2",
-    "eve": ">=0.11.0 <1",
+    "nominee": "workspace:^",
+    "eve": ">=0.27.0 <1",
     "zod": "^3.23.8 || ^4"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "eve": "^0.11.7",
+    "eve": "^0.27.12",
     "nominee": "workspace:*",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8",
+    "vitest": "^4.1.10",
     "zod": "^4.4.3"
   }
 }

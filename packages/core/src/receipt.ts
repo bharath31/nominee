@@ -28,6 +28,13 @@ export interface Receipt {
   chain?: string[]
   /** Tool / action name, for decisions and approvals. */
   tool?: string
+  /** Durable action lifecycle identifier. */
+  actionId?: string
+  /** Application resource and tenant bound to the decision. */
+  resource?: string
+  tenant?: string
+  /** Version of the policy set that made the decision. */
+  policyVersion?: string
   /** Policy verdict, for `policy.decision` receipts. */
   effect?: Effect
   /** Set when an allow-budget escalated the call to ask. */
@@ -38,6 +45,10 @@ export interface Receipt {
   reason?: string
   /** Approval decision / authz result, when applicable. */
   decision?: string | boolean
+  approvalId?: string
+  approver?: string
+  capabilityId?: string
+  outcome?: 'succeeded' | 'failed'
   /** Third-party connection, for token receipts. */
   connection?: string
   /** SHA-256 of the canonical-JSON tool input (default input mode `'hash'`). */
@@ -52,6 +63,25 @@ export interface Receipt {
   hash: string
 }
 
+export type ReceiptEntry = Omit<Receipt, 'seq' | 'at' | 'prev' | 'hash' | 'inputHash'> & {
+  input?: unknown
+}
+
+export interface AtomicReceiptOptions {
+  key?: string
+  inputMode: 'hash' | 'raw' | 'none'
+}
+
+/**
+ * Cross-process receipt sequencer. `append` must atomically read the current
+ * stream tip, assign the next sequence/link, and persist the new receipt.
+ */
+export interface AtomicReceiptStore {
+  readonly durable: boolean
+  append(stream: string, entry: ReceiptEntry, options: AtomicReceiptOptions): Promise<Receipt>
+  list(stream: string): Promise<Receipt[]>
+}
+
 export interface ReceiptOptions {
   /**
    * HMAC signing key. Without one the chain is tamper-evident (any edit breaks
@@ -63,8 +93,24 @@ export interface ReceiptOptions {
    * user data), `'raw'` (full input on the receipt), `'none'`.
    */
   input?: 'hash' | 'raw' | 'none'
-  /** Called with every appended receipt — persist to a file, DB, or log sink. */
-  onReceipt?: (receipt: Receipt) => void
+  /**
+   * Called with every appended receipt — persist to a file, DB, or log sink.
+   * Async sinks are tracked by {@link ReceiptLedger.flush}.
+   */
+  onReceipt?: (receipt: Receipt) => unknown
+  /**
+   * `'strict'` makes Nominee's async authorization/token methods wait for
+   * `onReceipt` before returning. Default `'buffered'`; call
+   * `nominee.flushReceipts()` at checkpoint/shutdown boundaries.
+   */
+  delivery?: 'buffered' | 'strict'
+  /**
+   * Atomic cross-process sequencer. Required by `production: true`; the
+   * ordinary `onReceipt` callback is delivery, not a serialization point.
+   */
+  store?: AtomicReceiptStore
+  /** Independent hash-chain namespace. Default `"default"`. */
+  stream?: string
   /**
    * Continue an existing chain instead of starting a new one — for agents
    * that persist receipts externally and reload across restarts (e.g. a
@@ -90,6 +136,29 @@ const GENESIS = 'genesis'
 function computeHash(receipt: Omit<Receipt, 'hash'>, key?: string): string {
   const content = canonicalJson(receipt)
   return key ? hmacSha256(key, content) : sha256(content)
+}
+
+/** Build one canonical receipt link for durable store implementations. */
+export function sealReceipt(
+  entry: ReceiptEntry,
+  checkpoint: { seq: number; prev: string; at?: number },
+  options: AtomicReceiptOptions,
+): Receipt {
+  const { input, ...rest } = entry
+  const recordedInput: Pick<Receipt, 'input' | 'inputHash'> =
+    input === undefined || options.inputMode === 'none'
+      ? {}
+      : options.inputMode === 'raw'
+        ? { input }
+        : { inputHash: sha256(canonicalJson(input)) }
+  const body: Omit<Receipt, 'hash'> = {
+    ...rest,
+    ...recordedInput,
+    seq: checkpoint.seq,
+    at: checkpoint.at ?? Date.now(),
+    prev: checkpoint.prev,
+  }
+  return { ...body, hash: computeHash(body, options.key) }
 }
 
 /**
@@ -138,12 +207,22 @@ export class ReceiptLedger {
   private readonly baseSeq: number
   private readonly resumeFrom?: { seq: number; prev: string }
   private readonly key?: string
+  private readonly atomicStore?: AtomicReceiptStore
+  private readonly stream: string
+  private atomicReceipts: Receipt[] = []
   readonly inputMode: 'hash' | 'raw' | 'none'
-  private readonly onReceipt?: (receipt: Receipt) => void
+  readonly delivery: 'buffered' | 'strict'
+  private readonly onReceipt?: (receipt: Receipt) => unknown
+  private sinkTail: Promise<unknown> = Promise.resolve()
+  private pendingSinkWrites = 0
+  private sinkFailed = false
 
   constructor(options: ReceiptOptions = {}) {
     this.key = options.key
+    this.atomicStore = options.store
+    this.stream = options.stream ?? 'default'
     this.inputMode = options.input ?? 'hash'
+    this.delivery = options.delivery ?? 'buffered'
     this.onReceipt = options.onReceipt
     this.baseSeq = options.resume?.seq ?? 0
     this.prev = options.resume?.prev ?? GENESIS
@@ -154,37 +233,104 @@ export class ReceiptLedger {
    * Append a record. `input`, when given, is recorded according to the
    * ledger's input mode. Returns the sealed receipt.
    */
-  append(
-    entry: Omit<Receipt, 'seq' | 'at' | 'prev' | 'hash' | 'inputHash'> & { input?: unknown },
-  ): Receipt {
-    const { input, ...rest } = entry
-    const body: Omit<Receipt, 'hash'> = {
-      ...rest,
-      ...this.recordInput(input),
-      seq: this.baseSeq + this.receipts.length,
-      at: Date.now(),
-      prev: this.prev,
-    }
-    const receipt: Receipt = { ...body, hash: computeHash(body, this.key) }
+  append(entry: ReceiptEntry): Receipt {
+    const receipt = sealReceipt(
+      entry,
+      { seq: this.baseSeq + this.receipts.length, prev: this.prev },
+      { key: this.key, inputMode: this.inputMode },
+    )
     this.receipts.push(receipt)
     this.prev = receipt.hash
-    this.onReceipt?.(receipt)
+    this.deliver(receipt)
     return receipt
   }
 
-  private recordInput(input: unknown): Pick<Receipt, 'input' | 'inputHash'> {
-    if (input === undefined || this.inputMode === 'none') return {}
-    if (this.inputMode === 'raw') return { input }
-    return { inputHash: sha256(canonicalJson(input)) }
+  /**
+   * Append through the configured atomic store. Without one, this falls back
+   * to the serialized in-process ledger.
+   */
+  async appendAtomic(entry: ReceiptEntry): Promise<Receipt> {
+    if (!this.atomicStore) {
+      const receipt = this.append(entry)
+      if (this.delivery === 'strict') await this.flush()
+      return receipt
+    }
+    const receipt = await this.atomicStore.append(this.stream, entry, {
+      key: this.key,
+      inputMode: this.inputMode,
+    })
+    this.atomicReceipts.push(receipt)
+    this.deliver(receipt)
+    if (this.delivery === 'strict') await this.flush()
+    return receipt
+  }
+
+  private deliver(receipt: Receipt): void {
+    if (!this.onReceipt || this.sinkFailed) return
+
+    if (this.pendingSinkWrites === 0) {
+      let result: unknown
+      try {
+        result = this.onReceipt(receipt)
+      } catch (error) {
+        this.sinkFailed = true
+        this.sinkTail = Promise.reject(error)
+        void this.sinkTail.catch(() => {})
+        throw error
+      }
+      if (!isPromiseLike(result)) return
+      this.pendingSinkWrites++
+      this.sinkTail = Promise.resolve(result)
+        .catch((error) => {
+          this.sinkFailed = true
+          throw error
+        })
+        .finally(() => {
+          this.pendingSinkWrites--
+        })
+    } else {
+      this.pendingSinkWrites++
+      this.sinkTail = this.sinkTail
+        .then(() => this.onReceipt?.(receipt))
+        .catch((error) => {
+          this.sinkFailed = true
+          throw error
+        })
+        .finally(() => {
+          this.pendingSinkWrites--
+        })
+    }
+
+    // The rejection remains observable through flush(), but attaching a
+    // handler here prevents an unhandled-rejection warning before it is awaited.
+    void this.sinkTail.catch(() => {})
   }
 
   /** All receipts, oldest first. The array is live — copy before mutating. */
   get all(): readonly Receipt[] {
-    return this.receipts
+    return [...this.receipts, ...this.atomicReceipts].sort((a, b) => a.seq - b.seq)
   }
 
   get size(): number {
-    return this.receipts.length
+    return this.receipts.length + this.atomicReceipts.length
+  }
+
+  get durable(): boolean {
+    return this.atomicStore?.durable === true
+  }
+
+  /** Load the complete atomically-sequenced stream from durable storage. */
+  async loadAtomic(): Promise<Receipt[]> {
+    return this.atomicStore ? this.atomicStore.list(this.stream) : [...this.receipts]
+  }
+
+  async verifyAtomic(): Promise<VerifyResult> {
+    return verifyReceipts(await this.loadAtomic(), { key: this.key })
+  }
+
+  /** Wait for every async `onReceipt` delivery queued so far. */
+  async flush(): Promise<void> {
+    await this.sinkTail
   }
 
   /**
@@ -201,4 +347,50 @@ export class ReceiptLedger {
   toJSONL(): string {
     return this.receipts.map((r) => JSON.stringify(r)).join('\n')
   }
+}
+
+/** Atomic in-process receipt-store conformance implementation. */
+export class MemoryAtomicReceiptStore implements AtomicReceiptStore {
+  readonly durable = false
+  private readonly streams = new Map<string, Receipt[]>()
+  private tail: Promise<void> = Promise.resolve()
+
+  async append(
+    stream: string,
+    entry: ReceiptEntry,
+    options: AtomicReceiptOptions,
+  ): Promise<Receipt> {
+    const previous = this.tail
+    let release = () => {}
+    this.tail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await previous
+    try {
+      const receipts = this.streams.get(stream) ?? []
+      const tip = receipts.at(-1)
+      const receipt = sealReceipt(
+        entry,
+        { seq: (tip?.seq ?? -1) + 1, prev: tip?.hash ?? GENESIS },
+        options,
+      )
+      receipts.push(receipt)
+      this.streams.set(stream, receipts)
+      return structuredClone(receipt)
+    } finally {
+      release()
+    }
+  }
+
+  async list(stream: string): Promise<Receipt[]> {
+    return structuredClone(this.streams.get(stream) ?? [])
+  }
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as PromiseLike<unknown>).then === 'function'
+  )
 }

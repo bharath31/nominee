@@ -67,6 +67,37 @@ describe('PolicyEngine', () => {
     expect((await engine.evaluate(call('pay.invoice', { amount: 5000 }))).effect).toBe('deny')
   })
 
+  it('exposes trusted tenant and resource context to policy predicates', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow('refund.create', {
+            when: ({ tenant, resource }) =>
+              tenant === 'acme' && resource?.startsWith('order:acme:') === true,
+          }),
+        ],
+        fallback: 'deny',
+      },
+    ])
+
+    await expect(
+      engine.evaluate({
+        tool: 'refund.create',
+        user: 'agent-1',
+        tenant: 'acme',
+        resource: 'order:acme:42',
+      }),
+    ).resolves.toMatchObject({ effect: 'allow' })
+    await expect(
+      engine.evaluate({
+        tool: 'refund.create',
+        user: 'agent-1',
+        tenant: 'globex',
+        resource: 'order:acme:42',
+      }),
+    ).resolves.toMatchObject({ effect: 'deny' })
+  })
+
   it('reports the deciding rule and reason', async () => {
     const engine = new PolicyEngine([
       { rules: [deny('repo.delete', { reason: 'never delete repos' })] },
@@ -83,6 +114,30 @@ describe('PolicyEngine', () => {
     const third = await engine.evaluate(call('search.web'))
     expect(third.effect).toBe('ask')
     expect(third.escalated).toBe('budget')
+  })
+
+  it('commits allow budgets atomically across concurrent calls', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow('search.*', {
+            max: 1,
+            when: async () => {
+              await new Promise((resolve) => setTimeout(resolve, 5))
+              return true
+            },
+          }),
+        ],
+        fallback: 'deny',
+      },
+    ])
+
+    const decisions = await Promise.all(
+      Array.from({ length: 8 }, () => engine.evaluate(call('search.web'))),
+    )
+
+    expect(decisions.filter((decision) => decision.effect === 'allow')).toHaveLength(1)
+    expect(decisions.filter((decision) => decision.effect === 'ask')).toHaveLength(7)
   })
 
   it('tracks budgets per user', async () => {

@@ -1,0 +1,49 @@
+{
+  "name": "nominee-mcp",
+  "version": "2.1.0",
+  "description": "Decision-bound Model Context Protocol tool handlers for governed AI agents",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["mcp", "model-context-protocol", "tools", "authorization", "nominee"],
+  "author": "Bharath",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bharath31/nominee.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/bharath31/nominee#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.30.0",
+    "nominee": "workspace:^",
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/node": "^22.10.2",
+    "nominee": "workspace:*",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
+  }
+}

@@ -162,7 +162,7 @@ export function Supabase(options: SupabaseOptions): Strategy {
     const patch: Record<string, unknown> = { [col.accessToken]: fresh.token }
     if (fresh.expiresAt) patch[col.expiresAt] = new Date(fresh.expiresAt).toISOString()
     if (fresh.refreshToken) patch[col.refreshToken] = fresh.refreshToken
-    await doFetch(`${restUrl}?${filter(params)}`, {
+    const res = await doFetch(`${restUrl}?${filter(params)}`, {
       method: 'PATCH',
       headers: {
         ...authHeaders(true),
@@ -170,9 +170,11 @@ export function Supabase(options: SupabaseOptions): Strategy {
         prefer: 'return=minimal',
       },
       body: JSON.stringify(patch),
-    }).catch(() => {
-      // Persist is best-effort: a write failure must not break the token fetch.
     })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`nominee(supabase): persist failed ${res.status} ${text}`.trim())
+    }
   }
 
   return {

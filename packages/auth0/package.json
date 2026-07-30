@@ -33,13 +33,20 @@
     "access": "public"
   },
   "peerDependencies": {
-    "nominee": ">=2.0.2"
+    "nominee": "workspace:^"
+  },
+  "dependencies": {
+    "jose": "^6.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
     "nominee": "workspace:*",
+    "nominee-postgres": "workspace:*",
+    "pg": "^8.22.0",
+    "pg-mem": "^3.0.14",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.10"
   }
 }

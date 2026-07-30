@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  <strong>The authorization layer for AI agents.</strong><br />
-  Your agent logs in as you. nominee decides what it can <em>do</em> as you.<br />
-  Policy · approvals · receipts — zero dependencies, framework-neutral, no SaaS.
+  <strong>Authorize the action, not the agent.</strong><br />
+  Policy at the tool boundary · call-time user credentials · tamper-evident proof.<br />
+  Zero dependencies, framework-neutral, no SaaS.
 </p>
 
 ---
@@ -25,7 +25,7 @@ No signup. No SaaS account. No vendor lock-in. Zero runtime dependencies.
 
 ## The Problem
 
-Your agent authenticates as you — and then it's authorized as you. **All of you.** One injected sentence in an email or web page, and the model will use that authority against you. Vaults hide the key but still execute the request. `needsApproval: true` gives you a Y/N prompt for everything, which is why everyone ends up skipping permissions entirely.
+Agent frameworks provide useful approvals and pause/resume. nominee addresses the application authorization boundary underneath them: whether this user, through this agent, may perform this action with these arguments, and which user credential the tool receives at execution time.
 
 nominee sits between the model and your tools, in-process, and gives every tool call:
 
@@ -61,7 +61,9 @@ const tools = nominee.guard(
 )
 ```
 
-Denied calls throw `PolicyDeniedError` **before the tool runs**. Escalated calls block until a human decides (denial throws `ApprovalDeniedError`). Every outcome lands on the receipt chain.
+Denied calls throw `PolicyDeniedError` **before the tool runs**. An `ask` can
+resolve inline or surface `ActionPendingError` with a durable action id for
+later resume. Every outcome lands on the receipt chain.
 
 Watch a prompt-injected agent fail to exfiltrate, with no API keys:
 [`examples/prompt-injection-blocked`](https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked).
@@ -72,7 +74,7 @@ Watch a prompt-injected agent fail to exfiltrate, with no API keys:
 
 - **First match wins** within a policy; rules are checked in order.
 - **No match → `fallback`** (default `'ask'`; set `'deny'` for default-deny).
-- **`when` predicates** see `{ tool, input, user, chain }`.
+- **`when` predicates** see `{ tool, input, user, tenant, resource, chain }`.
 - **Budgets**: `allow('search.*', { max: 20 })` — the 21st call escalates to a human.
 - **Delegation can only narrow**: across `delegate()` chains the strictest outcome wins (deny > ask > allow).
 
@@ -95,12 +97,14 @@ const nominee = new Nominee({
   policy,
   receipts: {
     key: process.env.RECEIPT_KEY,          // optional HMAC signing
-    onReceipt: (r) => auditLog.write(r),   // stream to your sink
+    delivery: 'strict',                    // fail closed if the async sink fails
+    onReceipt: (r) => auditLog.write(r),   // may return a Promise
   },
 })
 
 nominee.receipts          // the chain so far
 nominee.verifyReceipts()  // { ok: true, checked: 128 }
+await nominee.flushReceipts()
 
 // Later, offline, from your exported log:
 import { verifyReceipts } from 'nominee'
@@ -109,6 +113,10 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 
 Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
 
+For a threat model that includes whole-database rollback, anchor the signed
+stream tip in an external append-only system; a valid older chain is still a
+valid chain without that checkpoint.
+
 A durable or hibernating agent that reconstructs its `Nominee` instance across restarts can persist receipts itself and pass `receipts: { resume: { seq, prev } }` — the sequence number and hash to continue from — so the new ledger picks up the same chain instead of starting a second genesis.
 
 ---
@@ -116,14 +124,18 @@ A durable or hibernating agent that reconstructs its `Nominee` instance across r
 ## Human-in-the-Loop Approvals
 
 ```ts
-// Gate an action — blocks until the user responds (via an ask rule, or directly):
+// Legacy single-process API: blocks until the user responds.
 await nominee.approve({ user: 'alice', action: 'repo.delete', detail: { repo: 'a/b' } })
 
 // Settle from your webhook (Slack button, push notification, UI):
 nominee.resolveApproval(approvalId, 'approved') // or 'denied'
 ```
 
-Strategies can carry native approval flows — [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) does CIBA push approvals.
+For durable workflows, use `prepareAction()`, persist the pending action id,
+then call `resolveActionApproval()` / `resumeAction()` after the user decides.
+Strategies can carry native approval flows —
+[`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) does resumable
+CIBA approvals.
 
 ---
 
@@ -139,8 +151,17 @@ const nominee = new Nominee({
   strategy: tokens(({ user, connection }) => db.getFreshToken(user, connection)),
 })
 
-// Inside a tool: valid *now*, cached, auto-refreshed, single-flight under concurrency.
-const token = await nominee.token({ user: 'alice', connection: 'github' })
+await nominee.run(
+  {
+    tool: 'github.issue.close',
+    input: { repo, issue },
+    user: 'alice',
+    resource: `repo:${repo}#${issue}`,
+    connection: 'github',
+    scopes: ['issues:write'],
+  },
+  ({ token }) => closeIssue({ repo, issue, token }),
+)
 ```
 
 | Strategy | Use case |
@@ -150,6 +171,7 @@ const token = await nominee.token({ user: 'alice', connection: 'github' })
 | `Memory({ tokens })` | Dev & test in-memory store |
 | [`nominee-supabase`](https://www.npmjs.com/package/nominee-supabase) | Provider tokens stored in Supabase *(optional)* |
 | [`nominee-auth0`](https://www.npmjs.com/package/nominee-auth0) | Auth0 Token Vault + CIBA push approvals *(optional)* |
+| [`nominee-postgres`](https://www.npmjs.com/package/nominee-postgres) | Durable actions, budgets, capabilities, outcomes, and receipt streams |
 
 Proof that naive refresh breaks under rotation + concurrency (7/8 fail; nominee 8/8):
 [`examples/token-refresh-correctness`](https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness).
@@ -159,6 +181,13 @@ Proof that naive refresh breaks under rotation + concurrency (7/8 fail; nominee 
 ## Full API
 
 ```ts
+// Decision-bound execution (recommended; required in production mode)
+await nominee.run({ tool, input, user, resource, tenant, connection, scopes }, execute)
+const prepared = await nominee.prepareAction({ tool, input, user })
+await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
+const resumed = await nominee.resumeAction(actionId)
+await nominee.executeCapability(resumed.capability, input, execute)
+
 // Authorization
 await nominee.authorize({ tool, input, user })   // allow | throws PolicyDeniedError / ApprovalDeniedError
 await nominee.check({ tool, input, user })       // dry-run: the decision, no side effects
@@ -171,6 +200,7 @@ nominee.resolveApproval(id, 'approved' | 'denied')
 // Receipts
 nominee.receipts
 nominee.verifyReceipts()
+await nominee.flushReceipts()
 verifyReceipts(receipts, { key })
 
 // Delegation (policies can only narrow; shared receipt chain)
@@ -197,11 +227,17 @@ const unsub = nominee.on((event) => log(event))
 | **Vercel AI SDK** | [`nominee-ai`](https://www.npmjs.com/package/nominee-ai) — `guardTools()` / `nomineeTool()` |
 | **Vercel Eve** | [`nominee-eve`](https://www.npmjs.com/package/nominee-eve) — `nomineeTool()` |
 | **Cloudflare Agents** | via `nominee-ai` |
-| **Mastra / OpenAI Agents / MCP / anything** | core `nominee.guard()` wraps any object of functions or `{ execute }` tools |
+| **OpenAI Agents SDK** | [`nominee-openai`](https://www.npmjs.com/package/nominee-openai) — native resumable approvals |
+| **Mastra** | [`nominee-mastra`](https://www.npmjs.com/package/nominee-mastra) — native or portable approvals |
+| **MCP servers** | [`nominee-mcp`](https://www.npmjs.com/package/nominee-mcp) — `registerNomineeTool()` |
 
 ---
 
-Upgrading from 2.0? It's fully additive — see [Migrating from 2.0](https://nominee.dev/docs/#migrating).
+For high-impact paths, use `production: true` with
+[`nominee-postgres`](https://www.npmjs.com/package/nominee-postgres). Production
+mode fails construction without a default-deny policy, durable action state,
+atomic durable receipts, strict delivery, and durable provider approval state.
+Review the repository's security guidance and production runbook before launch.
 
 ## Contributing
 
