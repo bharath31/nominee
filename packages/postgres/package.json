@@ -1,6 +1,6 @@
 {
   "name": "nominee-postgres",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Transactional PostgreSQL action, budget, and receipt stores for nominee",
   "type": "module",
   "main": "./dist/index.cjs",

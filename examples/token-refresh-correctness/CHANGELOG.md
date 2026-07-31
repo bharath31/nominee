@@ -1,5 +1,12 @@
 # token-refresh-correctness
 
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [227d887]
+  - nominee@2.2.0
+
 ## 1.0.1
 
 ### Patch Changes
