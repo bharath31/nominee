@@ -76,7 +76,7 @@
         <a href="#api">Core API</a>
         <a href="#errors">Errors</a>
         <a href="#security">Security model</a>
-        <a href="#migrating">Migrating from 2.0</a>
+        <a href="#migrating">Migrating to 2.2</a>
       </aside>
 
       <article class="docs-main">
@@ -183,12 +183,17 @@ const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardE
   strategy: ({ connection }) => process.env[`${connection.toUpperCase()}_TOKEN`]!,
 })
 
-// at the moment the tool runs — always fresh, cached until just before expiry
-const token = await nominee.token({ user: 'alice', connection: 'github' })</code></pre>
+// Decision-bound: credential resolved inside execute after capability consumption
+await nominee.run(
+  { tool: 'github.issue.close', input: { repo, issue }, user: 'alice', connection: 'github' },
+  ({ token }) => closeIssue({ repo, issue, token }),
+)</code></pre>
           <p>
             <strong>Rule of thumb:</strong> never store the returned token in your own agent
-            state. Call <code>nominee.token()</code> at the moment of the call — see
-            <a href="#freshness">Token freshness</a> for why.
+            state. Under <code>run()</code>, the strategy resolves credentials inside the
+            execute callback — see <a href="#freshness">Token freshness</a> for why.
+            Standalone <code>nominee.token()</code> remains for dev; it is disabled under
+            <code>production: true</code>.
           </p>
           <p>
             Don't want to bring your own tokens? Let Auth0 manage Token Vault + push approvals,

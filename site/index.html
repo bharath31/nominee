@@ -250,7 +250,8 @@
           <p>
             Two agents call a protected API across a session longer than the token
             lives (~8s here). Left grabs a token once and reuses it. Right calls
-            <code>nominee.token()</code> each time. The real <code>nominee</code>
+            <code>nominee.run()</code> so the strategy resolves a fresh token at
+            execution time. The real <code>nominee</code>
             package runs in your browser — open the Network tab and watch the refresh.
           </p>
           <p class="proof-link">
@@ -274,7 +275,7 @@
             <div class="lane hi" data-lane="nominee">
               <div class="lane-head">
                 <span class="lane-name">nominee</span>
-                <span class="lane-sub">await nominee.token() on every call</span>
+                <span class="lane-sub">nominee.run() — fresh token at execution time</span>
               </div>
               <div class="race-log" data-log></div>
               <div class="lane-verdict" data-verdict></div>

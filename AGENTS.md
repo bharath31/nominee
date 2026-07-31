@@ -180,3 +180,22 @@ production runbook and [measurement.md](docs/measurement.md) for the opt-in usag
 reporter. Positioning and GTM working notes are gitignored and stay local.
 
 Keep examples aligned with the actual exported API before publishing.
+
+### Public surface sync
+
+When you change `packages/core/src/nominee.ts`, `action.ts`, adapter `run()`
+wiring, or the decision-bound lifecycle, update these surfaces in the same PR:
+
+| Surface | File |
+|---|---|
+| GitHub landing | `README.md` |
+| LLM context (both copies) | `llms.txt`, `site/llms.txt` |
+| Docs | `site/docs/index.html` |
+| Landing page | `site/index.html` |
+| Package READMEs | `packages/*/README.md` (especially adapters) |
+| Examples | `examples/*/README.md` |
+| Agent guide | `AGENTS.md`, `CLAUDE.md` |
+
+Run `node brand/check-surfaces.mjs` before opening a PR — CI enforces it.
+Positioning copy changes start in `brand/content.ts`; walk `brand/README.md`'s
+surface registry for narrative surfaces.

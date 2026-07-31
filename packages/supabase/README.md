@@ -35,6 +35,16 @@ const nominee = new Nominee({
   }),
 })
 
+// Decision-bound: credential resolved inside execute after capability consumption
+await nominee.run(
+  { tool: 'github.issue.close', input: { repo, issue }, user: 'alice', connection: 'github' },
+  ({ token }) => closeIssue({ repo, issue, token }),
+)
+```
+
+For dev and non-production use, standalone `nominee.token()` still works:
+
+```ts
 // identical to every other strategy — fresh token at call time
 const token = await nominee.token({ user: 'alice', connection: 'github' })
 ```

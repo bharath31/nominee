@@ -259,10 +259,16 @@ nominee.resolveApproval(id, 'approved')          // settle from your webhook
 nominee.receipts                                 // hash-chained record
 nominee.verifyReceipts()                         // tamper check
 await nominee.flushReceipts()                    // await buffered async sink writes
+await nominee.verifyDurableReceipts()            // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })                // offline / exported verification
+
+// Observability
+nominee.onGovernedAction((event) => metrics.record(event))
+// or: usageReporter() for opt-in measurement — see docs/measurement.md
 
 // Delegation
 const sub = nominee.delegate('research-agent', { policy })  // can only narrow
+await nominee.getAction(actionId)                // read durable action state
 
 // Tokens
 await nominee.token({ user, connection })        // fresh at call time, single-flight refresh

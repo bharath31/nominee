@@ -35,7 +35,8 @@ flowchart TB
         CIBA["CIBA\nrequestApproval()"]
     end
 
-    Agent["Agent calls\nnominee.token()"] --> TV
+    Agent["Agent calls\nnominee.run()"] --> RUN["decision-bound path\n(capability → token)"]
+    RUN --> TV
     TV -->|"token exchange\ngrant (federated)"| Auth0["Auth0 Tenant"]
     Auth0 -->|fresh token| TV
     TV --> Agent
@@ -70,6 +71,16 @@ const nominee = new Nominee({
   }),
 })
 
+// Decision-bound: credential resolved inside execute after capability consumption
+await nominee.run(
+  { tool: 'github.issue.close', input: { repo, issue }, user: 'auth0|user_123', connection: 'github' },
+  ({ token }) => closeIssue({ repo, issue, token }),
+)
+```
+
+For dev and non-production use, standalone `nominee.token()` still works:
+
+```ts
 // Fetches a fresh GitHub token from Auth0 Token Vault
 const token = await nominee.token({
   user: 'auth0|user_123',

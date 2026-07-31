@@ -201,10 +201,18 @@ nominee.resolveApproval(id, 'approved' | 'denied')
 nominee.receipts
 nominee.verifyReceipts()
 await nominee.flushReceipts()
+await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })
+
+// Observability
+nominee.onGovernedAction((event) => metrics.record(event))
+// or: usageReporter() for opt-in measurement — see docs/measurement.md
 
 // Delegation (policies can only narrow; shared receipt chain)
 const sub = nominee.delegate('research-agent', { policy })
+
+// Read durable action state
+await nominee.getAction(actionId)
 
 // Tokens
 await nominee.token({ user, connection })
@@ -217,6 +225,11 @@ await nominee.can({ user, action, resource })
 // Audit stream (in-process listeners, alongside receipts)
 const unsub = nominee.on((event) => log(event))
 ```
+
+Errors: `PolicyDeniedError`, `ApprovalDeniedError`, `ActionPendingError`,
+`AuthorizationInputChangedError`, `CapabilityInvalidError`,
+`ExternalAuthorizationDeniedError`, `ActionOutcomePersistenceError`,
+`ActionNotFoundError`, `ActionStateError`.
 
 ---
 
