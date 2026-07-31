@@ -30,16 +30,19 @@ Also works with **Cloudflare Agents** — they use the same AI SDK internals.
 ```mermaid
 flowchart LR
     LLM["LLM decides to\ncall a tool"] --> G["guardTools() /\nnomineeTool()"]
-    G --> P{"policy:\nallow / deny / ask"}
+    G --> RUN["nominee.run()\ndecision-bound path"]
+    RUN --> P{"policy:\nallow / deny / ask"}
     P -->|deny| X["PolicyDeniedError\n(tool never runs)"]
     P -->|ask| AP["⏸ wait for a\nhuman decision"]
-    AP -->|approved| TOK
-    P -->|allow| TOK["nominee.token()\nfresh token (optional)"]
+    AP -->|pending| APE["ActionPendingError\n(durable action id)"]
+    AP -->|approved| CAP["consume capability\n(exact input hash)"]
+    P -->|allow| CAP
+    CAP --> TOK["strategy resolves\ntoken (optional)"]
     TOK --> EX["execute(input, ctx)"]
     EX --> R["receipt appended\nhash-chained record"]
 ```
 
-Every call is authorized against the nominee policy **before** the tool runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides; every outcome (including refusals) lands on the receipt chain.
+Every call routes through `nominee.run()` — the decision-bound path that binds authorization to a fingerprint of the arguments and issues a single-use capability before `execute` runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides or surface `ActionPendingError` with a durable action id when the approval outlives the request; every outcome (including refusals) lands on the receipt chain.
 
 ---
 
@@ -72,7 +75,7 @@ const { text } = await generateText({
 })
 ```
 
-Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.authorize({ tool, input, user })`, and only then runs the original. Client-executed tools (no `execute`) pass through untouched. `user` can also be an async resolver of the tool-call options: `(options) => session.userId`.
+Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.run({ tool, input, user })`, and only then runs the original. Client-executed tools (no `execute`) pass through untouched. `user` can also be an async resolver of the tool-call options: `(options) => session.userId`.
 
 ---
 
@@ -101,7 +104,7 @@ const starRepo = nomineeTool({
 })
 ```
 
-The policy is enforced here too — `nomineeTool` authorizes `action` (default `"tool"`) before `execute` runs, then resolves the token via your nominee strategy (fresh at call time, single-flight refresh).
+The policy is enforced here too — `nomineeTool` routes through `nominee.run()` on `action` (default `"tool"`) before `execute` runs, then resolves the token via your nominee strategy inside the capability callback (fresh at call time, single-flight refresh). Pass `resource`, `tenant`, and `scopes` when your policy or strategy needs them.
 
 ---
 

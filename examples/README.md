@@ -1,5 +1,12 @@
 # nominee examples
 
+Every example that wraps tools with `nominee.guard()`, `guardTools()`, or
+`nomineeTool()` routes through the decision-bound `run()` path: policy checks
+the exact arguments, issues a single-use capability, resolves credentials at
+consumption time, and seals every outcome into the receipt chain. When an
+approval outlives the request, adapters surface `ActionPendingError` with a
+durable action id for `resumeAction()`.
+
 ## [`prompt-injection-blocked`](./prompt-injection-blocked) — the flagship demo
 
 A prompt-injected agent tries to exfiltrate your email — and physically can't.
@@ -16,7 +23,9 @@ node run.mjs
 ## [`ai-sdk-minimal`](./ai-sdk-minimal) / [`ai-sdk-github-agent`](./ai-sdk-github-agent)
 
 Drop nominee into Vercel AI SDK tools — policy + fresh token + approval + audit
-in one `nomineeTool` wrapper (or `guardTools` for a whole tools object).
+in one `nomineeTool` wrapper (or `guardTools` for a whole tools object). Both
+route through `nominee.run()` internally; see each README for `ActionPendingError`
+when an approval outlives the request.
 
 ## [`token-refresh-correctness`](./token-refresh-correctness)
 

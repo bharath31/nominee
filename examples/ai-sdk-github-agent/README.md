@@ -9,10 +9,11 @@ model could talk its way around:
    denied outright, `github.get_pr` (a read) runs free, `github.merge_pr` (a write)
    asks a human. `tools.ts` is just two named actions — see the
    [policy semantics in the root README](../../README.md#policy-semantics).
-2. **Fresh token at merge time.** The GitHub token is resolved at the moment of the
-   merge, not grabbed up front — so it's still valid even after the agent pauses for
-   approval. On a provider that rotates refresh tokens, nominee persists the rotated
-   token (`onRefreshToken`) so a long run keeps working.
+2. **Fresh token at merge time.** `nomineeTool` routes through `run()`: the GitHub
+   token is resolved at capability consumption, not grabbed up front — so it's
+   still valid even after the agent pauses for approval. On a provider that rotates
+   refresh tokens, nominee persists the rotated token (`onRefreshToken`) so a long
+   run keeps working.
 3. **Receipts + audit.** Every policy decision, approval, and token fetch is sealed
    into a hash-chained receipt (printed and verified at the end of the run) and
    appended to `audit.log`, attributed to the `github-agent` identity.
@@ -53,7 +54,9 @@ chain verifies: ✓ 5 receipts intact
 ```
 
 The integration is just two `nomineeTool(...)` wrappers — see [`tools.ts`](./tools.ts) —
-over the same `nominee` instance in [`agent.ts`](./agent.ts).
+over the same `nominee` instance in [`agent.ts`](./agent.ts). Both route through
+`nominee.run()` internally; if an approval outlives the request,
+`ActionPendingError` carries a durable action id for `resumeAction()`.
 
 ## Why a GitHub *App* (or token-expiring OAuth app)?
 

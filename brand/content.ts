@@ -39,7 +39,7 @@ export const brand = {
     {
       tag: 'your agent / framework',
       title: 'calls a tool as your user',
-      eg: 'Vercel AI SDK · Eve · Mastra · Cloudflare Agents · MCP · standalone',
+      eg: 'Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP · standalone',
     },
     {
       tag: 'nominee',

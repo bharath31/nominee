@@ -80,5 +80,5 @@ When the story changes, update `content.ts`, re-render the assets, and walk this
 | Live demo worker | `site/agent-worker/src/index.ts` | demo copy — policy block/receipts (lead), freshness/approval (supporting act) |
 
 > Factual drift (snippets that no longer compile, renamed flags, dead anchors) is
-> a separate problem — handle it with compiled `examples/` + a CI link checker,
-> not this file.
+> a separate problem — handle it with `node brand/check-surfaces.mjs` in CI,
+> compiled `examples/`, and a link checker, not this file alone.

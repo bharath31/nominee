@@ -56,5 +56,21 @@ The monorepo uses `pnpm` workspaces and `tsup` for bundling.
 2. **Build everything:** `pnpm -r build`
 3. **Run tests:** `pnpm -r test`
 4. **Lint and format:** `pnpm check` and `pnpm format`
+5. **Sync check:** `node brand/check-surfaces.mjs` — validates public docs stay aligned with the API
 
-Please ensure tests pass and code is formatted with Biome before submitting a PR.
+Please ensure tests pass, code is formatted with Biome, and the surface sync check passes before submitting a PR.
+
+## Decision-bound execution contract
+
+All official adapters route tool calls through `nominee.run()`. When building a
+new adapter or strategy:
+
+- Bind authorization to the exact tool arguments (input fingerprint).
+- Resolve credentials inside the `run()` execute callback, after capability consumption.
+- Surface `ActionPendingError` when an approval outlives the request.
+- Under `production: true`, unbound `authorize()` and `token()` are disabled — use
+  `run()` / `prepareAction()` / `resumeAction()` instead.
+
+Production mode requires a default-deny policy, durable `ActionStore` (e.g.
+`nominee-postgres`), atomic durable receipt store with `delivery: 'strict'`, and
+durable provider approval state. See [docs/production.md](../docs/production.md).

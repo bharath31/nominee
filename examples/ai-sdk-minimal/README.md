@@ -1,8 +1,9 @@
 # Minimal Vercel AI SDK drop-in
 
-Drop nominee into any Vercel AI SDK tool in **one wrapper** — the call is
-authorized against your policy, gated on human approval, and handed a fresh
-token at call time, with a receipt of every decision. No SaaS, no provider signup.
+Drop nominee into any Vercel AI SDK tool in **one wrapper** — the call routes
+through `nominee.run()`: policy checks the exact arguments, gates on human
+approval, resolves a fresh token at capability consumption, and seals a receipt
+of every decision. No SaaS, no provider signup.
 
 ```bash
 pnpm install
@@ -31,8 +32,10 @@ const starRepo = nomineeTool({
 })
 ```
 
-You keep the AI SDK's tool-calling loop; nominee gives the tool a fresh token and
-gates the sensitive call. The same `nominee` instance works in Eve or standalone.
+You keep the AI SDK's tool-calling loop; `nomineeTool` routes through `run()`
+internally. If an approval outlives the request, `ActionPendingError` carries a
+durable action id for `resumeAction()`. The same `nominee` instance works in Eve
+or standalone.
 
 > **OpenRouter gotcha:** use `openrouter.chat('openai/gpt-4o-mini')` — the
 > provider's default endpoint isn't the chat-completions one OpenRouter expects.

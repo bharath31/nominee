@@ -30,16 +30,19 @@ npm i nominee nominee-eve
 ```mermaid
 flowchart LR
     Agent["Eve Agent\ndecides to call tool"] --> T["nomineeTool()\n(wraps defineTool)"]
-    T --> P{"policy:\nallow / deny / ask"}
+    T --> RUN["nominee.run()\ndecision-bound path"]
+    RUN --> P{"policy:\nallow / deny / ask"}
     P -->|deny| X["PolicyDeniedError\n(tool never runs)"]
     P -->|ask| AP["⏸ wait for a\nhuman decision"]
-    AP -->|approved| TOK
-    P -->|allow| TOK["nominee.token()\nfresh token (optional)"]
+    AP -->|pending| APE["ActionPendingError\n(durable action id)"]
+    AP -->|approved| CAP["consume capability\n(exact input hash)"]
+    P -->|allow| CAP
+    CAP --> TOK["strategy resolves\ntoken (optional)"]
     TOK --> EX["execute(input, ctx)"]
     EX --> R["receipt appended\nhash-chained record"]
 ```
 
-`nomineeTool` authorizes every call against the nominee policy — using the tool's `action` name — **before** `execute` runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides; every outcome (including refusals) lands on the receipt chain. The same policy and receipts travel with you if the agent moves off Eve.
+`nomineeTool` routes every call through `nominee.run()` — binding authorization to a fingerprint of the arguments and issuing a single-use capability before `execute` runs. Denied calls throw `PolicyDeniedError`; `ask` calls block until a human decides or surface `ActionPendingError` when the approval outlives the request; every outcome (including refusals) lands on the receipt chain. The same policy and receipts travel with you if the agent moves off Eve.
 
 ---
 

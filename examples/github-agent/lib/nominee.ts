@@ -16,8 +16,9 @@ export const nominee = new Nominee({
   // What this agent may do, before either tool runs: reads run free, merges
   // ask. The ask is honestly resolved below by the real human decision Eve's
   // own `needsApproval: always()` gate (in merge_pr_with_nominee.ts) already
-  // collected in the chat, before execute() — and hence this authorize() —
-  // ever ran.
+  // collected in the chat, before execute() runs. Inside execute, nomineeTool
+  // routes through run(): policy checks the exact merge args, issues a
+  // single-use capability, then resolves fresh broker access at consumption.
   policy: {
     rules: [
       allow('github.review_pr'),

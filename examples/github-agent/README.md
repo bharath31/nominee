@@ -28,9 +28,12 @@ receipts: { key: process.env.NOMINEE_RECEIPT_KEY ?? 'demo-signing-key' },
 
 The `ask` is settled honestly by the *real* human decision Eve's own
 `needsApproval: always()` gate already collects in the chat before the tool's
-`execute()` — and hence this policy's `authorize()` call — ever runs. Inspect
-`nominee.receipts` after a merge to see the chain: `policy.decision` →
-`approval.requested` → `approval.resolved` → `token.issued`.
+`execute()` runs. Inside `execute`, `nomineeTool` routes through the
+decision-bound `run()` path: policy checks the exact merge arguments, issues a
+single-use capability, then resolves fresh broker access at consumption time.
+Inspect `nominee.receipts` after a merge to see the chain: `policy.decision` →
+`approval.requested` → `approval.resolved` → `capability.issued` →
+`token.issued` → `action.succeeded`.
 
 ## The setup: a merge-access broker
 
