@@ -5,8 +5,8 @@
  * Wired into CI — see .github/workflows/ci.yml
  */
 
-import { readFileSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -80,7 +80,7 @@ const siteDocs = read('site/docs/index.html')
 if (siteDocs && !siteDocs.includes('nominee.run(')) {
   errors.push('site/docs/index.html should document nominee.run()')
 }
-if (siteDocs && siteDocs.includes('Migrating from 2.0')) {
+if (siteDocs?.includes('Migrating from 2.0')) {
   errors.push('site/docs/index.html nav still says "Migrating from 2.0" — should be "to 2.2"')
 }
 
