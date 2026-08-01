@@ -105,7 +105,7 @@ was pending therefore fails closed without running the tool.
   whose credential is fetched fresh only at resume. It predates this action
   lifecycle and does not itself call `prepareAction`/`resumeAction`/
   `executeCapability`; treat it as a durability reference, not a literal
-  usage example of this API.
+  usage example of this API, but is a literal usage example of the full decision-bound action lifecycle (`prepareAction` -> `resolveActionApproval` -> `resumeAction` -> `executeCapability`).
 
 ## Operational checks
 
