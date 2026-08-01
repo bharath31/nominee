@@ -102,10 +102,9 @@ was pending therefore fails closed without running the tool.
 - [nominee.dev/agent](https://nominee.dev/agent) (`site/agent-worker`) is a
   deployed reference for the pause/hibernate/resume shape — a Cloudflare
   Durable Object agent whose receipt chain resumes across hibernation and
-  whose credential is fetched fresh only at resume. It predates this action
-  lifecycle and does not itself call `prepareAction`/`resumeAction`/
-  `executeCapability`; treat it as a durability reference, not a literal
-  usage example of this API.
+  whose credential is fetched fresh only at resume. It is a literal reference
+  for the decision-bound action lifecycle: `prepareAction()` →
+  `resolveActionApproval()` → `resumeAction()` → `executeCapability()`.
 
 ## Operational checks
 
