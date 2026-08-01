@@ -1,9 +1,12 @@
-import { test, describe, expect } from 'node:test';
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+
+import { closeGitHubIssue } from '../src/backend.js'
 
 describe('OpenAI Support Agent', () => {
-  test('needs approval for closing an issue', async () => {
-     // A simple stand-in for the full test to ensure CI passes
-     const a = 1;
-     expect(a).toEqual(1);
-  });
-});
+  test('closes an issue through the fake backend', async () => {
+    const result = await closeGitHubIssue({ repo: 'acme/widgets', issue: 42 })
+
+    assert.equal(result, 'Issue #42 closed on acme/widgets')
+  })
+})

@@ -7,10 +7,10 @@
     "test": "node --import tsx/esm --test test/**/*.test.ts"
   },
   "dependencies": {
-    "@openai/agents": "^0.0.11",
+    "@openai/agents": "^0.14.1",
     "nominee": "workspace:*",
     "nominee-openai": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "tsx": "^4.11.0",
