@@ -1,56 +1,52 @@
 # OpenAI Agents SDK Integration
 
-The `nominee-openai` package provides an adapter for the OpenAI Agents SDK, enabling Nominee policies on OpenAI agent tool calls.
+`nominee-openai` adapts Nominee's decision-bound authorization to function tools
+from the OpenAI Agents SDK.
 
 ## Installation
 
 ```bash
-npm install nominee nominee-openai openai
+npm install nominee nominee-openai @openai/agents zod
 ```
 
 ## Usage
 
-Use `guardTools` (or the equivalent API provided by `nominee-openai`) to secure your OpenAI tools.
+Wrap the function passed to an OpenAI `Agent` with `nomineeTool`. The adapter
+performs policy evaluation before tool execution and provides a fresh token only
+when the exact, authorized call is consumed.
 
 ```typescript
-import { Nominee, allow, ask } from 'nominee';
-import { guardTools } from 'nominee-openai';
-import OpenAI from 'openai';
+import { Agent } from '@openai/agents'
+import { Nominee, allow, ask } from 'nominee'
+import { nomineeTool } from 'nominee-openai'
+import { z } from 'zod'
 
 const nominee = new Nominee({
   policy: {
-    rules: [allow('search.*'), ask('database.*')],
-    fallback: 'ask'
-  }
-});
+    rules: [allow('github.issue.read'), ask('github.issue.close')],
+    fallback: 'deny',
+  },
+})
 
-const client = new OpenAI();
+const closeIssue = nomineeTool({
+  name: 'close_issue',
+  description: 'Close one GitHub issue',
+  parameters: z.object({ repo: z.string(), issue: z.number() }),
+  nominee,
+  action: 'github.issue.close',
+  user: ({ context }) => context.context.userId,
+  resource: ({ input }) => `repo:${input.repo}#${input.issue}`,
+  connection: 'github',
+  scopes: ['issues:write'],
+  execute: async ({ repo, issue }, { token }) => {
+    return closeGitHubIssue({ repo, issue, token })
+  },
+})
 
-const rawTools = [
-  {
-    type: 'function',
-    function: {
-      name: 'search_web',
-      description: 'Search the web',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    }
-  }
-];
-
-const executeFns = {
-  search_web: async ({ query }) => { return { results: [] }; }
-};
-
-// Guard execution
-const tools = guardTools(nominee, rawTools, executeFns, { user: 'user-123' });
-
-// Pass to OpenAI Agents SDK
-const runner = client.beta.chat.completions.runTools({
-  model: 'gpt-4o',
-  messages: [{ role: 'user', content: 'Search for recent news' }],
-  tools: tools.definitions
-}).on('message', (msg) => console.log(msg));
-
-// Handle execution through the guarded wrapper
-// ...
+const agent = new Agent({ name: 'support-agent', tools: [closeIssue] })
 ```
+
+For `ask` rules, the SDK's `needsApproval` hook pauses execution. When the run
+resumes, the adapter verifies the approved tool-call ID before recording the
+approval evidence and executing the tool. Denials remain exceptions and never
+call the underlying function.
