@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer } from '../src/index.js';
-import pg from 'pg';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { POSTGRES_SCHEMA } from 'nominee-postgres'
+import { createServer } from '../src/index.js'
+import pg from 'pg'
 
-const { Pool } = pg;
+const { Pool } = pg
+
+process.env.NOMINEE_RECEIPT_KEY = 'test-receipt-key'
 
 describe('MCP Action Server Integration', () => {
   let pool: pg.Pool;
@@ -11,17 +14,7 @@ describe('MCP Action Server Integration', () => {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL || 'postgresql://nominee:password@localhost:5432/nominee_lifecycle'
     });
-    // Normally run migrations here, assuming tables exist for the sake of example/test setup
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS nominee_actions (
-        id VARCHAR PRIMARY KEY,
-        data JSONB NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS nominee_receipts (
-        id VARCHAR PRIMARY KEY,
-        data JSONB NOT NULL
-      );
-    `);
+    await pool.query(POSTGRES_SCHEMA)
   });
 
   afterAll(async () => {
@@ -40,6 +33,6 @@ describe('MCP Action Server Integration', () => {
       user: 'app-user'
     });
     
-    expect(result.decision).toBe('ask');
+    expect(result.effect).toBe('ask')
   });
 });

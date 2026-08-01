@@ -2,13 +2,17 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Nominee, allow, ask } from 'nominee';
 import { registerNomineeTool } from 'nominee-mcp';
-import { PostgresActionStore, PostgresReceiptStore } from 'nominee-postgres';
+import { PostgresControlStore, postgresDatabase } from 'nominee-postgres';
 import pg from 'pg';
 import { z } from 'zod';
 
 const { Pool } = pg;
 
 export async function createServer(pool: pg.Pool) {
+  const receiptKey = process.env.NOMINEE_RECEIPT_KEY
+  if (!receiptKey) throw new Error('NOMINEE_RECEIPT_KEY must be set')
+
+  const controlStore = new PostgresControlStore(postgresDatabase(pool))
   const nominee = new Nominee({
     policy: {
       rules: [
@@ -17,10 +21,10 @@ export async function createServer(pool: pg.Pool) {
       ]
     },
     receipts: {
-      key: 'test-key',
-      store: new PostgresReceiptStore(pool)
+      key: receiptKey,
+      store: controlStore
     },
-    actionStore: new PostgresActionStore(pool),
+    actionStore: controlStore,
     production: true,
     agent: 'mcp-server'
   });
@@ -40,7 +44,7 @@ export async function createServer(pool: pg.Pool) {
     }),
     connection: 'github-oauth', // Distinct transport OAuth
     user: 'app-user', // App auth
-    execute: async (input) => {
+    execute: async () => {
       return {
         content: [{ type: 'text', text: 'Commit success: abcdef' }]
       };
@@ -59,4 +63,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const transport = new StdioServerTransport();
     await mcp.connect(transport);
   }).catch(console.error);
+
+  const shutdown = async () => {
+    await pool.end()
+    process.exit(0)
+  }
+  process.once('SIGINT', shutdown)
+  process.once('SIGTERM', shutdown)
 }
