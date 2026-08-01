@@ -1,0 +1,15 @@
+{
+  "name": "security-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10",
+    "typescript": "^5.6.3",
+    "nominee": "workspace:*"
+  }
+}
