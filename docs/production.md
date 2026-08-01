@@ -99,6 +99,13 @@ was pending therefore fails closed without running the tool.
   subject equals the intended approver.
 - A capability is returned once, expires quickly, and can execute once. Calling
   `resumeAction()` before consumption rotates it and invalidates the old value.
+- [nominee.dev/agent](https://nominee.dev/agent) (`site/agent-worker`) is a
+  deployed reference for the pause/hibernate/resume shape — a Cloudflare
+  Durable Object agent whose receipt chain resumes across hibernation and
+  whose credential is fetched fresh only at resume. It predates this action
+  lifecycle and does not itself call `prepareAction`/`resumeAction`/
+  `executeCapability`; treat it as a durability reference, not a literal
+  usage example of this API.
 
 ## Operational checks
 

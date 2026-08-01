@@ -49,7 +49,10 @@ examples/
   github-agent/               golden Eve + Auth0 example (PR review-and-merge agent)
 site/
   static microsite for nominee.dev
-  agent-worker/   deployed nominee.dev/agent worker (Cloudflare Durable Object)
+  agent-worker/   deployed nominee.dev/agent worker (Cloudflare Durable Object) -
+                  live pause/hibernate/resume demo: receipt chain resumes across
+                  hibernation, credential fetched fresh only at resume; predates
+                  and does not call prepareAction/resumeAction/executeCapability
 ```
 
 ## Public API Shape

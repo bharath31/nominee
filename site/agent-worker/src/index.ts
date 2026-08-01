@@ -1,5 +1,6 @@
 import { Nominee, PolicyDeniedError, type Receipt, allow, ask, deny, verifyReceipts } from 'nominee'
 import { Auth0 } from 'nominee-auth0'
+import { DurableObjectActionStore } from './action-store.js'
 
 interface RateLimit {
   limit(opts: { key: string }): Promise<{ success: boolean }>
@@ -550,6 +551,11 @@ interface SessionState {
   status: 'awaiting_approval' | 'approved' | 'denied' | 'done' | 'error'
   method: 'email' | 'ciba'
   cibaReqId?: string
+  // nominee's decision-bound action id for the gated gist.publish write, and
+  // the exact input snapshotted at prepare time - executeCapability() binds
+  // the capability to this exact input, so it must be reused byte-for-byte.
+  actionId?: string
+  gistInput?: { description: string; public: boolean; files: Record<string, { content: string }> }
   steps: Step[]
   startedAt: number
   pausedAt?: number
@@ -626,16 +632,17 @@ export class AgentSession {
         ],
         fallback: 'deny',
       },
+      // Durable across hibernation: the gist.publish action's pending_approval
+      // state, its single-use capability, and this receipt chain all live in
+      // the same DO storage. The DO reconstructs this per phase (start/act),
+      // so both `actionStore` and the receipt chain resume wherever they left
+      // off, one continuous record across hibernation.
+      actionStore: new DurableObjectActionStore(this.state.storage),
       receipts: {
         key: this.env.NOMINEE_RECEIPT_KEY,
         onReceipt: (r) => s.receipts.push(r),
         resume: last ? { seq: s.receipts.length, prev: last.hash } : undefined,
       },
-      // The ask('gist.publish') rule is settled here, honestly: by the time
-      // act() runs, the human already approved out-of-band, via the email
-      // link or Guardian push this session's own flow already gated on.
-      // This just carries that real decision into nominee's receipt chain.
-      onApprovalRequest: (req) => req.approve(),
       onAudit: (e) => audit.push({ type: e.type, at: e.at }),
       agent: 'github-agent',
     })
@@ -744,6 +751,38 @@ export class AgentSession {
       at: Date.now(),
       text: 'drafted a gist summarizing this session - needs your approval to publish',
     })
+
+    // Create the durable, decision-bound action for the gated write. The
+    // input is snapshotted now and reused byte-for-byte at execute time -
+    // executeCapability() refuses to run if it ever changes.
+    s.gistInput = {
+      description: `Agent session: ${s.topic} - published via nominee + Auth0 Token Vault`,
+      // Secret (private) gist: a real write to the visitor's account, gated
+      // by approval, but never publicly visible — minimal anxiety for a demo
+      // a stranger connects their GitHub to.
+      public: false,
+      files: { 'agent-session.md': { content: gistBody(s) } },
+    }
+    const prepared = await this.nominee(s, audit).prepareAction({
+      tool: 'gist.publish',
+      input: s.gistInput,
+      user: s.user,
+      connection: 'github',
+      scopes: ['gist'],
+    })
+    if (prepared.status !== 'pending_approval') {
+      s.status = 'error'
+      s.steps.push({
+        kind: 'error',
+        at: Date.now(),
+        text: `unexpected policy outcome for gist.publish: ${prepared.status}`,
+      })
+      trackFunnel(this.env, 'error', 'prepare_failed')
+      await this.save(s)
+      return json({ status: s.status }, 500)
+    }
+    s.actionId = prepared.action.id
+
     s.pausedAt = Date.now()
     s.steps.push({
       kind: 'paused',
@@ -783,6 +822,13 @@ export class AgentSession {
       text: `you ${decision} from your inbox - agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
     })
 
+    if (!s.actionId) return json({ ok: false, reason: 'no_pending_action' }, 409)
+    await this.nominee(s, s.audit).resolveActionApproval(s.actionId, {
+      decision,
+      approver: s.email,
+      via: 'email',
+    })
+
     if (decision === 'denied') {
       s.status = 'denied'
       await this.save(s)
@@ -799,37 +845,30 @@ export class AgentSession {
   /** Fetch a fresh token and publish the gist. Mutates and saves s. Returns true on success. */
   private async act(s: SessionState): Promise<boolean> {
     try {
+      if (!s.actionId || !s.gistInput) throw new Error('gist.publish was never prepared')
+      const gistInput = s.gistInput
       const nominee = this.nominee(s, s.audit)
-      // The whole point: ask for the token NOW, at action time. If the session
-      // had slept past the token's life, this transparently refreshes.
-      const token = await nominee.token({ user: s.user, connection: 'github' })
-      s.tokenAt = Date.now()
-      s.tokenFp = fingerprint(token)
-      s.steps.push({
-        kind: 'token',
-        at: s.tokenAt,
-        text: `nominee fetched a fresh GitHub token from Auth0 Token Vault at action time (…${s.tokenFp})`,
-      })
 
-      // The write itself goes through nominee too: the policy's ask('gist.publish')
-      // rule is what's actually deciding here, not just app-level plumbing.
-      const tools = nominee.guard(
-        {
-          'gist.publish': (args: {
-            description: string
-            public: boolean
-            files: Record<string, { content: string }>
-          }) => ghPost(token, 'https://api.github.com/gists', args),
-        },
-        { user: s.user },
-      )
-      const gist = await tools['gist.publish']({
-        description: `Agent session: ${s.topic} - published via nominee + Auth0 Token Vault`,
-        // Secret (private) gist: a real write to the visitor's account, gated by
-        // CIBA approval, but never publicly visible — minimal anxiety for a demo
-        // a stranger connects their GitHub to.
-        public: false,
-        files: { 'agent-session.md': { content: gistBody(s) } },
+      // Resolve the approved action to its single-use capability, then
+      // consume it. Consuming resolves a fresh GitHub token from Auth0 Token
+      // Vault at this exact moment - the whole point: if the session slept
+      // past the token's life, this transparently refreshes it. The write
+      // itself is bound to the input snapshotted when the action was
+      // prepared; executeCapability refuses to run if it ever changed.
+      const resumed = await nominee.resumeAction(s.actionId)
+      if (resumed.status !== 'ready') {
+        throw new Error(`gist.publish action is "${resumed.status}", expected ready`)
+      }
+      const gist = await nominee.executeCapability(resumed.capability, gistInput, async ({ token }) => {
+        if (!token) throw new Error('no credential resolved for gist.publish')
+        s.tokenAt = Date.now()
+        s.tokenFp = fingerprint(token)
+        s.steps.push({
+          kind: 'token',
+          at: s.tokenAt,
+          text: `nominee fetched a fresh GitHub token from Auth0 Token Vault at action time (…${s.tokenFp})`,
+        })
+        return ghPost(token, 'https://api.github.com/gists', gistInput)
       })
       if (!gist.ok) {
         s.status = 'error'
@@ -923,6 +962,13 @@ export class AgentSession {
           at: s.resumedAt,
           text: `you approved via Auth0 Guardian - agent woke after ${humanGap(s.pausedAt, s.resumedAt)} of hibernation`,
         })
+        if (s.actionId) {
+          await this.nominee(s, s.audit).resolveActionApproval(s.actionId, {
+            decision: 'approved',
+            approver: s.user,
+            via: 'ciba',
+          })
+        }
         trackFunnel(this.env, 'approved', s.method)
         await this.act(s)
         return
@@ -941,6 +987,12 @@ export class AgentSession {
           at: s.resumedAt,
           text: 'you denied via Auth0 Guardian - agent stayed paused and took no action',
         })
+        if (s.actionId) {
+          await this.nominee(s, s.audit).resolveActionApproval(s.actionId, {
+            decision: 'denied',
+            via: 'ciba',
+          })
+        }
         trackFunnel(this.env, 'denied', s.method)
         await this.save(s)
         return

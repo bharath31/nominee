@@ -28,8 +28,13 @@ in-browser button.
 
 A real agent session doesn't finish in one request — it waits for a human. The
 DO holds the session state (and the user's refresh token) durably across the
-pause. The one rule: the strategy reads the refresh token from durable storage
-at call time, so `nominee.token()` works whether the wake is 30s or 3h later.
+pause. `src/action-store.ts` ports nominee's decision-bound action lifecycle
+(`prepareAction` → `pending_approval` → `resolveActionApproval` →
+`resumeAction` → `executeCapability`) onto `DurableObjectStorage`, so the
+gist-publish action and its single-use capability survive hibernation exactly
+like the session state and receipt chain do. The strategy still reads the
+refresh token from durable storage at call time, so the credential
+`executeCapability` resolves is fresh whether the wake is 30s or 3h later.
 
 ## Setup (one-time)
 
