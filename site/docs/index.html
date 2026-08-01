@@ -269,6 +269,13 @@ nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
             <code>run()</code> and framework adapters throw <code>ActionPendingError</code>
             when that approval outlives the current request.
           </p>
+          <div class="callout">
+            See a deployed pause/resume in action:
+            <a href="https://nominee.dev/agent">nominee.dev/agent</a> — a Cloudflare Durable
+            Object agent that hibernates while it waits for your approval (email link or Auth0
+            Guardian push), then resumes the same hash-chained receipt log and fetches a fresh
+            GitHub token only at that moment.
+          </div>
         </section>
 
         <section id="receipts" class="doc-section">

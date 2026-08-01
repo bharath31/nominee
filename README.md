@@ -19,6 +19,7 @@
 <p align="center">
   <a href="https://nominee.dev">Website</a> ·
   <a href="https://nominee.dev/docs/">Docs</a> ·
+  <a href="https://nominee.dev/agent">Live demo</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
   <a href=".github/SECURITY.md">Security</a>
 </p>
@@ -155,6 +156,12 @@ the current request; persist its action id, resolve or poll it, then call
 `resumeAction()`. Denied or expired actions never run, and the refusal is on
 the record. Strategies can carry native flows (Auth0 CIBA via
 [`nominee-auth0`](packages/auth0)).
+
+See it deployed: [nominee.dev/agent](https://nominee.dev/agent) — a real
+Cloudflare Durable Object agent that hibernates mid-session while it waits
+for your approval (email link or Auth0 Guardian push), then resumes the same
+hash-chained receipt log and fetches a fresh GitHub token only at that
+moment. [`site/agent-worker`](site/agent-worker) is the source.
 
 ## Receipts
 
