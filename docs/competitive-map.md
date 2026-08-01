@@ -8,8 +8,9 @@ This document outlines the market landscape for AI agent authorization and how N
 |----------|-------------------|---------------------|--------------------|---------------------|-------------|-----------------|------------------|
 | **Framework Native (AI SDK / OpenAI)** | ❌ (Delegated to dev) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **FGA / OPA (PDPs)** | ✅ | ❌ (Decides, doesn't execute) | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Arcade / Composio** | ❌ (Focus on SaaS accounts) | ✅ / ❌ | ❌ | ❌ | ✅ (Managed Vault) | ✅ | ✅ (SaaS Audit) |
-| **MCP OAuth / EMA** | ❌ (Connection-level) | ❌ | ❌ | ❌ | ✅ (Transport) | ✅ | ❌ |
+| **Arcade** | ❌ (Focus on SaaS accounts) | ✅ | ❌ | ❌ | ✅ (Managed Vault) | ✅ | ✅ (SaaS Audit) |
+| **Composio** | ❌ (Focus on SaaS accounts) | ❌ | ❌ | ❌ | ✅ (Managed Vault) | ✅ | ✅ (SaaS Audit) |
+| **MCP OAuth / Enterprise-Managed Authorization (EMA)** | ❌ (Connection-level) | ❌ | ❌ | ❌ | ✅ (Transport) | ✅ | ❌ |
 | **Nominee** | ✅ (Via authorizer hook) | ✅ | ✅ | ✅ | ✅ (Fresh at execute) | ✅ | ✅ (Hash chain) |
 
 ## Build / Partner / Do-Not-Build

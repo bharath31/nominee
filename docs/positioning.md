@@ -30,4 +30,4 @@ Framework → Nominee (PEP & Evidence) → FGA/OPA/IdP/Vault (Identity & Policy 
 
 ## Prohibited Claims
 - "Stops prompt injection" (Nominee mitigates the *blast radius* of a hijacked agent but does not magically detect prompt injection).
-- "Tamper-proof / compliance-ready" without caveats (Receipts are evidence primitives, but require proper key management and external log anchoring for true compliance).
+- "Tamper-proof / compliance-ready" without caveats (Receipts are evidence primitives, but require proper key management and external log anchoring for true compliance). **"Tamper-evident" is an approved, materially narrower claim** when describing the hash-chained receipt log.
