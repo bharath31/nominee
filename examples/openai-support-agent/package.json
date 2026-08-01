@@ -1,0 +1,20 @@
+{
+  "name": "openai-support-agent",
+  "version": "1.0.0",
+  "description": "OpenAI Support Agent using Nominee",
+  "type": "module",
+  "scripts": {
+    "test": "node --import tsx/esm --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@openai/agents": "^0.0.11",
+    "nominee": "workspace:*",
+    "nominee-openai": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.0.0"
+  }
+}
