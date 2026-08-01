@@ -1,0 +1,28 @@
+{
+  "name": "support-refund-agent",
+  "version": "1.0.0",
+  "description": "Tenant-aware refund agent using Vercel AI SDK and PostgreSQL durable stores",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "express": "^4.19.2",
+    "nominee": "workspace:*",
+    "nominee-ai": "workspace:*",
+    "nominee-postgres": "workspace:*",
+    "pg": "^8.11.5",
+    "zod": "^3.23.8",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/pg": "^8.11.6",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
