@@ -81,6 +81,8 @@ Denied calls throw `PolicyDeniedError` **before the tool runs**. An `ask` can
 resolve inline or surface an `ActionPendingError` with a durable action id for
 later resume. Every outcome lands on the receipt chain.
 
+> **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
+
 ## Watch an injected agent fail
 
 <p align="center">

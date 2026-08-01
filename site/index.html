@@ -429,13 +429,10 @@
 
       <section class="section approval" id="approval">
         <div class="section-head center">
-          <p class="eyebrow">Human in the loop</p>
+          <p class="eyebrow">Decision-bound capability</p>
           <h2>Hold the risky moves until a person signs.</h2>
           <p>
-            An <code>ask</code> rule in your policy holds deletes, payments, or outbound
-            mail for a real approval — deny means deny. Use the built-in engine, or a
-            native flow like Auth0 CIBA that pings the user's phone. The agent pauses,
-            then resumes exactly where it left off.
+            An <code>ask</code> rule holds deletes, payments, or outbound mail for human review. When a framework pauses your tool run, Nominee enforces the underlying boundary: binding the approval to the exact input, generating a single-use execution capability, re-checking resource permission, and fetching fresh credentials only once the capability is consumed.
           </p>
         </div>
         <div class="approval-card" role="status">
