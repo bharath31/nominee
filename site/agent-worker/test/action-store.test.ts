@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { DurableObjectActionStore, type ActionRecordStorage } from '../src/action-store.js'
 
 /** Map-backed stand-in for DurableObjectStorage.get/put/delete. */
-function fakeStorage(): ActionRecordStorage {
+function fakeStorage(onPut?: (key: string) => void): ActionRecordStorage {
   const data = new Map<string, unknown>()
   return {
     async get<T>(key: string) {
       return data.get(key) as T | undefined
     },
     async put<T>(key: string, value: T) {
+      onPut?.(key)
       data.set(key, value)
     },
     async delete(key: string) {
@@ -106,6 +107,39 @@ describe('DurableObjectActionStore', () => {
     await second.resolveActionApproval(prepared.action.id, { decision: 'approved', via: 'email' })
     const resumed = await second.resumeAction(prepared.action.id)
     expect(resumed.status).toBe('ready')
+  })
+
+  it('expires an action with reservations in one action-record write', async () => {
+    const writes: string[] = []
+    const store = new DurableObjectActionStore(fakeStorage((key) => writes.push(key)))
+    await store.create({
+      id: 'act_reserved_stale',
+      version: 0,
+      status: 'policy_checked',
+      user: 'user-1',
+      action: 'gist.publish',
+      inputHash: 'hash',
+      policyVersion: 'v1',
+      createdAt: Date.now() - 1000,
+      updatedAt: Date.now() - 1000,
+      expiresAt: Date.now() - 1,
+      budgets: [
+        {
+          key: 'user-1:gist.publish',
+          limit: 1,
+          actionId: 'act_reserved_stale',
+          expiresAt: Date.now() - 1,
+          state: 'reserved',
+        },
+      ],
+    })
+    writes.length = 0
+
+    const record = await store.get('act_reserved_stale')
+
+    expect(record?.status).toBe('expired')
+    expect(record?.budgets).toEqual([])
+    expect(writes).toEqual(['nominee:action:act_reserved_stale'])
   })
 
   it('transitions a stale pending action to expired on read', async () => {

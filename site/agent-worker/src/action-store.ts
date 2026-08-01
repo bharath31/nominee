@@ -64,8 +64,7 @@ export class DurableObjectActionStore implements ActionStore {
     const action = await this.storage.get<ActionRecord>(actionKey(actionId))
     if (!action) return null
     if (action.expiresAt <= Date.now() && !isTerminal(action.status)) {
-      const released = await this.releaseReservations(action)
-      return this.update(released, { status: 'expired' })
+      return this.update(action, { ...this.releaseReservationPatch(action), status: 'expired' })
     }
     return action
   }
@@ -131,8 +130,8 @@ export class DurableObjectActionStore implements ActionStore {
         : resolution.decision === 'expired'
           ? 'expired'
           : 'denied'
-    const base = status !== 'approved' ? await this.releaseReservations(action) : action
-    return this.update(base, {
+    return this.update(action, {
+      ...(status !== 'approved' ? this.releaseReservationPatch(action) : {}),
       status,
       approval: {
         ...action.approval,
@@ -284,16 +283,13 @@ export class DurableObjectActionStore implements ActionStore {
     for (const id of await this.index()) {
       const action = await this.storage.get<ActionRecord>(actionKey(id))
       if (action && action.expiresAt <= now && !isTerminal(action.status)) {
-        const released = await this.releaseReservations(action)
-        await this.update(released, { status: 'expired' })
+        await this.update(action, { ...this.releaseReservationPatch(action), status: 'expired' })
       }
     }
   }
 
-  private async releaseReservations(action: ActionRecord): Promise<ActionRecord> {
-    if (!action.budgets?.some((budget) => budget.state === 'reserved')) return action
-    return this.update(action, {
-      budgets: action.budgets.filter((budget) => budget.state === 'committed'),
-    })
+  private releaseReservationPatch(action: ActionRecord): Partial<ActionRecord> {
+    if (!action.budgets?.some((budget) => budget.state === 'reserved')) return {}
+    return { budgets: action.budgets.filter((budget) => budget.state === 'committed') }
   }
 }

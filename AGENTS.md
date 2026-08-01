@@ -51,8 +51,8 @@ site/
   static microsite for nominee.dev
   agent-worker/   deployed nominee.dev/agent worker (Cloudflare Durable Object) -
                   live pause/hibernate/resume demo: receipt chain resumes across
-                  hibernation, credential fetched fresh only at resume; predates
-                  and does not call prepareAction/resumeAction/executeCapability
+                  hibernation, credential fetched fresh only at resume; demonstrates
+                  prepareAction/resolveActionApproval/resumeAction/executeCapability usage
 ```
 
 ## Public API Shape
