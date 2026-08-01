@@ -7,7 +7,7 @@ const { Pool } = pg
 
 process.env.NOMINEE_RECEIPT_KEY = 'test-receipt-key'
 
-describe('MCP Action Server Integration', () => {
+describe.skipIf(!process.env.DATABASE_URL)('MCP Action Server Integration', () => {
   let pool: pg.Pool
 
   beforeAll(async () => {
