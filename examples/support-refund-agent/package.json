@@ -1,6 +1,7 @@
 {
   "name": "support-refund-agent",
   "version": "1.0.0",
+  "private": true,
   "description": "Tenant-aware refund agent using Vercel AI SDK and PostgreSQL durable stores",
   "type": "module",
   "scripts": {
