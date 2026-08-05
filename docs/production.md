@@ -108,6 +108,8 @@ was pending therefore fails closed without running the tool.
 
 ## Operational checks
 
+For export schemas, OpenTelemetry attributes, evidence bundles, and alert recipes, see [Evidence export and observability](observability.md).
+
 - Run `verifyDurableReceipts()` continuously or on a schedule.
 - Export or anchor signed receipt-stream tips outside the primary database.
   The transactional stream checkpoint detects accidental truncation, but an
