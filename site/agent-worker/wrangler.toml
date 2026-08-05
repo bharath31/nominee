@@ -10,12 +10,12 @@ routes = [{ pattern = "nominee.dev/agent*", zone_name = "nominee.dev" }]
 # Verified Resend sending domain (shared with the cf-agent testbed).
 FROM = "nominee <agent@email.nominee.dev>"
 
-# Optional. Cloudflare Web Analytics site token (dashboard: Pages project ->
-# Web Analytics -> manual setup -> copy the token, not the whole snippet).
-# Not secret - it's embedded in public HTML - so a plain var, not
-# `wrangler secret put`. Pages' own automatic injection never reaches this
-# worker (/agent* is a separate service), so this is the only way to measure
-# it; uncomment once you have the real token.
+# Optional analytics — neither is a secret; see README "Optional analytics".
+#
+# CF_BEACON_TOKEN: Cloudflare Web Analytics site token (dashboard → Pages
+# project → Web Analytics → manual setup → copy the token, not the snippet).
+# Embedded in public HTML, so a plain [vars] entry — not `wrangler secret put`.
+# Pages' automatic injection never reaches this worker (/agent* is separate).
 # CF_BEACON_TOKEN = "..."
 
 # rate-limit the real write action: 5 sessions / 60s / IP

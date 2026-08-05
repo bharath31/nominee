@@ -272,7 +272,8 @@ footer { position: relative; z-index: 2; max-width: var(--maxw); margin: clamp(7
   .approval { grid-template-columns: 1fr; }
   .package-grid { grid-template-columns: 1fr; }
   .strip { grid-template-columns: 1fr; }
-  .site-header nav a:not(.nav-cta) { display: none; }
+  /* Phone: keep Docs/Blog/GitHub reachable; hide in-page section anchors only. */
+  .site-header nav a[href^="#"] { display: none; }
 }
 
 :focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; border-radius: 4px; }
