@@ -182,11 +182,13 @@ nominee.verifyReceipts()  // { ok: true, checked: 128 }
 await nominee.flushReceipts() // checkpoint buffered sinks before shutdown/resume
 
 // Later, offline, from your log sink:
-import { verifyReceipts } from 'nominee'
+import { formatReceipts, verifyReceipts } from 'nominee'
+console.log(formatReceipts(nominee.receipts))
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
 By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
+In-memory receipts retain the latest 1,000 entries by default to keep development servers bounded; pass `receipts: { retain: 'all' }` or use `onReceipt` / `nominee-postgres` for an unbounded audit history.
 
 Anchor the signed stream tip outside the primary database when whole-database
 rollback is in scope; a chain alone cannot distinguish a complete rollback to
@@ -253,6 +255,7 @@ const prepared = await nominee.prepareAction({ tool, input, user }) // capabilit
 await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
 const resumed = await nominee.resumeAction(actionId)
 await nominee.executeCapability(resumed.capability, input, execute)
+// execute receives { action, input, token? }
 
 // Authorization
 const authorization = await nominee.authorize({ tool, input, user }) // allow | throws on refusal
@@ -267,6 +270,7 @@ nominee.resolveApproval(id, 'approved')          // settle from your webhook
 // Receipts
 nominee.receipts                                 // hash-chained record
 nominee.verifyReceipts()                         // tamper check
+formatReceipts(nominee.receipts)                 // compact terminal printer
 await nominee.flushReceipts()                    // await buffered async sink writes
 await nominee.verifyDurableReceipts()            // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })                // offline / exported verification

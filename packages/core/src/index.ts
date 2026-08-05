@@ -46,6 +46,7 @@ export type { Policy, Rule, RuleOptions, Effect, ToolCall, PolicyDecision } from
 export {
   ReceiptLedger,
   MemoryAtomicReceiptStore,
+  formatReceipts,
   sealReceipt,
   verifyReceipts,
 } from './receipt.js'

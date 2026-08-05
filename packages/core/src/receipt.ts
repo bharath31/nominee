@@ -119,12 +119,21 @@ export interface ReceiptOptions {
    * last persisted receipt (or `"genesis"` if none exist yet).
    */
   resume?: { seq: number; prev: string }
+  /**
+   * How many in-memory receipts to expose via `nominee.receipts`.
+   * Default 1,000 to keep long-running development processes bounded. Pass
+   * `'all'` to retain every in-memory receipt, or use a durable `store` /
+   * `onReceipt` sink for an unbounded audit history.
+   */
+  retain?: number | 'all'
 }
 
 export interface VerifyResult {
   ok: boolean
   /** Number of receipts checked. */
   checked: number
+  /** True when verification covered only the retained in-memory window. */
+  retainedWindow?: boolean
   /** Sequence number of the first broken receipt, when !ok. */
   brokenAt?: number
   /** Why verification failed, when !ok. */
@@ -203,9 +212,11 @@ export function verifyReceipts(
 /** An append-only, hash-chained log of everything nominee authorized. */
 export class ReceiptLedger {
   private receipts: Receipt[] = []
+  private retainedBaseSeq: number
+  private retainedPrev: string
   private prev: string
+  private nextSeq: number
   private readonly baseSeq: number
-  private readonly resumeFrom?: { seq: number; prev: string }
   private readonly key?: string
   private readonly atomicStore?: AtomicReceiptStore
   private readonly stream: string
@@ -216,6 +227,7 @@ export class ReceiptLedger {
   private sinkTail: Promise<unknown> = Promise.resolve()
   private pendingSinkWrites = 0
   private sinkFailed = false
+  private readonly retain: number | 'all'
 
   constructor(options: ReceiptOptions = {}) {
     this.key = options.key
@@ -225,8 +237,14 @@ export class ReceiptLedger {
     this.delivery = options.delivery ?? 'buffered'
     this.onReceipt = options.onReceipt
     this.baseSeq = options.resume?.seq ?? 0
+    this.nextSeq = this.baseSeq
     this.prev = options.resume?.prev ?? GENESIS
-    this.resumeFrom = options.resume
+    this.retainedBaseSeq = this.baseSeq
+    this.retainedPrev = this.prev
+    this.retain = options.retain ?? 1000
+    if (this.retain !== 'all' && (!Number.isInteger(this.retain) || this.retain < 1)) {
+      throw new Error("nominee: receipts.retain must be a positive integer or 'all'")
+    }
   }
 
   /**
@@ -236,10 +254,12 @@ export class ReceiptLedger {
   append(entry: ReceiptEntry): Receipt {
     const receipt = sealReceipt(
       entry,
-      { seq: this.baseSeq + this.receipts.length, prev: this.prev },
+      { seq: this.nextSeq, prev: this.prev },
       { key: this.key, inputMode: this.inputMode },
     )
+    this.nextSeq++
     this.receipts.push(receipt)
+    this.trimRetained()
     this.prev = receipt.hash
     this.deliver(receipt)
     return receipt
@@ -260,6 +280,7 @@ export class ReceiptLedger {
       inputMode: this.inputMode,
     })
     this.atomicReceipts.push(receipt)
+    this.trimAtomicRetained()
     this.deliver(receipt)
     if (this.delivery === 'strict') await this.flush()
     return receipt
@@ -315,6 +336,10 @@ export class ReceiptLedger {
     return this.receipts.length + this.atomicReceipts.length
   }
 
+  get retainedWindow(): boolean {
+    return this.retainedBaseSeq > this.baseSeq
+  }
+
   get durable(): boolean {
     return this.atomicStore?.durable === true
   }
@@ -340,13 +365,50 @@ export class ReceiptLedger {
    * full persisted history to verify the chain from genesis.
    */
   verify(): VerifyResult {
-    return verifyReceipts(this.receipts, { key: this.key, resume: this.resumeFrom })
+    const result = verifyReceipts(this.receipts, {
+      key: this.key,
+      resume: { seq: this.retainedBaseSeq, prev: this.retainedPrev },
+    })
+    return this.retainedWindow ? { ...result, retainedWindow: true } : result
   }
 
   /** Export as JSON Lines — one receipt per line, ready for a log pipeline. */
   toJSONL(): string {
     return this.receipts.map((r) => JSON.stringify(r)).join('\n')
   }
+
+  private trimRetained(): void {
+    if (this.retain === 'all') return
+    while (this.receipts.length > this.retain) {
+      const dropped = this.receipts.shift()
+      if (!dropped) return
+      this.retainedBaseSeq = dropped.seq + 1
+      this.retainedPrev = dropped.hash
+    }
+  }
+
+  private trimAtomicRetained(): void {
+    if (this.retain === 'all') return
+    while (this.atomicReceipts.length > this.retain) this.atomicReceipts.shift()
+  }
+}
+
+/** Format a compact, human-readable receipt chain summary. */
+export function formatReceipts(receipts: readonly Receipt[]): string {
+  if (receipts.length === 0) return 'receipts: none'
+  return receipts
+    .map((r) => {
+      const outcome = r.effect ?? r.decision ?? r.outcome ?? ''
+      const parts = [
+        `#${r.seq}`,
+        r.type,
+        r.tool,
+        outcome === '' ? undefined : String(outcome),
+        r.hash.slice(0, 12),
+      ].filter(Boolean)
+      return parts.join(' ')
+    })
+    .join('\n')
 }
 
 /** Atomic in-process receipt-store conformance implementation. */
