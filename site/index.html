@@ -27,6 +27,7 @@
       content="Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof."
     />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -56,6 +57,30 @@
         "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How do I restrict what my AI agent can do?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Declare an allow/deny/ask policy on Nominee and wrap your tools with nominee.guard() or an adapter nomineeTool(). First matching rule wins; unmatched calls follow fallback (default ask). Sub-agents can only narrow authority, never widen it."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I require human approval before an agent deletes anything?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Use an ask rule for destructive actions (for example ask('email.delete') or ask('support.refund')). Risky calls pause for human approval; the decision is bound to the exact arguments and sealed into the receipt chain."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I add permissions to AI tool calls?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "nominee is the permission layer at the tool boundary: policy decides whether a call may run, approvals gate high-impact actions, and credentials resolve at execution time. Keep your agent framework and IAM; add nominee around the tools that act."
+            }
+          },
           {
             "@type": "Question",
             "name": "Isn't this just an if-statement with extra steps?",
@@ -576,6 +601,33 @@
         </div>
         <div class="faq">
           <details>
+            <summary><span>How do I restrict what my AI agent can do?</span></summary>
+            <p>
+              Declare an allow/deny/ask policy on <code>Nominee</code> and wrap your tools with
+              <code>nominee.guard()</code> or an adapter <code>nomineeTool()</code>. First matching
+              rule wins; unmatched calls follow <code>fallback</code> (default <code>ask</code>).
+              Sub-agents can only narrow authority, never widen it.
+            </p>
+          </details>
+          <details>
+            <summary><span>How do I require human approval before an agent deletes anything?</span></summary>
+            <p>
+              Use an <code>ask</code> rule for destructive actions (for example
+              <code>ask('email.delete')</code> or <code>ask('support.refund')</code>). Risky calls
+              pause for human approval; the decision is bound to the exact arguments and sealed
+              into the receipt chain.
+            </p>
+          </details>
+          <details>
+            <summary><span>How do I add permissions to AI tool calls?</span></summary>
+            <p>
+              nominee is the permission layer at the tool boundary: policy decides whether a
+              call may run, approvals gate high-impact actions, and credentials resolve at
+              execution time. Keep your agent framework and IAM; add nominee around the tools
+              that act.
+            </p>
+          </details>
+          <details>
             <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
             <p>
               For one low-risk tool, an if-statement may be enough. nominee is useful when
@@ -661,12 +713,6 @@
             <a class="star-cta" href="https://github.com/bharath31/nominee">★ Star on GitHub</a>
           </div>
           <p class="cta-live"><a href="/agent">▶ Watch a real agent act on your GitHub, after your approval →</a></p>
-          <div class="badges" aria-label="project stats">
-            <img src="https://img.shields.io/github/stars/bharath31/nominee?style=flat-square&colorA=0b1020&colorB=8c2f2a&label=stars" alt="GitHub stars" loading="lazy" />
-            <img src="https://img.shields.io/npm/v/nominee?style=flat-square&colorA=0b1020&colorB=8c2f2a&label=version" alt="npm version" loading="lazy" />
-            <img src="https://img.shields.io/npm/dm/nominee?style=flat-square&colorA=0b1020&colorB=71798c&label=downloads" alt="npm downloads" loading="lazy" />
-            <img src="https://img.shields.io/npm/l/nominee?style=flat-square&colorA=0b1020&colorB=71798c&label=license" alt="license" loading="lazy" />
-          </div>
         </div>
       </section>
     </main>

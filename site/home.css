@@ -105,7 +105,10 @@ h3 { font-size: 19px; letter-spacing: -0.02em; }
   transition: border-color 0.15s, background 0.15s;
 }
 .nav-cta:hover { border-color: var(--seal-line); background: var(--seal-tint); }
-@media (max-width: 760px) { .site-header nav a:not(.nav-cta) { display: none; } }
+/* Phone: keep Docs/Blog/GitHub reachable; hide in-page section anchors only. */
+@media (max-width: 760px) {
+  .site-header nav a[href^="#"] { display: none; }
+}
 
 /* ---- buttons & links ---------------------------------------------------- */
 .copy {
@@ -161,7 +164,7 @@ h3 { font-size: 19px; letter-spacing: -0.02em; }
 .td-dot { width: 10px; height: 10px; border-radius: 50%; background: #2a3354; }
 .run-title { margin-left: auto; color: var(--code-dim); font-size: 11.5px; letter-spacing: 0.04em; }
 .run-body { padding: 16px 17px 18px; display: flex; flex-direction: column; gap: 8px; }
-.run .tl { color: var(--code-text); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run .tl { color: var(--code-text); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .run .tl .muted { color: var(--code-dim); }
 .run .tl .hl { color: #9db4ff; }
 .run .tl .str, .run .tl .acc { color: #e0a96d; }

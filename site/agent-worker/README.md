@@ -55,12 +55,43 @@ wrangler secret put AUTH0_CLIENT_ID
 wrangler secret put AUTH0_CLIENT_SECRET
 wrangler secret put SESSION_SECRET   # openssl rand -hex 32
 wrangler secret put RESEND_API_KEY   # for the out-of-band approval email
+wrangler secret put NOMINEE_RECEIPT_KEY
 wrangler deploy
 ```
 
 Live at https://nominee.dev/agent. Swap `Auth0(...)` for `OAuth2(...)` or a
 function and the same agent code works with any provider — Token Vault is just
 the managed source here.
+
+## Optional analytics (no secrets)
+
+Neither of these needs `wrangler secret put` — leave them unset and the demo
+still works (beacon omitted; funnel writes no-op).
+
+### `CF_BEACON_TOKEN` — Cloudflare Web Analytics
+
+Pages' automatic beacon never reaches this worker (`/agent*` is a separate
+service). To measure `/agent` traffic:
+
+1. Cloudflare dashboard → Pages project → **Web Analytics** → manual setup.
+2. Copy the **site token** (not the whole snippet).
+3. Uncomment `CF_BEACON_TOKEN` under `[vars]` in `wrangler.toml` and paste it.
+   It is embedded in public HTML, so a plain var is correct — not a secret.
+
+### `FUNNEL` — Analytics Engine
+
+Demo funnel events (`session_start` / `blocked` / `approved` / …) write to an
+Analytics Engine dataset when bound. The binding stays **commented out** in
+`wrangler.toml` because a worker with that binding fails to deploy until
+Analytics Engine is enabled on the account (error 10089). The code already
+guards `env.FUNNEL?`.
+
+To enable:
+
+1. Dashboard → Workers → **Analytics Engine** → enable for the account.
+2. Uncomment the `[[analytics_engine_datasets]]` block in `wrangler.toml`
+   (`binding = "FUNNEL"`, `dataset = "nominee_agent_funnel"`).
+3. Redeploy.
 
 ## Routes
 

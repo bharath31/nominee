@@ -402,7 +402,7 @@ export default {
             connection: 'github',
             redirect_uri: CONNECT_REDIRECT,
             state,
-            scopes: ['public_repo'],
+            scopes: ['gist'],
           }),
         })
         if (!res.ok) {
