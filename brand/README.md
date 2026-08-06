@@ -72,7 +72,7 @@ When the story changes, update `content.ts`, re-render the assets, and walk this
 | Landing OG image | `site/assets/og.png` | tagline (rendered) |
 | Docs intro | `site/docs/index.html` | tagline, when-not, policy/receipts/delegation, freshness explainer |
 | Landing FAQ | `site/index.html` (`#faq`) | when-not (verbatim), insight-adjacent objections; kept in sync with the `FAQPage` JSON-LD in `<head>` |
-| Blog (insight/launch post) | `site/blog/your-agent-logs-in-as-you/` | insight — **shell only as of the pivot; prose drafts in bat-os queue, do not deploy with placeholders still in place** |
+| Blog (insight/launch post) | `site/blog/your-agent-logs-in-as-you/` | insight — live, full prose |
 | Blog (launch post) OG image | `site/assets/og-blog-launch.png` (+ `.svg` source) | insight (rendered) |
 | Blog (token-freshness post) | `site/blog/oauth-refresh-is-probably-broken/` | the supporting-act token proof, not the lead insight anymore |
 | llms.txt (site + root) | `site/llms.txt`, `llms.txt` | tagline, key concepts, when-not |
