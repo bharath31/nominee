@@ -1,6 +1,6 @@
 {
   "name": "token-refresh-correctness",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "description": "Runnable proof: naive OAuth refresh breaks under rotation + concurrency (7/8 fail); nominee gets 8/8 with the same agent code.",

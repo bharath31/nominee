@@ -1,5 +1,13 @@
 # ai-sdk-github-agent
 
+## 1.0.3
+
+### Patch Changes
+
+- Updated dependencies [9f2e7d3]
+  - nominee@2.2.1
+  - nominee-ai@2.2.1
+
 ## 1.0.2
 
 ### Patch Changes
