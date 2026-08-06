@@ -1,61 +1,75 @@
-#!/usr/bin/env node
-/**
- * `npx nominee` entry point. Hand-rolled argv parsing — three subcommands
- * don't need a framework.
- */
-import { checkPolicy, formatCheckResult } from './check.js'
+// Entry point for `npx nominee`. Hand-rolled argv dispatch — three
+// subcommands don't need a CLI framework dependency.
+import { pathToFileURL } from 'node:url'
+import { runCheck } from './check.js'
 import { runProof } from './proof.js'
-import { verifyFile } from './verify.js'
+import { runVerify } from './verify.js'
 
-const [, , command, ...rest] = process.argv
+const HELP = `nominee — the authorization layer for AI agents
 
-async function main(): Promise<void> {
+Usage:
+  nominee                    run the blocked prompt-injection proof (offline, no keys)
+  nominee verify <file>      verify a JSON receipt export's hash chain
+  nominee check <policy>     report which rules in a policy file are reachable
+
+Options:
+  -h, --help                 show this help
+
+Install: npm i nominee
+Docs:    https://nominee.dev`
+
+// `nominee console` (a local web UI for live approve/deny + tailing) is
+// intentionally out of scope for this pass — see README.md "coming next".
+// TODO: nominee console — local HTTP server + approve/deny UI + live tailing.
+
+export async function main(argv: string[]): Promise<number> {
+  const [command, ...rest] = argv
+
   switch (command) {
     case undefined:
-      await runProof()
-      return
+      return (await runProof()).code
 
     case 'verify': {
       const file = rest[0]
       if (!file) {
-        console.error('Usage: nominee verify <file>')
-        process.exitCode = 1
-        return
+        console.log('Usage: nominee verify <file>')
+        return 1
       }
-      const result = verifyFile(file, { key: process.env.NOMINEE_RECEIPT_KEY })
-      console.log(result.message)
-      process.exitCode = result.ok ? 0 : 1
-      return
+      return runVerify(file).code
     }
 
     case 'check': {
       const file = rest[0]
       if (!file) {
-        console.error('Usage: nominee check <policy-file>')
-        process.exitCode = 1
-        return
+        console.log('Usage: nominee check <policy-file>')
+        return 1
       }
-      const result = await checkPolicy(file)
-      console.log(formatCheckResult(result))
-      process.exitCode = result.ok ? 0 : 1
-      return
+      return (await runCheck(file)).code
     }
 
-    // TODO: `nominee console` — local web UI over live policy/receipts. Coming next.
     case 'console':
-      console.error('nominee console is not implemented yet — coming next.')
-      process.exitCode = 1
-      return
+      console.log(
+        'nominee console: not implemented yet (coming next — see packages/cli/README.md).',
+      )
+      return 1
+
+    case '-h':
+    case '--help':
+    case 'help':
+      console.log(HELP)
+      return 0
 
     default:
-      console.error(
-        `Unknown command: ${command}\nUsage: nominee [verify <file> | check <policy-file>]`,
-      )
-      process.exitCode = 1
+      console.log(`nominee: unknown command "${command}"\n`)
+      console.log(HELP)
+      return 1
   }
 }
 
-main().catch((err: Error) => {
-  console.error(`✗ ${err.message}`)
-  process.exitCode = 1
-})
+const isDirectRun = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main(process.argv.slice(2)).then((code) => {
+    process.exitCode = code
+  })
+}

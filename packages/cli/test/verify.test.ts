@@ -1,71 +1,80 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Nominee, allow, deny } from 'nominee'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { parseReceipts, verifyFile } from '../src/verify.js'
+import { Nominee, allow } from 'nominee'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { runVerify } from '../src/verify.js'
 
-let dir: string
+describe('runVerify', () => {
+  let dir: string
+  let logs: string[]
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'nominee-cli-verify-'))
-})
-
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true })
-})
-
-async function buildReceipts() {
-  const nominee = new Nominee({
-    policy: { rules: [allow('email.read'), deny('email.forward')], fallback: 'deny' },
-    receipts: { key: 'test-key' },
-  })
-  await nominee.authorize({ tool: 'email.read', user: 'alice' })
-  await nominee.authorize({ tool: 'email.forward', user: 'alice' }).catch(() => {})
-  return [...nominee.receipts]
-}
-
-describe('parseReceipts', () => {
-  it('parses a JSON array', async () => {
-    const receipts = await buildReceipts()
-    expect(parseReceipts(JSON.stringify(receipts))).toEqual(receipts)
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'nominee-cli-verify-'))
+    logs = []
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logs.push(args.join(' '))
+    })
   })
 
-  it('parses newline-delimited JSON (toJSONL format)', async () => {
-    const receipts = await buildReceipts()
-    const jsonl = receipts.map((r) => JSON.stringify(r)).join('\n')
-    expect(parseReceipts(jsonl)).toEqual(receipts)
+  afterEach(() => {
+    vi.restoreAllMocks()
+    rmSync(dir, { recursive: true, force: true })
   })
 
-  it('treats an empty file as no receipts', () => {
-    expect(parseReceipts('  \n ')).toEqual([])
+  async function seedReceipts(): Promise<unknown[]> {
+    const nominee = new Nominee({
+      policy: [allow('email.read')],
+      receipts: { key: 'test-key' },
+    })
+    await nominee.authorize({ tool: 'email.read', user: 'alice' })
+    await nominee.authorize({ tool: 'email.read', user: 'alice' })
+    return [...nominee.receipts]
+  }
+
+  it('prints intact and exits 0 for a valid exported chain', async () => {
+    const receipts = await seedReceipts()
+    const file = join(dir, 'receipts.json')
+    writeFileSync(file, JSON.stringify(receipts))
+
+    process.env.NOMINEE_RECEIPT_KEY = 'test-key'
+    try {
+      const result = runVerify(file)
+      expect(result.code).toBe(0)
+      expect(logs.join('\n')).toContain('✓ 2 receipts intact')
+    } finally {
+      process.env.NOMINEE_RECEIPT_KEY = undefined
+    }
   })
-})
 
-describe('verifyFile', () => {
-  it('reports an intact chain', async () => {
-    const receipts = await buildReceipts()
-    const file = join(dir, 'good.json')
-    writeFileSync(file, JSON.stringify(receipts, null, 2))
+  it('reports a broken chain and exits 1 when a receipt is tampered with', async () => {
+    const receipts = (await seedReceipts()) as Array<{ reason?: string }>
+    const tampered = receipts.map((r, i) => (i === 0 ? { ...r, reason: 'tampered' } : r))
+    const file = join(dir, 'tampered.json')
+    writeFileSync(file, JSON.stringify(tampered))
 
-    const result = verifyFile(file, { key: 'test-key' })
-    expect(result).toEqual({ ok: true, message: `✓ ${receipts.length} receipts intact` })
+    process.env.NOMINEE_RECEIPT_KEY = 'test-key'
+    try {
+      const result = runVerify(file)
+      expect(result.code).toBe(1)
+      expect(logs.join('\n')).toContain('✗ broken at #0')
+    } finally {
+      process.env.NOMINEE_RECEIPT_KEY = undefined
+    }
   })
 
-  it('detects a tampered receipt', async () => {
-    const receipts = await buildReceipts()
-    const doctored = receipts.map((r, i) => (i === 1 ? { ...r, tool: 'tampered' } : r))
-    const file = join(dir, 'bad.json')
-    writeFileSync(file, JSON.stringify(doctored, null, 2))
-
-    const result = verifyFile(file, { key: 'test-key' })
-    expect(result.ok).toBe(false)
-    expect(result.message).toMatch(/^✕ broken at #1/)
+  it('exits 1 for a file that does not exist', () => {
+    const result = runVerify(join(dir, 'missing.json'))
+    expect(result.code).toBe(1)
+    expect(logs.join('\n')).toContain('✗ could not read')
   })
 
-  it('fails cleanly for a missing file', () => {
-    const result = verifyFile(join(dir, 'does-not-exist.json'))
-    expect(result.ok).toBe(false)
-    expect(result.message).toMatch(/^✗ cannot read/)
+  it('exits 1 for a file that is not a JSON array of receipts', () => {
+    const file = join(dir, 'not-an-array.json')
+    writeFileSync(file, JSON.stringify({ not: 'an array' }))
+
+    const result = runVerify(file)
+    expect(result.code).toBe(1)
+    expect(logs.join('\n')).toContain('✗ could not parse')
   })
 })

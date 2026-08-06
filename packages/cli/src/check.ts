@@ -1,110 +1,135 @@
-/**
- * `nominee check <policy-file>` — lints a policy module against a small
- * built-in set of sample tool calls: which rules ever match, which are dead
- * weight (likely typos), same "did you mean" logic nominee's dev-mode
- * warnNeverMatchingRules uses at guard() time.
- */
+// `nominee check <policy-file>` — dynamically import a user's policy module
+// and report which rules are reachable against a built-in set of sample tool
+// calls, the same way packages/core/src/nominee.ts warns in dev mode about
+// rules that never match any guarded tool (see `warnNeverMatchingRules`).
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Nominee, type Policy, type Rule, matchTool, nearestTool } from 'nominee'
+import { type Policy, type Rule, matchTool } from 'nominee'
 
-/** A policy module must default-export a `Rule[]`, or an options object carrying `policy`. */
-export type PolicyModuleExport = Rule[] | { policy: Policy | Rule[] }
-
-interface SampleCall {
-  tool: string
-  user: string
-  resource?: string
-  input?: unknown
+export interface CheckCommandResult {
+  code: number
 }
 
-const SAMPLE_CALLS: SampleCall[] = [
-  { tool: 'email.read', user: 'alice' },
-  { tool: 'email.forward', user: 'alice', input: { to: 'boss@acme.com' } },
-  { tool: 'email.forward', user: 'alice', input: { to: 'attacker@evil.top' } },
-  { tool: 'email.delete', user: 'alice', input: { id: 1 } },
-  { tool: 'github.get_pr', user: 'alice', resource: 'acme/repo' },
-  { tool: 'github.merge_pr', user: 'alice', resource: 'acme/repo' },
-  { tool: 'db.query', user: 'alice' },
-  { tool: 'file.delete', user: 'alice', input: { path: '/etc/passwd' } },
+/**
+ * Built-in sample calls standing in for a real agent's traffic. Only the
+ * tool name is used for matching (the same static reachability check the
+ * core dev-mode warnings perform) — rule `when` predicates are not executed,
+ * since we don't know what shape of `input` a user's rules expect.
+ */
+const SAMPLE_TOOLS: readonly string[] = [
+  'email.read',
+  'email.forward',
+  'email.delete',
+  'github.get_pr',
+  'github.merge_pr',
+  'file.read',
+  'file.write',
+  'payment.charge',
+  'slack.post_message',
+  'calendar.create_event',
 ]
 
-export interface RuleReport {
-  pattern: string
-  effect: string
-  matched: boolean
-  suggestion?: string
-}
-
-export interface CheckResult {
-  ok: boolean
-  rules: RuleReport[]
-  decisions: { tool: string; user: string; effect: string; rule?: string }[]
-}
-
-export async function loadPolicy(file: string): Promise<Policy> {
-  const mod = (await import(pathToFileURL(resolve(file)).href)) as { default?: PolicyModuleExport }
-  const exported = mod.default
-  if (Array.isArray(exported)) return { rules: exported }
-  if (exported && typeof exported === 'object' && 'policy' in exported) {
-    const policy = exported.policy
-    return Array.isArray(policy) ? { rules: policy } : policy
+function normalizePolicy(input: unknown): Policy | undefined {
+  if (Array.isArray(input)) return { rules: input as Rule[] }
+  if (input && typeof input === 'object' && Array.isArray((input as { rules?: unknown }).rules)) {
+    return input as Policy
   }
-  throw new Error(
-    `${file} must default-export a Rule[] array, or an options object with a "policy" property`,
-  )
+  return undefined
 }
 
-export async function checkPolicy(file: string): Promise<CheckResult> {
-  const policy = await loadPolicy(file)
-  const nominee = new Nominee({ policy, receipts: false })
-  const toolNames = SAMPLE_CALLS.map((call) => call.tool)
+/** Levenshtein edit distance, for "did you mean" suggestions. */
+function levenshtein(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = i - 1
+    previous[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const above = previous[j] ?? 0
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      previous[j] = Math.min((previous[j - 1] ?? 0) + 1, above + 1, diagonal + cost)
+      diagonal = above
+    }
+  }
+  return previous[b.length] ?? a.length
+}
 
-  const rules: RuleReport[] = []
+function nearestSampleTool(pattern: string): string | undefined {
+  const literal = pattern.replace(/\*/g, '')
+  let best: { tool: string; distance: number } | undefined
+  for (const tool of SAMPLE_TOOLS) {
+    const distance = levenshtein(literal, tool)
+    if (!best || distance < best.distance) best = { tool, distance }
+  }
+  if (!best) return undefined
+  const threshold = Math.max(2, Math.ceil(Math.max(literal.length, best.tool.length) / 2))
+  return best.distance <= threshold ? best.tool : undefined
+}
+
+/**
+ * Load a policy file and report which rules matched at least one sample
+ * call and which never matched. The default export must be either a
+ * `Rule[]` array (as returned by `allow`/`deny`/`ask`) or a `Policy` object
+ * (`{ rules, fallback }`) — the same two shapes `NomineeOptions.policy`
+ * already accepts.
+ */
+export async function runCheck(policyFile: string): Promise<CheckCommandResult> {
+  const path = resolve(process.cwd(), policyFile)
+  if (!existsSync(path)) {
+    console.log(`✗ policy file not found: ${policyFile}`)
+    return { code: 1 }
+  }
+
+  let loaded: unknown
+  try {
+    loaded = await import(pathToFileURL(path).href)
+  } catch (error) {
+    console.log(`✗ failed to load ${policyFile}: ${(error as Error).message}`)
+    return { code: 1 }
+  }
+
+  const policy = normalizePolicy((loaded as { default?: unknown }).default)
+  if (!policy) {
+    console.log(
+      `✗ ${policyFile} must have a default export of a Rule[] array or a { rules, fallback } Policy object`,
+    )
+    return { code: 1 }
+  }
+
+  if (policy.rules.length === 0) {
+    console.log(`✗ ${policyFile} exports a policy with no rules`)
+    return { code: 1 }
+  }
+
+  console.log(
+    `Checking ${policy.rules.length} rule(s) against ${SAMPLE_TOOLS.length} sample call(s)\n`,
+  )
+
+  let neverMatched = 0
   for (const rule of policy.rules) {
     for (const pattern of rule.tools) {
-      const matched = toolNames.some((tool) => matchTool(pattern, tool))
-      rules.push({
-        pattern,
-        effect: rule.effect,
-        matched,
-        suggestion: matched ? undefined : nearestTool(pattern, toolNames),
-      })
+      const matched = SAMPLE_TOOLS.some((tool) => matchTool(pattern, tool))
+      if (matched) {
+        console.log(`  ✓ ${rule.effect}:${pattern} matched at least one sample call`)
+      } else {
+        neverMatched++
+        const suggestion = nearestSampleTool(pattern)
+        console.log(
+          `  ✗ ${rule.effect}:${pattern} never matched any sample call${
+            suggestion ? ` — did you mean "${suggestion}"?` : ''
+          }`,
+        )
+      }
     }
   }
 
-  const decisions: CheckResult['decisions'] = []
-  for (const call of SAMPLE_CALLS) {
-    const decision = await nominee.check(call)
-    decisions.push({
-      tool: call.tool,
-      user: call.user,
-      effect: decision.effect,
-      rule: decision.rule ? `${decision.rule.effect}:${decision.rule.tools.join(',')}` : undefined,
-    })
-  }
+  console.log(
+    `\n${
+      neverMatched === 0
+        ? 'All rules reachable.'
+        : `${neverMatched} rule pattern(s) never matched a sample call.`
+    }`,
+  )
 
-  return { ok: rules.every((r) => r.matched), rules, decisions }
-}
-
-export function formatCheckResult(result: CheckResult): string {
-  const lines: string[] = []
-  lines.push('Sample calls:')
-  for (const d of result.decisions) {
-    lines.push(`  ${d.tool} (${d.user}) → ${d.effect}${d.rule ? ` [${d.rule}]` : ' [fallback]'}`)
-  }
-  lines.push('')
-  lines.push('Rules:')
-  for (const r of result.rules) {
-    if (r.matched) {
-      lines.push(`  ✓ ${r.effect}:${r.pattern} matched at least one sample call`)
-    } else {
-      lines.push(
-        `  ✗ ${r.effect}:${r.pattern} never matched any sample call${
-          r.suggestion ? ` — did you mean "${r.suggestion}"?` : ''
-        }`,
-      )
-    }
-  }
-  return lines.join('\n')
+  return { code: neverMatched === 0 ? 0 : 1 }
 }

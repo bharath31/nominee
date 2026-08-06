@@ -13,7 +13,8 @@
       "nominee-postgres",
       "nominee-openai",
       "nominee-mastra",
-      "nominee-mcp"
+      "nominee-mcp",
+      "nominee-cli"
     ]
   ],
   "access": "public",

@@ -1,40 +1,50 @@
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
-import { checkPolicy, loadPolicy } from '../src/check.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { runCheck } from '../src/check.js'
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
 
-describe('loadPolicy', () => {
-  it('accepts a default-exported Rule[] array', async () => {
-    const policy = await loadPolicy(fixture('good-policy.mjs'))
-    expect(policy.rules).toHaveLength(2)
+describe('runCheck', () => {
+  let logs: string[]
+
+  beforeEach(() => {
+    logs = []
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logs.push(args.join(' '))
+    })
   })
 
-  it('accepts a default-exported options object with a policy', async () => {
-    const policy = await loadPolicy(fixture('typo-policy.mjs'))
-    expect(policy.rules).toHaveLength(1)
-    expect(policy.fallback).toBe('deny')
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
-  it('rejects an export that is neither shape', async () => {
-    await expect(loadPolicy(fixture('invalid-policy.mjs'))).rejects.toThrow(/must default-export/)
-  })
-})
-
-describe('checkPolicy', () => {
-  it('reports every rule matched at least one sample call', async () => {
-    const result = await checkPolicy(fixture('good-policy.mjs'))
-    expect(result.ok).toBe(true)
-    expect(result.rules.every((r) => r.matched)).toBe(true)
-    expect(result.decisions.find((d) => d.tool === 'email.read')?.effect).toBe('allow')
-    expect(result.decisions.find((d) => d.tool === 'db.query')?.effect).toBe('ask')
+  it('exits 0 when every rule matches a sample call (Rule[] default export)', async () => {
+    const result = await runCheck(fixture('reachable-policy.mjs'))
+    expect(result.code).toBe(0)
+    const output = logs.join('\n')
+    expect(output).toContain('✓ allow:email.read matched at least one sample call')
+    expect(output).toContain('✓ deny:email.forward matched at least one sample call')
+    expect(output).toContain('All rules reachable.')
   })
 
-  it('flags a rule that never matches any sample call, with a suggestion', async () => {
-    const result = await checkPolicy(fixture('typo-policy.mjs'))
-    expect(result.ok).toBe(false)
-    expect(result.rules).toEqual([
-      expect.objectContaining({ pattern: 'emial.read', matched: false, suggestion: 'email.read' }),
-    ])
+  it('exits 1 and suggests a fix when a rule never matches (Policy default export)', async () => {
+    const result = await runCheck(fixture('unreachable-policy.mjs'))
+    expect(result.code).toBe(1)
+    const output = logs.join('\n')
+    expect(output).toContain('✗ allow:emial.send never matched any sample call')
+    expect(output).toContain('did you mean "email.read"?')
+    expect(output).toContain('1 rule pattern(s) never matched a sample call.')
+  })
+
+  it('exits 1 for a policy file that does not exist', async () => {
+    const result = await runCheck(fixture('does-not-exist.mjs'))
+    expect(result.code).toBe(1)
+    expect(logs.join('\n')).toContain('✗ policy file not found')
+  })
+
+  it('exits 1 when the default export is not a Rule[] or Policy shape', async () => {
+    const result = await runCheck(fixture('invalid-policy.mjs'))
+    expect(result.code).toBe(1)
+    expect(logs.join('\n')).toContain('must have a default export')
   })
 })

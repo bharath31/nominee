@@ -1,48 +1,47 @@
-/**
- * `nominee verify <file>` — verify a receipt chain exported from a running
- * nominee agent. Accepts either a JSON array of `Receipt` objects (e.g.
- * `JSON.stringify(nominee.receipts)`) or newline-delimited JSON, the format
- * produced by `ReceiptLedger.toJSONL()`.
- */
+// `nominee verify <file>` — verify a hash-chained receipt export offline.
 import { readFileSync } from 'node:fs'
 import { type Receipt, verifyReceipts } from 'nominee'
 
-export interface VerifyFileResult {
-  ok: boolean
-  message: string
+export interface VerifyCommandResult {
+  code: number
 }
 
-export function parseReceipts(raw: string): Receipt[] {
-  const trimmed = raw.trim()
-  if (trimmed === '') return []
-  try {
-    const parsed = JSON.parse(trimmed)
-    if (Array.isArray(parsed)) return parsed as Receipt[]
-  } catch {
-    // Not a single JSON document — fall through to JSONL.
-  }
-  return trimmed.split('\n').map((line) => JSON.parse(line) as Receipt)
-}
-
-export function verifyFile(file: string, opts: { key?: string } = {}): VerifyFileResult {
+/**
+ * Verify a JSON file of exported receipts — the exact array you get from
+ * `JSON.stringify(nominee.receipts)` (or any durable store's equivalent
+ * export). See packages/cli/README.md for the expected shape.
+ */
+export function runVerify(filePath: string): VerifyCommandResult {
   let raw: string
   try {
-    raw = readFileSync(file, 'utf8')
-  } catch (err) {
-    return { ok: false, message: `✗ cannot read ${file}: ${(err as Error).message}` }
+    raw = readFileSync(filePath, 'utf8')
+  } catch (error) {
+    console.log(`✗ could not read ${filePath}: ${(error as Error).message}`)
+    return { code: 1 }
   }
 
   let receipts: Receipt[]
   try {
-    receipts = parseReceipts(raw)
-  } catch (err) {
-    return { ok: false, message: `✗ cannot parse ${file}: ${(err as Error).message}` }
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      throw new Error('expected a JSON array of receipts')
+    }
+    receipts = parsed as Receipt[]
+  } catch (error) {
+    console.log(`✗ could not parse ${filePath}: ${(error as Error).message}`)
+    return { code: 1 }
   }
 
-  const result = verifyReceipts(receipts, { key: opts.key })
-  if (result.ok) return { ok: true, message: `✓ ${result.checked} receipts intact` }
-  return {
-    ok: false,
-    message: `✕ broken at #${result.brokenAt}${result.reason ? ` (${result.reason})` : ''}`,
+  // Signed chains need the same key they were sealed with. Unsigned (plain
+  // sha256) chains verify with no key at all — the common case.
+  const key = process.env.NOMINEE_RECEIPT_KEY
+  const result = verifyReceipts(receipts, key ? { key } : {})
+
+  if (result.ok) {
+    console.log(`✓ ${result.checked} receipts intact`)
+    return { code: 0 }
   }
+
+  console.log(`✗ broken at #${result.brokenAt} (${result.reason})`)
+  return { code: 1 }
 }

@@ -1,20 +1,12 @@
 {
   "name": "nominee-cli",
-  "version": "0.1.0",
-  "description": "npx nominee — a 10-second proof that a prompt-injected agent still can't exfiltrate data, plus receipt verification and policy linting",
+  "version": "2.2.0",
+  "description": "Zero-install CLI for nominee — run the blocked-injection proof, verify a receipt chain, or check a policy file with npx nominee",
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
   "bin": {
     "nominee": "./dist/cli.js"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
   },
   "files": ["dist", "README.md"],
   "sideEffects": false,
@@ -23,7 +15,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["cli", "ai", "agents", "authorization", "policy", "receipts", "nominee"],
+  "keywords": ["nominee", "cli", "ai", "agents", "authorization", "policy", "receipts", "npx"],
   "author": "Bharath",
   "license": "MIT",
   "repository": {
