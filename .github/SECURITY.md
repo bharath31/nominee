@@ -39,6 +39,7 @@ version in your report.
   them are in scope; issues in the upstream provider should also be reported
   to that provider.
 - nominee never persists third-party tokens itself; tokens are fetched at call time and cached in memory only. Reports about token handling, leakage in logs/audit, or approval bypass are especially welcome.
+  This does not protect against a compromised process reading tokens out of its own memory for the token's lifetime; memory-only caching bounds exposure to that process and that lifetime, it does not eliminate it.
 
 ## Production-readiness boundaries
 
@@ -63,11 +64,13 @@ version in your report.
   outcome. Legacy code that calls `authorize()` manually must call
   `await nominee.assertUnchanged(authorization, input)` immediately before
   execution, and is disabled by `production: true`.
+  This does not protect callers who invoke `authorize()` and then execute without ever calling `assertUnchanged()` (or ignore its rejection) outside `production: true` — that binding is opt-in on the manual path, not automatic.
 - `nominee-auth0` requires a signed, issuer/audience/expiry-verified ID token
   for successful CIBA approval and checks its `sub` against the intended
   approver. Use `PostgresCibaStore` (or another durable `CibaStore`) for
   restart-safe production polling; the default memory store is rejected by
   production mode.
+  This protection runs through `Nominee`'s `production: true` constructor check (via `strategy.durableApprovals`, set from `cibaStore.durable`), not `nominee-auth0` itself — code that calls the Auth0 strategy's `startApproval`/`pollApproval` outside a production-mode `Nominee` instance is not gated.
 - An in-process wrapper can be bypassed if raw tools or broad credentials remain
   reachable. High-impact deployments should isolate execution and expose only
   decision-bound, least-privilege capabilities to tool code.
