@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A scope is a promise made once. An action authorization is checked every time. — nominee</title>
+    <meta name="description" content="An OAuth scope granted at consent time and a credential resolved fresh at call time, bound to the exact input, are different security properties — not degrees of the same one. Why that difference matters more once an LLM is the one deciding when to spend it." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/oauth-scopes-vs-action-authorization/" />
+    <meta property="og:title" content="A scope is a promise made once. An action authorization is checked every time." />
+    <meta property="og:description" content="A broad OAuth scope granted once and a credential resolved fresh at call time, bound to the exact input, are different security properties — not degrees of the same one." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/oauth-scopes-vs-action-authorization/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og-blog-token.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-07-21" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="A scope is a promise made once. An action authorization is checked every time." />
+    <meta name="twitter:description" content="A broad OAuth scope granted once and a credential resolved fresh at call time, bound to the exact input, are different security properties — not degrees of the same one." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og-blog-token.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "A scope is a promise made once. An action authorization is checked every time.",
+      "description": "An OAuth scope granted at consent time and a credential resolved fresh at call time, bound to the exact input, are different security properties — not degrees of the same one. Why that difference matters more once an LLM is the one deciding when to spend it.",
+      "datePublished": "2026-07-21",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/oauth-scopes-vs-action-authorization/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">July 21, 2026</span>
+            <span class="post-tag">Engineering</span>
+          </div>
+          <h1>A scope is a promise made once.<br>An action authorization is checked every time.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 6 min read</p>
+          <p class="post-disclosure">I work at Auth0. nominee's core is zero-dependency and provider-neutral; Auth0 is one optional strategy of many. OAuth scopes aren't broken — they're answering a different question than the one an agent needs answered on every call.</p>
+        </div>
+
+        <div class="post-body">
+
+          <p>"We already scoped the token down — <code>repo</code>, not <code>admin:org</code>. Isn't that enough?" It's a fair question, and it's the wrong axis. A scope answers <em>what category of thing was this credential ever allowed to do</em>. It's decided once, at consent, by a human looking at a permission dialog they may not fully parse, and then it's true — unmodified — for the entire lifetime of the token. An agent asking a tool to run isn't asking a category question. It's asking: <em>may this exact call happen, right now, with these exact arguments</em>. Those are different security properties. A narrower scope doesn't turn one into the other.</p>
+
+          <hr class="post-rule" />
+
+          <h2>What a scope actually promises</h2>
+
+          <p>Say a user connects GitHub with <code>repo</code> scope so an agent can close issues. That scope is now true for every repo the user can access, every write operation <code>repo</code> covers — not just <code>issues:write</code> on the one repository the agent was supposed to touch — for as long as the token or its refresh chain lives. Nothing about the scope changes based on which tool call is about to use it. If the model is convinced by an injected instruction to force-push to a different repo entirely, the scope doesn't object. It was never asked a per-call question; it can't answer one.</p>
+
+          <p>That's not a defect in OAuth. Scopes were designed for a human clicking "Allow" once, trusting an app to behave for the rest of the session. An LLM deciding on every turn which tool to call with which arguments is a different trust model, and the scope was never upgraded to match it.</p>
+
+          <hr class="post-rule" />
+
+          <h2>What action authorization checks instead</h2>
+
+          <p>nominee's decision-bound lifecycle — <code>prepareAction()</code> → approval → <code>executeCapability()</code>, or <code>run()</code> as the one-call shorthand — treats the credential as the last step of a per-call decision, not a standing grant:</p>
+
+          <pre><code><span class="k">const</span> prepared = <span class="k">await</span> nominee.<span class="fn">prepareAction</span>({
+  tool: <span class="s">'refund.create'</span>,
+  input: { orderId, cents },
+  user: session.userId,
+  tenant: session.tenantId,
+  resource: <span class="s">`order:${orderId}`</span>,
+  connection: <span class="s">'payments'</span>,
+  scopes: [<span class="s">'refunds:write'</span>],   <span class="c">// the ceiling — not what gets requested upstream</span>
+})
+
+<span class="k">if</span> (prepared.status === <span class="s">'pending_approval'</span>) { <span class="c">/* … */</span> }
+
+<span class="k">await</span> nominee.<span class="fn">executeCapability</span>(prepared.capability, { orderId, cents }, (<span class="k">async</span> ({ token }) =>
+  payments.<span class="fn">refund</span>({ orderId, cents, token, idempotencyKey: prepared.action.id })
+))</code></pre>
+
+          <p>Four things happen here that a scope, however narrow, doesn't do on its own:</p>
+
+          <ul>
+            <li><strong>The credential doesn't exist yet when the call is authorized.</strong> <code>prepareAction()</code> checks policy and — when a <code>resource</code> is named — the application authorizer against <code>order:${orderId}</code> specifically, not "orders in general." Only after that clears, and only after a single-use capability is issued and atomically consumed, does <code>executeCapability()</code> resolve a token at all.</li>
+            <li><strong>The permission is rechecked immediately before execution, not just at consent.</strong> From <code>docs/production.md</code>: "Nominee calls the application authorizer while planning and again after capability consumption, immediately before credential resolution and tool execution. A permission revoked while approval was pending therefore fails closed without running the tool." An OAuth scope has no equivalent second look — revoke it mid-flight and whatever call is already using the cached token completes anyway.</li>
+            <li><strong>The scope you pass is a ceiling the strategy cannot exceed, enforced in code.</strong> If the credential strategy hands back anything outside the requested scopes, <code>boundToken()</code> in <code>packages/core/src/nominee.ts</code> throws before the token reaches the tool: <code>"nominee: strategy '{name}' returned scopes outside the action ceiling"</code>. The application declares the maximum for <em>this action</em>; the strategy can narrow it further, never widen it.</li>
+            <li><strong>The credential is bound to the exact input that was authorized.</strong> Change <code>orderId</code> or <code>cents</code> between <code>prepareAction()</code> and <code>executeCapability()</code> and the call is rejected with <code>AuthorizationInputChangedError</code> before the token is ever fetched — a fingerprint of the arguments, not just the tool name, gates the credential.</li>
+          </ul>
+
+          <p>And the capability itself is short-lived on purpose — issued once, expires in minutes (<code>capabilityTtlMs</code>, default five), and can be consumed exactly once via an atomic <code>consumeCapability()</code>. It isn't a bearer token you could accidentally reuse for a second, different call; a second attempt with the same capability fails by construction. An OAuth access token, by contrast, is valid for its full lifetime against every call that fits its scope — reuse is the normal case, not an edge case to guard against.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Scoped down still isn't checked per call</h2>
+
+          <p>The honest version of this argument has to admit: fine-grained OAuth scopes help. <code>issues:write</code> on one repo is safer than <code>repo</code> on all of them, and if your provider offers that granularity, use it — nominee's strategy layer sits on top of whatever scopes your provider actually supports, it doesn't invent new ones. But even the narrowest real-world scope is still a standing grant, decided once, good for the token's whole life. It doesn't know the difference between call #1 and call #400, and it can't be rechecked against a resource permission that changed an hour after consent. Those are the properties action authorization adds — not a replacement for scoping, a layer underneath it.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Side by side</h2>
+
+          <div class="post-compare-wrap">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>OAuth scope</th>
+                  <th>nominee action authorization</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Decided</th>
+                  <td class="x">Once, at consent</td>
+                  <td class="y">Per call, at <code>prepareAction()</code></td>
+                </tr>
+                <tr>
+                  <th>Bound to exact input</th>
+                  <td class="x">✗ — same token for any call in scope</td>
+                  <td class="y">✓ — hash of the exact arguments</td>
+                </tr>
+                <tr>
+                  <th>Rechecked after a pause</th>
+                  <td class="x">✗</td>
+                  <td class="y">✓ — before credential resolution</td>
+                </tr>
+                <tr>
+                  <th>Scope ceiling enforced in code</th>
+                  <td class="x">Trusts the provider's grant</td>
+                  <td class="y">✓ — throws if a strategy exceeds it</td>
+                </tr>
+                <tr>
+                  <th>Credential lifetime</th>
+                  <td class="x">Minutes to months, reusable</td>
+                  <td class="y">Minutes, single-use capability</td>
+                </tr>
+                <tr>
+                  <th>Revocation takes effect</th>
+                  <td class="x">On next provider-side check, if any</td>
+                  <td class="y">Next resolved call — call-time, never cached past expiry</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <hr class="post-rule" />
+
+          <h2>When a scope alone is fine</h2>
+
+          <p>If a tool is read-only, if the scope your provider offers is already resource-specific (not just category-specific), and if you don't need proof of what was authorized for a compliance or incident review — plain scoped OAuth is genuinely enough, and adding a decision-bound layer on top is overhead you don't need yet.</p>
+
+          <p>Reach for action authorization once a tool can write, once "this user, this tenant, this resource" is a real question your application already has an answer to, or once you need the credential itself to be a consequence of a specific, logged decision — not a standing grant an agent reaches for on its own schedule.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">Bind the credential to the decision, not the session.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npm i nominee
+              <span class="copy-hint">zero deps</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="/docs/#production">Read the production runbook →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
