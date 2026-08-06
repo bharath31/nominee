@@ -298,13 +298,16 @@ nominee.receipts          // the chain so far
 nominee.verifyReceipts()  // { ok: true, checked: 128 }
 
 // Later, offline, from your log sink:
-import { verifyReceipts } from 'nominee'
+import { formatReceipts, verifyReceipts } from 'nominee'
+console.log(formatReceipts(nominee.receipts))
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }</code></pre>
           <p>
             By default inputs are recorded as <code>inputHash</code> (SHA-256 of the canonical
             JSON) — provable without writing user data into logs.
-            <code>receipts: { input: 'raw' }</code> or <code>'none'</code> change that. Pass
-            <code>receipts: false</code> to disable receipts entirely.
+            <code>receipts: { input: 'raw' }</code> or <code>'none'</code> change that. In-memory
+            receipts retain the latest 1,000 entries by default; pass
+            <code>receipts: { retain: 'all' }</code> or stream to a sink/durable store for an
+            unbounded audit history. Pass <code>receipts: false</code> to disable receipts entirely.
           </p>
           <p>
             For multi-replica production, use the atomic receipt store from
@@ -506,14 +509,14 @@ const nominee = new Nominee({
           <table class="api-table">
             <thead><tr><th>Method</th><th>Returns / behavior</th></tr></thead>
             <tbody>
-              <tr><td><code>run({ tool, input, user, resource?, tenant?, connection?, scopes? }, execute)</code></td><td>Recommended decision-bound path: authorize, issue and consume a single-use capability, resolve the credential, execute, and record the outcome.</td></tr>
+              <tr><td><code>run({ tool, input, user, resource?, tenant?, connection?, scopes? }, execute)</code></td><td>Recommended decision-bound path: authorize, issue and consume a single-use capability, resolve the credential, call <code>execute({ action, input, token? })</code>, and record the outcome.</td></tr>
               <tr><td><code>prepareAction()</code> · <code>resumeAction()</code> · <code>executeCapability()</code></td><td>Durable pause/resume API for jobs, approvals, and cross-process execution.</td></tr>
               <tr><td><code>resolveActionApproval(actionId, resolution)</code></td><td>Resolve a durable dashboard or webhook approval with approver identity and mechanism.</td></tr>
               <tr><td><code>authorize({ tool, input?, user })</code></td><td><code>Promise&lt;Authorization&gt;</code> — checks the call against the policy. Resolves when it may proceed; throws <code>PolicyDeniedError</code> / <code>ApprovalDeniedError</code> otherwise. <code>requireApproval: true</code> forces an ask.</td></tr>
               <tr><td><code>await assertUnchanged(authorization, input)</code></td><td>Verifies that the input about to execute matches the canonical fingerprint evaluated by policy and any approver. Official wrappers call it automatically.</td></tr>
               <tr><td><code>check({ tool, input?, user })</code></td><td><code>Promise&lt;PolicyDecision&gt;</code> — dry run: the decision a call <em>would</em> get, with no side effects (no budgets, no approvals, no receipts).</td></tr>
               <tr><td><code>guard(tools, { user })</code></td><td>Wraps a whole tools object (plain async functions or <code>{ execute }</code> tools) so every call is authorized first — the one-line integration.</td></tr>
-              <tr><td><code>receipts</code> · <code>verifyReceipts()</code> · <code>flushReceipts()</code></td><td>The hash-chained, optionally HMAC-signed receipt log, tamper check, and async sink checkpoint. <code>delivery: 'strict'</code> waits for the sink before async authorization returns.</td></tr>
+              <tr><td><code>receipts</code> · <code>verifyReceipts()</code> · <code>formatReceipts()</code> · <code>flushReceipts()</code></td><td>The hash-chained, optionally HMAC-signed receipt log, tamper check, compact terminal printer, and async sink checkpoint. <code>delivery: 'strict'</code> waits for the sink before async authorization returns.</td></tr>
               <tr><td><code>token({ user, connection, scopes?, force? })</code></td><td><code>Promise&lt;string&gt;</code> — a fresh token. Cached per canonical (user, connection, scope set) until just before expiry; <code>force: true</code> bypasses the cache.</td></tr>
               <tr><td><code>approve({ user, action, detail?, timeoutMs? })</code></td><td><code>Promise&lt;ApprovalResult&gt;</code> — resolves on approval; throws <code>ApprovalDeniedError</code> on deny/expiry.</td></tr>
               <tr><td><code>resolveApproval(id, 'approved' | 'denied')</code></td><td><code>boolean</code> — settle a built-in-engine approval from your webhook. Returns false for unknown ids.</td></tr>

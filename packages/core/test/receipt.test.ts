@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type Receipt, ReceiptLedger, verifyReceipts } from '../src/index.js'
+import { type Receipt, ReceiptLedger, formatReceipts, verifyReceipts } from '../src/index.js'
 
 const entry = (over: Partial<Parameters<ReceiptLedger['append']>[0]> = {}) => ({
   type: 'policy.decision',
@@ -167,5 +167,25 @@ describe('ReceiptLedger', () => {
     expect(
       verifyReceipts([...resumed.all], { resume: { seq: first.size, prev: 'genesis' } }).ok,
     ).toBe(false)
+  })
+
+  it('bounds retained in-memory receipts while preserving the visible chain window', () => {
+    const ledger = new ReceiptLedger({ retain: 2 })
+    ledger.append(entry({ tool: 't0' }))
+    ledger.append(entry({ tool: 't1' }))
+    ledger.append(entry({ tool: 't2' }))
+
+    expect(ledger.size).toBe(2)
+    expect(ledger.all.map((receipt) => receipt.seq)).toEqual([1, 2])
+    expect(ledger.verify()).toEqual({ ok: true, checked: 2, retainedWindow: true })
+  })
+
+  it('formats a compact receipt chain summary', () => {
+    const ledger = new ReceiptLedger()
+    ledger.append(entry({ tool: 'email.read', effect: 'allow' }))
+
+    expect(formatReceipts(ledger.all)).toMatch(
+      /^#0 policy\.decision email\.read allow [a-f0-9]{12}$/,
+    )
   })
 })

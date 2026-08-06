@@ -9,7 +9,14 @@ import {
 import { ApprovalEngine, type ApprovalRequest } from './approval.js'
 import type { AuditEvent } from './audit.js'
 import { canonicalJson, sha256 } from './hash.js'
-import { type Effect, type Policy, type PolicyDecision, PolicyEngine, type Rule } from './policy.js'
+import {
+  type Effect,
+  type Policy,
+  type PolicyDecision,
+  PolicyEngine,
+  type Rule,
+  matchTool,
+} from './policy.js'
 import {
   type Receipt,
   type ReceiptEntry,
@@ -166,6 +173,8 @@ export type PreparedAction =
 
 export interface ExecuteActionContext {
   action: ActionRecord
+  /** The exact input bound to policy/approval/capability for this execution. */
+  input: unknown
   /** Credential resolved only after the capability is atomically consumed. */
   token?: string
 }
@@ -326,8 +335,12 @@ export class Nominee {
           'durable provider approval state',
       ].filter(Boolean)
       if (problems.length) {
-        throw new Error(`nominee: production mode requires ${problems.join(', ')}`)
+        throw new Error(
+          `nominee: production mode requires ${problems.join(', ')}. Use fallback: 'deny', a durable actionStore, nominee-postgres for an atomic durable receipt store, and receipts.delivery: 'strict'. See https://nominee.dev/docs/production`,
+        )
       }
+    } else {
+      this.warnApprovalDeadEnds(options)
     }
   }
 
@@ -893,7 +906,7 @@ export class Nominee {
         })
       }
 
-      result = await execute({ action, token })
+      result = await execute({ action, input, token })
     } catch (error) {
       const outcome: ActionOutcome & { status: 'failed' } = {
         status: 'failed',
@@ -940,7 +953,7 @@ export class Nominee {
   ): Promise<T> {
     const prepared = await this.prepareAction(params)
     if (prepared.status === 'pending_approval') {
-      throw new ActionPendingError(prepared.action.id, prepared.approvalId)
+      throw new ActionPendingError(prepared.action.id, prepared.approvalId, prepared.action.action)
     }
     if (prepared.status === 'denied' || prepared.status === 'expired') {
       throw new ApprovalDeniedError({
@@ -993,6 +1006,7 @@ export class Nominee {
    * resume. The key in the object is the tool name your policy matches on.
    */
   guard<T extends object>(tools: T, opts: GuardOptions): T {
+    this.warnNeverMatchingRules(Object.keys(tools))
     const out: Record<string, unknown> = {}
     for (const [name, value] of Object.entries(tools)) {
       if (typeof value === 'function') {
@@ -1562,6 +1576,47 @@ export class Nominee {
     if (this.ledger?.delivery === 'strict') await this.ledger.flush()
   }
 
+  private warnApprovalDeadEnds(options: NomineeOptions): void {
+    if (!this.shouldWarn()) return
+    if (options.onApprovalRequest || this.strategy?.startApproval) return
+
+    for (const policy of this.engine.policies) {
+      if (policy.fallback === undefined || policy.fallback === 'ask') {
+        console.warn(
+          "nominee: policy fallback is 'ask' but no onApprovalRequest or approval strategy is configured; approvals will wait forever. Add onApprovalRequest or set fallback: 'deny'. See https://nominee.dev/docs/approvals",
+        )
+        break
+      }
+      if (policy.rules.some((rule) => rule.effect === 'ask')) {
+        console.warn(
+          'nominee: ask rules are configured but no onApprovalRequest or approval strategy is configured; approvals will wait forever. Add onApprovalRequest or use deny/allow for these rules. See https://nominee.dev/docs/approvals',
+        )
+        break
+      }
+    }
+  }
+
+  private warnNeverMatchingRules(toolNames: string[]): void {
+    if (!this.shouldWarn()) return
+    for (const policy of this.engine.policies) {
+      for (const rule of policy.rules) {
+        for (const pattern of rule.tools) {
+          if (toolNames.some((tool) => matchTool(pattern, tool))) continue
+          const suggestion = nearestTool(pattern, toolNames)
+          console.warn(
+            `nominee: rule "${pattern}" never matched any guarded tool${
+              suggestion ? ` — did you mean "${suggestion}"?` : ''
+            }. See https://nominee.dev/docs/policies`,
+          )
+        }
+      }
+    }
+  }
+
+  private shouldWarn(): boolean {
+    return globalThis.process?.env?.NODE_ENV !== 'production'
+  }
+
   /**
    * Notify audit listeners and seal a receipt for one event. `extra.input`
    * is recorded on the receipt per the ledger's input mode (hashed by
@@ -1614,6 +1669,34 @@ function normalizeScopes(scopes: readonly string[] | undefined): string[] {
 function fingerprintInput(input: unknown): string {
   const serialized = canonicalJson(input)
   return sha256(serialized ?? 'undefined')
+}
+
+function nearestTool(pattern: string, tools: string[]): string | undefined {
+  const literal = pattern.replace(/\*/g, '')
+  let best: { tool: string; distance: number } | undefined
+  for (const tool of tools) {
+    const distance = levenshtein(literal, tool)
+    if (!best || distance < best.distance) best = { tool, distance }
+  }
+  if (!best) return undefined
+  return best.distance <= Math.max(2, Math.ceil(Math.max(literal.length, best.tool.length) / 2))
+    ? best.tool
+    : undefined
+}
+
+function levenshtein(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = i - 1
+    previous[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const above = previous[j] ?? 0
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      previous[j] = Math.min((previous[j - 1] ?? 0) + 1, above + 1, diagonal + cost)
+      diagonal = above
+    }
+  }
+  return previous[b.length] ?? a.length
 }
 
 function randomId(prefix: string): string {

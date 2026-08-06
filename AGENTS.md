@@ -58,7 +58,7 @@ site/
 ## Public API Shape
 
 ```ts
-import { Nominee, allow, deny, ask, tokens, verifyReceipts } from 'nominee'
+import { Nominee, allow, deny, ask, tokens, formatReceipts, verifyReceipts } from 'nominee'
 
 const nominee = new Nominee({
   policy: {
@@ -89,11 +89,12 @@ await nominee.run({ tool, input, user, resource, tenant, connection, scopes }, e
 const prepared = await nominee.prepareAction({ tool, input, user }) // capability or pending id
 await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
 const resumed = await nominee.resumeAction(actionId)
-await nominee.executeCapability(resumed.capability, input, execute)
+await nominee.executeCapability(resumed.capability, input, execute) // execute receives { action, input, token? }
 
 // Receipts
 nominee.receipts
 nominee.verifyReceipts()
+formatReceipts(nominee.receipts)
 await nominee.flushReceipts()        // await buffered async sinks before shutdown
 await nominee.verifyDurableReceipts() // verify the durable stream + checkpoint
 verifyReceipts(exported, { key })

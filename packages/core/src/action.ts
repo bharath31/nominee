@@ -170,8 +170,12 @@ export class ActionPendingError extends Error {
   constructor(
     readonly actionId: string,
     readonly approvalId: string,
+    readonly action?: string,
   ) {
-    super(`nominee: action ${actionId} is pending approval (id=${approvalId})`)
+    const label = action ? `"${action}"` : `action ${actionId}`
+    super(
+      `nominee: ${label} is waiting for a human (actionId=${actionId}, approvalId=${approvalId}). Resolve it with nominee.resolveActionApproval('${actionId}', { decision: 'approved' }) then nominee.resumeAction('${actionId}'). See https://nominee.dev/docs/approvals`,
+    )
     this.name = 'ActionPendingError'
   }
 }

@@ -12,7 +12,7 @@
 // (the model only ever sees the guarded tools).
 //
 //   node run.mjs
-import { Nominee, allow, ask, deny, verifyReceipts } from 'nominee'
+import { Nominee, allow, ask, deny, formatReceipts, verifyReceipts } from 'nominee'
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`
 const red = (s) => `\x1b[31m${s}\x1b[0m`
@@ -98,11 +98,10 @@ console.log(dim(`  ${await tools['email.forward']({ to: 'boss@acme.com', ids: [3
 
 // ── The receipts: who tried what, as whom, and what stopped it ──────────────
 console.log(bold('\n5. The receipt chain (signed, tamper-evident)\n'))
-for (const r of nominee.receipts) {
-  const what = `${r.type}${r.tool ? ` ${r.tool}` : ''}`
-  const outcome = r.effect ?? r.decision ?? ''
-  const line = `  #${r.seq} ${what.padEnd(32)} ${String(outcome).padEnd(8)} ${dim(r.hash.slice(0, 16))}`
-  console.log(outcome === 'deny' || outcome === 'denied' ? red(line) : line)
+for (const summary of formatReceipts(nominee.receipts).split('\n')) {
+  const line = `  ${summary}`
+  const denied = summary.includes(' deny ') || summary.includes(' denied ')
+  console.log(denied ? red(line) : line)
 }
 
 const ok = nominee.verifyReceipts()

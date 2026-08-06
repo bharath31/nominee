@@ -8,7 +8,7 @@ guide for coding agents and contributors.
 nominee is the authorization layer for AI agents: allow/deny/ask policy on
 every tool call, human approvals, hash-chained tamper-evident receipts, and
 decision-bound execution that binds each authorization to the exact tool
-arguments. Credentials resolve at execution time via the `run()` path.
+arguments. Credentials resolve at execution time via the `run()` path. ExecuteActionContext includes the bound input, and in-memory receipts retain a bounded window by default.
 
 - `nominee` is the dependency-free core package (action lifecycle, policy, receipts).
 - `nominee-ai` adapts nominee to Vercel AI SDK tools and Cloudflare Agents.

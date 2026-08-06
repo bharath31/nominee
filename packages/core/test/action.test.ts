@@ -43,9 +43,9 @@ describe('decision-bound actions', () => {
           connection: 'github',
           scopes: ['issues:write'],
         },
-        async ({ action, token }) => ({ actionId: action.id, token }),
+        async ({ action, input, token }) => ({ actionId: action.id, input, token }),
       ),
-    ).resolves.toMatchObject({ token: 'fresh-token' })
+    ).resolves.toMatchObject({ input: { reason: 'fixed' }, token: 'fresh-token' })
 
     expect(authorize).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -284,6 +284,26 @@ describe('decision-bound actions', () => {
     await expect(
       nominee.run({ tool: 'wire.send', user: 'user-1' }, async () => 'sent'),
     ).rejects.toBeInstanceOf(ActionPendingError)
+    await expect(
+      nominee.run({ tool: 'wire.send', user: 'user-1' }, async () => 'sent'),
+    ).rejects.toThrow(/resolveActionApproval.*resumeAction.*nominee\.dev\/docs\/approvals/)
+  })
+
+  it('passes the authorization-bound input to executeCapability executors', async () => {
+    const nominee = new Nominee({ policy: [allow('wire.send')] })
+    const input = { cents: 500 }
+    const prepared = await nominee.prepareAction({
+      tool: 'wire.send',
+      user: 'user-1',
+      input,
+    })
+    if (prepared.status !== 'ready') throw new Error('expected a ready action')
+
+    await expect(
+      nominee.executeCapability(prepared.capability, input, async ({ input: boundInput }) => {
+        return boundInput
+      }),
+    ).resolves.toEqual(input)
   })
 
   it('accepts trusted approval evidence from an enclosing framework', async () => {
@@ -311,7 +331,7 @@ describe('decision-bound actions', () => {
           production: true,
           policy: { rules: [allow('read')], fallback: 'deny' },
         }),
-    ).toThrow(/durable actionStore.*atomic durable receipt store.*strict/)
+    ).toThrow(/durable actionStore.*atomic durable receipt store.*strict.*nominee-postgres/)
 
     const actionStore = durableProxy<ActionStore>(new MemoryActionStore())
     const receiptStore = durableProxy<AtomicReceiptStore>(new MemoryAtomicReceiptStore())
@@ -353,6 +373,30 @@ describe('decision-bound actions', () => {
     await expect(child.token({ user: 'user-1', connection: 'github' })).rejects.toThrow(
       /unbound token/,
     )
+  })
+
+  it('warns in development when approvals have no request handler', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      new Nominee({ policy: { rules: [ask('email.delete')], fallback: 'deny' } })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('ask rules are configured'))
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('warns in development when guarded rule patterns match no tool', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const nominee = new Nominee({
+        policy: { rules: [allow('emial.raed')], fallback: 'deny' },
+        onApprovalRequest: () => {},
+      })
+      nominee.guard({ 'email.read': async () => 'ok' }, { user: 'user-1' })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('did you mean "email.read"'))
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('does not execute when required pre-execution evidence cannot be persisted', async () => {

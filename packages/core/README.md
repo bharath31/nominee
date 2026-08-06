@@ -108,6 +108,7 @@ await nominee.flushReceipts()
 
 // Later, offline, from your exported log:
 import { verifyReceipts } from 'nominee'
+formatReceipts(nominee.receipts)
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
@@ -186,7 +187,7 @@ await nominee.run({ tool, input, user, resource, tenant, connection, scopes }, e
 const prepared = await nominee.prepareAction({ tool, input, user })
 await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
 const resumed = await nominee.resumeAction(actionId)
-await nominee.executeCapability(resumed.capability, input, execute)
+await nominee.executeCapability(resumed.capability, input, execute) // execute receives { action, input, token? }
 
 // Authorization
 await nominee.authorize({ tool, input, user })   // allow | throws PolicyDeniedError / ApprovalDeniedError
@@ -200,6 +201,7 @@ nominee.resolveApproval(id, 'approved' | 'denied')
 // Receipts
 nominee.receipts
 nominee.verifyReceipts()
+formatReceipts(nominee.receipts)
 await nominee.flushReceipts()
 await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })
