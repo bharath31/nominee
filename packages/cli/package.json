@@ -1,6 +1,6 @@
 {
   "name": "nominee-cli",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Try nominee's allow, ask, and deny rules on a support-agent refund flow, verify receipts, or check a policy file",
   "type": "module",
   "main": "./dist/cli.js",
