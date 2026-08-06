@@ -33,7 +33,7 @@ function trackFunnel(env: Env, event: string, detail = ''): void {
   }
 }
 
-// The payload the agent "reads" mid-run. Like the flagship offline example
+// The payload the agent "reads" mid-run. Like the supporting security example
 // (examples/prompt-injection-blocked), this is a fixed fixture embedded in
 // the worker — the point is what the guarded *tools* will and won't do, not
 // simulating a real LLM. Enforcement below is identical with a real model,

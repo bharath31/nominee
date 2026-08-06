@@ -9,15 +9,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ai": "^4.0.0",
-    "@ai-sdk/openai": "^1.0.0",
+    "ai": "^6.0.0",
     "express": "^4.19.2",
     "nominee": "workspace:*",
     "nominee-ai": "workspace:*",
     "nominee-postgres": "workspace:*",
     "pg": "^8.11.5",
-    "zod": "^3.23.8",
-    "dotenv": "^16.4.5"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

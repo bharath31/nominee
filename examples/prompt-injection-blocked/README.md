@@ -1,4 +1,4 @@
-# prompt-injection-blocked — the flagship proof
+# prompt-injection-blocked — supporting security proof
 
 A prompt-injected agent tries to exfiltrate your email — and physically can't.
 

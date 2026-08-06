@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <strong>Authorize the action, not the agent.</strong><br />
-  Policy at the tool boundary · call-time user credentials · tamper-evident proof.<br />
+  <strong>Your agent calls tools. Your rules decide what runs.</strong><br />
+  Open-source TypeScript checks before every AI tool call.<br />
   Zero dependencies, framework-neutral, no SaaS.
 </p>
 
@@ -23,9 +23,9 @@ No signup. No SaaS account. No vendor lock-in. Zero runtime dependencies.
 
 ---
 
-## The Problem
+## What it does
 
-Agent frameworks provide useful approvals and pause/resume. nominee addresses the application authorization boundary underneath them: whether this user, through this agent, may perform this action with these arguments, and which user credential the tool receives at execution time.
+Your framework decides which tool the agent requests. nominee checks your rules before the tool function runs.
 
 nominee sits between the model and your tools, in-process, and gives every tool call:
 
@@ -43,11 +43,11 @@ import { Nominee, allow, deny, ask } from 'nominee'
 const nominee = new Nominee({
   policy: {
     rules: [
-      allow('email.read'),
-      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
-      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
-      ask('email.delete'),               // a human decides, every time
-      allow('search.web', { max: 20 }),  // budget: call #21 asks a human
+      allow('orders.read'),
+      allow('refund.issue', { when: ({ input }) => input.amount <= 50 }),
+      ask('refund.issue', { when: ({ input }) => input.amount <= 500 }),
+      deny('refund.issue'),
+      deny('customers.export'),
     ],
     fallback: 'deny',
   },
@@ -56,7 +56,11 @@ const nominee = new Nominee({
 
 // One line. Works with plain functions or any framework's { execute } tools.
 const tools = nominee.guard(
-  { 'email.read': readEmail, 'email.forward': forwardEmail },
+  {
+    'orders.read': readOrder,
+    'refund.issue': issueRefund,
+    'customers.export': exportCustomers,
+  },
   { user: 'alice' },
 )
 ```
@@ -65,7 +69,12 @@ Denied calls throw `PolicyDeniedError` **before the tool runs**. An `ask` can
 resolve inline or surface `ActionPendingError` with a durable action id for
 later resume. Every outcome lands on the receipt chain.
 
-Watch a prompt-injected agent fail to exfiltrate, with no API keys:
+Run the production refund example with Vercel AI SDK tools, durable approvals,
+and PostgreSQL stores:
+[`examples/support-refund-agent`](https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent).
+
+The supporting prompt-injection proof shows the same enforcement boundary
+against untrusted model input:
 [`examples/prompt-injection-blocked`](https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked).
 
 ---

@@ -148,10 +148,83 @@ h3 { font-size: 19px; letter-spacing: -0.02em; }
   display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px;
 }
 .hero-tag .ref { color: var(--muted); }
-.hero h1 { font-size: clamp(38px, 5.6vw, 62px); margin-bottom: 20px; }
+.hero h1 { font-size: clamp(36px, 4.2vw, 48px); margin-bottom: 20px; }
 .hero h1 .ink-soft { color: var(--muted); }
-.hero .lede { font-size: clamp(17px, 1.7vw, 19px); color: var(--ink-soft); max-width: 32ch; margin-bottom: 30px; }
+.hero .lede { font-size: clamp(17px, 1.7vw, 19px); color: var(--ink-soft); max-width: 34ch; margin-bottom: 14px; }
+.hero-outcomes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+.hero-outcomes span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; background: var(--surface); color: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+.hero-outcomes strong { color: var(--ink); font-weight: 500; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 22px; }
+.hero-note { margin-top: 13px; color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+
+@media (max-width: 520px) {
+  .site-header { gap: 12px; }
+  .site-header nav { gap: 10px; }
+  .site-header nav a { font-size: 13px; }
+  .nav-cta { padding: 6px 9px; }
+}
+
+/* ---- interactive refund policy ----------------------------------------- */
+.policy-demo {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 2px 4px rgba(11,16,32,0.06), 0 40px 80px -54px rgba(11,16,32,0.5);
+}
+.policy-demo-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--paper-2);
+  font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
+}
+.policy-demo-top code { color: var(--seal); }
+.policy-rules { padding: 14px 16px; display: grid; gap: 7px; border-bottom: 1px solid var(--line); }
+.policy-rule {
+  display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: center;
+  padding: 8px 10px; border: 1px solid transparent; border-radius: 8px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+}
+.policy-rule .rule-effect { font-weight: 500; color: var(--ink-soft); }
+.policy-rule.active { border-color: var(--seal-line); background: var(--seal-tint); color: var(--ink); }
+.policy-rule[data-rule="allow"].active { border-color: rgba(31,107,74,0.25); background: var(--ok-tint); }
+.policy-rule[data-rule="allow"].active .rule-effect { color: var(--ok); }
+.policy-rule[data-rule="ask"].active .rule-effect,
+.policy-rule[data-rule="deny"].active .rule-effect { color: var(--seal); }
+.policy-request { padding: 16px; border-bottom: 1px solid var(--line); }
+.policy-request > p { margin-bottom: 10px; color: var(--ink-soft); font-size: 13.5px; }
+.refund-choices { display: flex; gap: 8px; margin-bottom: 12px; }
+.refund-choices button {
+  flex: 1; cursor: pointer; background: var(--surface); color: var(--ink-soft);
+  border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px;
+  font-family: var(--mono); font-size: 12.5px;
+}
+.refund-choices button:hover { border-color: var(--seal-line); }
+.refund-choices button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.policy-request pre {
+  overflow-x: auto; padding: 11px 12px; border-radius: 8px;
+  background: var(--code-bg); color: var(--code-text); font-size: 11.5px;
+}
+.policy-request pre span { color: #e0a96d; }
+.policy-request pre strong { color: #79c0ff; font-weight: 500; }
+.policy-result {
+  min-height: 86px; padding: 15px 16px; display: grid; grid-template-columns: auto 1fr auto;
+  gap: 12px; align-items: center; background: var(--paper-2);
+}
+.result-effect {
+  min-width: 46px; text-align: center; padding: 4px 8px; border-radius: 999px;
+  background: var(--seal-tint); color: var(--seal); border: 1px solid var(--seal-line);
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+}
+.policy-result.allow .result-effect { color: var(--ok); border-color: rgba(31,107,74,0.25); background: var(--ok-tint); }
+.policy-result strong { display: block; font-family: var(--display); font-size: 14.5px; letter-spacing: -0.01em; }
+.policy-result p { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.policy-result p code { color: var(--ink-soft); }
+.result-approve {
+  cursor: pointer; border: 1px solid var(--ok); border-radius: 8px; padding: 8px 10px;
+  background: var(--ok); color: #fff; font-family: var(--mono); font-size: 11.5px;
+}
+.result-approve:hover { background: #18583d; }
+@media (max-width: 520px) {
+  .policy-result { grid-template-columns: auto 1fr; }
+  .result-approve { grid-column: 1 / -1; width: 100%; }
+}
 
 /* the hero "run" — animated agent run, restyled as a clean console with a
    validity strip (credential accent) */
@@ -174,6 +247,9 @@ h3 { font-size: 19px; letter-spacing: -0.02em; }
 .run .tl.dim { color: var(--code-dim); }
 .run.anim .tl { opacity: 0; transform: translateY(3px); }
 .run.anim .tl.shown { opacity: 1; transform: none; transition: opacity 0.32s ease, transform 0.32s ease; }
+
+.proof-actions { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.proof-actions > span { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
 
 /* ---- works-with logos --------------------------------------------------- */
 .logos { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad) clamp(36px, 5vw, 56px); }

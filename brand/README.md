@@ -30,11 +30,11 @@ Compositions (all read `content.ts`; registered in `Root.tsx`):
 
 | Composition | Size | Output |
 |---|---|---|
-| `BannerMotion` | 1280×400 video | `.github/media/banner-motion.gif` — the **animated README header** (an injected call blocked at the policy gate); `banner-motion.png` is a static poster |
+| `BannerMotion` | 1280×400 video | `.github/media/banner-motion.gif` — the older injected-call banner; `banner-motion.png` is a static poster |
 | `Banner` | 1600×520 still | `.github/media/banner.png` (static banner, kept for non-animated contexts) |
 | `Og` | 1200×630 still | `site/assets/og.png` |
 | `PackageBanner` (parameterized) | 1600×520 still | `banner-ai.png` / `banner-eve.png` / `banner-auth0.png` |
-| `Injection` | 1280×720 video | the prompt-injection-blocked proof (lead demo) |
+| `Injection` | 1280×720 video | the supporting prompt-injection security proof |
 | `Proof` | 1280×720 video | the older token-race demo (still true, no longer lead) |
 
 The Remotion project lives outside the workspace to avoid heavy deps in the
@@ -68,6 +68,7 @@ When the story changes, update `content.ts`, re-render the assets, and walk this
 | README hero + banner alt | `README.md` | tagline, banner alt, problem, layer, when-not, examples |
 | README banner image | `.github/media/banner.png` | tagline (rendered) |
 | Landing hero | `site/index.html` | tagline (short), subhead, insight |
+| Live playground | `site/playground/` | editable support-refund proof using the published package |
 | Landing layer + when-not | `site/index.html` (`#why`) | layer diagram, when-not |
 | Landing OG image | `site/assets/og.png` | tagline (rendered) |
 | Docs intro | `site/docs/index.html` | tagline, when-not, policy/receipts/delegation, freshness explainer |
@@ -77,7 +78,7 @@ When the story changes, update `content.ts`, re-render the assets, and walk this
 | Blog (token-freshness post) | `site/blog/oauth-refresh-is-probably-broken/` | the supporting-act token proof, not the lead insight anymore |
 | llms.txt (site + root) | `site/llms.txt`, `llms.txt` | tagline, key concepts, when-not |
 | Example READMEs | `examples/*/README.md` | scoped framing + when-not |
-| Live demo worker | `site/agent-worker/src/index.ts` | demo copy — policy block/receipts (lead), freshness/approval (supporting act) |
+| Live demo worker | `site/agent-worker/src/index.ts` | supporting security proof — policy block/receipts, freshness, and approval |
 
 > Factual drift (snippets that no longer compile, renamed flags, dead anchors) is
 > a separate problem — handle it with `node brand/check-surfaces.mjs` in CI,

@@ -7,7 +7,26 @@ consumption time, and seals every outcome into the receipt chain. When an
 approval outlives the request, adapters surface `ActionPendingError` with a
 durable action id for `resumeAction()`.
 
-## [`prompt-injection-blocked`](./prompt-injection-blocked) — the flagship demo
+## Support refund demo — start here
+
+The same refund tool gets three outcomes from policy: $25 runs, $200 waits for
+approval, and $2,000 is blocked before the refund function runs. Start with the
+10-second proof:
+
+```bash
+npx nominee-cli
+```
+
+Then open [`support-refund-agent`](./support-refund-agent) for durable production
+wiring: Vercel AI SDK tools, approvals that survive the request, authenticated
+approve/deny endpoints, and PostgreSQL stores under `production: true`.
+
+Or use the [live playground](https://nominee.dev/playground/) to edit the rules,
+approve the $200 call yourself, and inspect the real receipt chain in the browser.
+
+## [`support-refund-agent`](./support-refund-agent) — durable production wiring
+
+## [`prompt-injection-blocked`](./prompt-injection-blocked) — supporting security proof
 
 A prompt-injected agent tries to exfiltrate your email — and physically can't.
 The tools are wrapped with `nominee.guard()`; the deny rule fires **before the

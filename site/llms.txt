@@ -1,6 +1,6 @@
 # nominee
 
-Authorize the action, not the agent. nominee enforces user-aware policy at the tool boundary, binds each decision to the exact tool arguments, resolves credentials at execution time, and keeps tamper-evident proof. Framework-neutral, zero dependencies in the core.
+Your agent calls tools. Your rules decide what runs. nominee is an open-source TypeScript library that checks every AI tool call before your tool code executes. Framework-neutral, zero dependencies in the core.
 
 Agent frameworks already provide useful approval, guardrail, and durable resume primitives. nominee complements them when a tool decision must incorporate application user/resource authorization, exact-input binding, call-time credentials, narrowing delegation, or one evidence stream across runtimes.
 
@@ -19,11 +19,13 @@ Key concepts:
 - **Production mode**: `production: true` requires default-deny policy, durable action store, atomic durable receipt store with `delivery: 'strict'`, and durable provider approval state. `nominee-postgres` supplies the stores.
 - **Adapters**: `nominee-ai` (Vercel AI SDK + Cloudflare Agents: `guardTools`, `nomineeTool`), `nominee-eve` (Vercel Eve: `nomineeTool`), `nominee-openai` (OpenAI Agents SDK), `nominee-mastra` (Mastra), `nominee-mcp` (MCP servers). All adapters route through `run()` and surface `ActionPendingError` when an approval outlives the request. Core `guard()` covers anything with `{ execute }`.
 
-Runnable proof, zero install: `npx nominee-cli` runs the same blocked prompt-injection scenario in-process — no clone, no build, no API keys, exits 1 if any invariant regresses. (The package is `nominee-cli`; it installs a `nominee` binary. `npx nominee` alone resolves the unrelated core `nominee` library, which has no CLI — always invoke as `npx nominee-cli`.) `npx nominee-cli verify <receipts.json>` checks a receipt chain offline; `npx nominee-cli check <policy-file>` lints a policy for tool-name patterns that never match. Source: https://github.com/bharath31/nominee/tree/main/packages/cli
+Runnable proof, zero setup: `npx nominee-cli` runs a support-agent refund flow against the real package. A $25 refund runs, a $200 refund asks and executes once after approval, a $2,000 refund is blocked before the tool runs, and the receipt chain is verified. The proof makes no network calls after npm fetches the package, needs no API keys, and exits 1 if an invariant regresses. (Always invoke `npx nominee-cli`; `npx nominee` resolves the core library, which has no CLI.) `npx nominee-cli verify <receipts.json>` checks a receipt chain offline; `npx nominee-cli check <policy-file>` lints a policy for tool-name patterns that never match. Source: https://github.com/bharath31/nominee/tree/main/packages/cli
 
-Runnable proof (full example): a prompt-injected agent tries to exfiltrate email and is blocked by policy before the tool runs, with a signed receipt of the attempt — https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked (no API keys). Live version: https://nominee.dev/agent runs the same block for real, inside a Cloudflare Durable Object that hibernates mid-session and resumes the same receipt chain when it wakes. Token-freshness proof (naive rotating refresh fails 7/8 under concurrency; nominee 8/8): https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness
+Supporting security proof: a prompt-injected agent tries to exfiltrate email and is blocked by policy before the tool runs, with a signed receipt of the attempt — https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked (no API keys). Live version: https://nominee.dev/agent runs the same block for real, inside a Cloudflare Durable Object that hibernates mid-session and resumes the same receipt chain when it wakes. Token-freshness proof (naive rotating refresh fails 7/8 under concurrency; nominee 8/8): https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness
 
-When you DON'T need nominee: a read-only agent with no authority worth guarding; a platform whose native permission system covers you end-to-end; or you want one fully-managed vendor for tools + auth + policy (use Arcade or Composio directly).
+Production refund example: Vercel AI SDK tools, durable approval endpoints, and PostgreSQL action/receipt stores under `production: true` — https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent
+
+When you DON'T need nominee: your agent only reads public or low-risk data; your framework already enforces every permission your application needs; or a few local if-statements cover the tools and you do not need durable approvals or shared limits.
 
 ## Quick Start
 ```typescript
@@ -32,17 +34,21 @@ import { Nominee, allow, deny, ask } from 'nominee'
 const nominee = new Nominee({
   policy: {
     rules: [
-      allow('email.read'),
-      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
-      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
-      ask('email.delete'),
+      allow('orders.read'),
+      allow('refund.issue', { when: ({ input }) => input.amount <= 50 }),
+      ask('refund.issue', { when: ({ input }) => input.amount <= 500 }),
+      deny('refund.issue'),
+      deny('customers.export'),
     ],
     fallback: 'deny',
   },
   onApprovalRequest: (req) => req.approve(), // wire to Slack / push / your UI
 })
 
-const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardEmail }, { user: 'alice' })
+const tools = nominee.guard(
+  { 'orders.read': readOrder, 'refund.issue': issueRefund, 'customers.export': exportCustomers },
+  { user: 'alice' },
+)
 // Denied calls throw PolicyDeniedError before the tool runs; every outcome is on nominee.receipts.
 ```
 

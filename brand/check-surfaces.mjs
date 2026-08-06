@@ -42,7 +42,7 @@ const llmsRequired = [
   'nominee-mastra',
   'nominee-mcp',
   'nominee-postgres',
-  'Authorize the action, not the agent',
+  'Your agent calls tools. Your rules decide what runs',
 ]
 for (const needle of llmsRequired) {
   if (!llmsRoot.includes(needle)) {

@@ -1,12 +1,12 @@
 {
   "name": "nominee-cli",
   "version": "2.2.2",
-  "description": "Zero-install CLI for nominee — run the blocked-injection proof, verify a receipt chain, or check a policy file with npx nominee-cli",
+  "description": "Try nominee's allow, ask, and deny rules on a support-agent refund flow, verify receipts, or check a policy file",
   "type": "module",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "bin": {
-    "nominee": "./dist/cli.js"
+    "nominee": "./dist/bin.js"
   },
   "files": ["dist", "README.md"],
   "sideEffects": false,

@@ -36,6 +36,7 @@ Four design commitments matter most:
 ```text
 packages/
   core/     published as nominee           - engine, action lifecycle, Strategy interface
+  cli/      published as nominee-cli       - flagship 10-second support-refund proof
   ai/       published as nominee-ai        - Vercel AI SDK and Cloudflare Agents adapter
   eve/      published as nominee-eve       - Vercel Eve adapter
   openai/   published as nominee-openai    - OpenAI Agents SDK adapter
@@ -45,7 +46,8 @@ packages/
   supabase/ published as nominee-supabase  - optional Supabase strategy
   postgres/ published as nominee-postgres  - durable action/receipt stores for multi-replica
 examples/
-  prompt-injection-blocked/   flagship demo: injected exfiltration blocked by policy (no API keys)
+  support-refund-agent/       durable Vercel AI SDK approval + PostgreSQL wiring
+  prompt-injection-blocked/   supporting security proof: injected exfiltration blocked by policy
   github-agent/               golden Eve + Auth0 example (PR review-and-merge agent)
 site/
   static microsite for nominee.dev

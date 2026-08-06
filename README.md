@@ -1,5 +1,19 @@
+<h1 align="center">nominee</h1>
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=3" alt="nominee — the authorization layer for AI agents. A prompt-injected tool call travels toward the tool and is denied at the policy gate before it lands." width="100%" />
+  Building an AI agent that can change real data?<br />
+  <strong>Your agent calls tools. Your rules decide what runs.</strong><br />
+  nominee is an open-source TypeScript library that checks every AI tool call<br />
+  before your tool code executes.
+</p>
+
+<p align="center">
+  <a href="https://nominee.dev">Website</a> ·
+  <a href="https://nominee.dev/docs/">Docs</a> ·
+  <a href="https://nominee.dev/playground/">Playground</a> ·
+  <a href="https://nominee.dev/agent">Security demo</a> ·
+  <a href="https://www.npmjs.com/package/nominee">npm</a> ·
+  <a href=".github/SECURITY.md">Security</a>
 </p>
 
 <p align="center">
@@ -10,91 +24,90 @@
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/nominee?style=flat-square&colorA=0a0a0f&colorB=555" alt="license" /></a>
 </p>
 
-<p align="center">
-  <strong>Authorize the action, not the agent.</strong><br />
-  Enforce policy at the tool boundary, resolve user credentials at execution time,<br />
-  and keep tamper-evident proof — framework-neutral, dependency-free core, self-hostable.
-</p>
-
-<p align="center">
-  <a href="https://nominee.dev">Website</a> ·
-  <a href="https://nominee.dev/docs/">Docs</a> ·
-  <a href="https://nominee.dev/agent">Live demo</a> ·
-  <a href="https://www.npmjs.com/package/nominee">npm</a> ·
-  <a href=".github/SECURITY.md">Security</a>
-</p>
-
 ---
 
-## The Problem
+## Try it now
 
-Agent frameworks now have useful tool approvals, guardrails, and durable pause/resume. Use them for run control and approval UX.
+[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
 
-The harder boundary appears when an agent acts inside a real application: may this user, through this agent, perform this action on this tenant's resource? Which credential should the action receive? Can a delegated agent do less than its parent? What evidence links the exact input an approver saw to what executed?
+Or run the same proof in your terminal:
 
-A framework can pause a refund tool. It does not automatically apply your application's user/resource entitlements or remove ambient authority from the tool.
+```bash
+npx nominee-cli
+```
 
-**The framework decides when to call a tool. nominee decides whether the call may execute.**
+No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm.
 
-## What nominee does
+```text
+✓ $25 refund    allowed → refund.issue ran
+? $200 refund   agent paused → waiting for your approval
+✓ $200 refund   approved once → refund.issue ran
+✗ $2,000 refund blocked before refund.issue ran
+✗ customer export blocked before customers.export ran
+✓ receipt chain verifies
+```
 
-nominee sits between the model and your tools, in-process, and gives every tool call four things:
+Your agent requests a tool call. Nominee checks your rules before the tool function runs.
 
-1. **Policy** — declarative `allow` / `deny` / `ask` rules over the user, tool, arguments, and delegation chain. Async predicates can consult your existing RBAC, FGA, OPA, or application authorization source.
-2. **Exact-call enforcement** — official wrappers bind authorization to a fingerprint of the arguments and refuse execution if they change while policy or approval is pending.
-3. **Call-time authority** — resource permission is rechecked after any pause, then strategies resolve fresh, scope-separated user tokens immediately before execution instead of putting ambient credentials in model context.
-4. **Evidence** — every decision, including refusals, is sealed into a hash-chained, optionally HMAC-signed receipt log.
-
-`ask` remains available as one policy outcome and can use Slack, push, your UI, or a strategy-native flow. It complements a framework's approval UI; it is not the reason to install nominee.
-
-Zero dependencies. Works with the Vercel AI SDK, Eve, Mastra, Cloudflare Agents, OpenAI Agents, MCP servers, or a bare `async function`.
+## Add it to your agent
 
 ```bash
 npm i nominee
 ```
 
-## 60 seconds
-
 ```ts
-import { Nominee, allow, deny, ask } from 'nominee'
+import { Nominee, allow, ask, deny } from 'nominee'
 
 const nominee = new Nominee({
   policy: {
     rules: [
-      allow('email.read'),
-      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
-      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
-      ask('email.delete'),               // a human decides, every time
-      allow('search.web', { max: 20 }),  // budget: call #21 asks a human
+      allow('orders.read'),
+      allow('refund.issue', { when: ({ input }) => input.amount <= 50 }),
+      ask('refund.issue', { when: ({ input }) => input.amount <= 500 }),
+      deny('refund.issue'),
+      deny('customers.export'),
     ],
     fallback: 'deny',
   },
-  onApprovalRequest: (req) => notifySlack(req), // req.approve() / req.deny()
+  onApprovalRequest: (request) => sendToYourApprovalUI(request),
 })
 
-// One line. Works with plain functions or any framework's { execute } tools.
-const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardEmail }, {
-  user: 'alice',
-})
+const tools = nominee.guard(
+  {
+    'orders.read': readOrder,
+    'refund.issue': issueRefund,
+    'customers.export': exportCustomers,
+  },
+  { user: session.userId },
+)
 ```
 
-Denied calls throw `PolicyDeniedError` **before the tool runs**. An `ask` can
-resolve inline or surface an `ActionPendingError` with a durable action id for
-later resume. Every outcome lands on the receipt chain.
+For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
+
+The result is literal:
+
+- `allow`: call the tool.
+- `ask`: wait for a person; an approval applies to the arguments they reviewed.
+- `deny`: throw before the tool function runs.
+- Every outcome leaves a receipt.
+
+The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents, Mastra, Cloudflare Agents, and MCP tools.
+
+## Why add it instead of an `if`?
+
+For one low-risk tool, use an `if`.
+
+Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
 
 > **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
 
-## Watch an injected agent fail
+## Security proof: untrusted content cannot change the rules
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-injection.gif?v=1" alt="A prompt-injected agent tries to forward the whole inbox to an attacker; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a tamper-evident receipt of every decision." width="100%" />
 </p>
 
-[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) — no API keys, one command. Even faster, no clone needed:
-
-```bash
-npx nominee-cli   # runs the same proof in-process — see packages/cli
-```
+[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is a second, security-focused example. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
 
 ```
 2. The model obeys the injection and tries to exfiltrate
@@ -130,7 +143,7 @@ npx nominee-cli   # runs the same proof in-process — see packages/cli
   doctored log (deny receipts removed): ✓ detected — broken at #7
 ```
 
-The model was fully compromised. The policy didn't care.
+The support-agent example explains the product. This example tests the same boundary against untrusted model input.
 
 ## Policy semantics
 
