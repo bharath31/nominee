@@ -299,6 +299,10 @@ const unsub = nominee.on((event) => log(event))
 - **Sandboxes** — contain the filesystem and network of the process. Your OAuth authority isn't in the sandbox; it's in the token. Use both.
 - **Hosted agent-auth platforms** (Arcade, Composio, Auth0 for AI, Vercel Connect) — useful connection and credential systems. Nominee can use them underneath its enforcement path when you need one portable application-authorization contract and evidence stream across providers and runtimes.
 
+Partner-specific integration kits: [Auth0](docs/partner-kits/auth0.md) ·
+[WorkOS FGA](docs/partner-kits/workos-fga.md) · [OPA](docs/partner-kits/opa.md) ·
+[Arcade / Composio](docs/partner-kits/arcade-composio.md).
+
 ### When you *don't* need nominee
 
 - A read-only agent with no authority worth guarding.
