@@ -1,0 +1,5 @@
+export { runProof } from './proof.js'
+export { verifyFile, parseReceipts } from './verify.js'
+export type { VerifyFileResult } from './verify.js'
+export { checkPolicy, formatCheckResult, loadPolicy } from './check.js'
+export type { CheckResult, RuleReport, PolicyModuleExport } from './check.js'

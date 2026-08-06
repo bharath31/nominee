@@ -5,6 +5,7 @@ export {
   ExternalAuthorizationDeniedError,
   ActionOutcomePersistenceError,
   PolicyDeniedError,
+  nearestTool,
 } from './nominee.js'
 export type {
   NomineeOptions,
