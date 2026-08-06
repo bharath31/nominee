@@ -60,3 +60,23 @@ Per integration and week:
 The last two are the ones that indicate Nominee is actually load-bearing. An
 integration that only renders a confirmation dialog has not exercised the
 authorization boundary.
+
+## Launch-site analytics
+
+The static site uses Cloudflare Web Analytics for privacy-first page views,
+visitors, and Web Vitals. Before each Pages deployment,
+`scripts/configure-cloudflare-web-analytics.mjs` reuses or creates the
+`nominee.dev` analytics site and attaches its public tag and token to the
+`nominee-dev` Pages project. Cloudflare injects the beacon into the next
+deployment, so analytics markup and tokens do not need to be copied into every
+HTML file.
+
+The `CLOUDFLARE_API_TOKEN` repository secret needs **Pages Write**. Its first
+analytics run also needs **Account Settings Read and Write** to list or create
+the Web Analytics site; subsequent runs return immediately once the Pages
+project is configured.
+
+Web Analytics measures acquisition and page performance, not product
+activation. It does not support custom events. Keep playground outcomes such as
+`blocked`, `approval_requested`, and `approved` in the agent Worker's optional
+Analytics Engine `FUNNEL` binding described in `site/agent-worker/README.md`.

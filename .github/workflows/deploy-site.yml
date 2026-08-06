@@ -6,6 +6,7 @@ on:
     paths:
       - "site/**"
       - "!site/agent-worker/**" # the Worker has its own deploy-worker.yml
+      - "scripts/configure-cloudflare-web-analytics.mjs"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 
@@ -20,6 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Configure Cloudflare Web Analytics
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        run: node scripts/configure-cloudflare-web-analytics.mjs
       - name: Publish to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         run: npx --yes wrangler@4 pages deploy site --project-name=nominee-dev --branch=main
