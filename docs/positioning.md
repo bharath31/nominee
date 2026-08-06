@@ -23,6 +23,16 @@ Consumers wiring a generic assistant to hundreds of SaaS APIs. Products like Arc
 ## Architectural Composition
 Framework → Nominee (PEP & Evidence) → FGA/OPA/IdP/Vault (Identity & Policy Decision) → Action Service
 
+Runnable recipes for the FGA/OPA seam: [`examples/opa-recipe`](../examples/opa-recipe/README.md)
+and [`examples/fga-recipe`](../examples/fga-recipe/README.md) — a nominee rule's `when`
+predicate calling a mocked OPA- or OpenFGA/WorkOS-FGA-shaped decision function, with the
+decision's `reason` landing on the receipt unchanged, and the real-server swap documented.
+
+Partner-specific kits (what nominee adds, a runnable-or-illustrative snippet, and an
+honest "not a replacement for" line): [Auth0](partner-kits/auth0.md),
+[WorkOS FGA](partner-kits/workos-fga.md), [OPA](partner-kits/opa.md),
+[Arcade / Composio](partner-kits/arcade-composio.md).
+
 ## Approved Claims
 - "Authorize the action, not the agent."
 - "Nominee turns an AI tool call into a one-time, exact-input-bound capability."

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The AI SDK can pause a tool call. It can't tell you who's allowed to make it. — nominee</title>
+    <meta name="description" content="Vercel AI SDK's toolApproval and experimental_toolApprovalSecret give you a real, cryptographically-bound human-in-the-loop pause. Here's exactly where that ends, and where per-tenant entitlement, call-time credentials, and cross-framework evidence begin." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/native-approval-vs-action-authorization/" />
+    <meta property="og:title" content="The AI SDK can pause a tool call. It can't tell you who's allowed to make it." />
+    <meta property="og:description" content="toolApproval + experimental_toolApprovalSecret give you a real, signed human-in-the-loop pause. Here's exactly where that ends, and where action authorization begins." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/native-approval-vs-action-authorization/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-07-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The AI SDK can pause a tool call. It can't tell you who's allowed to make it." />
+    <meta name="twitter:description" content="toolApproval + experimental_toolApprovalSecret give you a real, signed human-in-the-loop pause. Here's exactly where that ends, and where action authorization begins." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "The AI SDK can pause a tool call. It can't tell you who's allowed to make it.",
+      "description": "Vercel AI SDK's toolApproval and experimental_toolApprovalSecret give you a real, cryptographically-bound human-in-the-loop pause. Here's exactly where that ends, and where per-tenant entitlement, call-time credentials, and cross-framework evidence begin.",
+      "datePublished": "2026-07-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/native-approval-vs-action-authorization/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">July 14, 2026</span>
+            <span class="post-tag">Engineering</span>
+          </div>
+          <h1>The AI SDK can pause a tool call.<br>It can't tell you who's allowed to make it.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 7 min read</p>
+          <p class="post-disclosure">I work at Auth0. nominee's core is zero-dependency and provider-neutral; Auth0 is one optional strategy of many. This isn't a knock on the AI SDK — <code>toolApproval</code> is a genuinely good building block. It's about the layer it was never designed to be.</p>
+        </div>
+
+        <div class="post-body">
+
+          <p>Vercel's AI SDK shipped something worth taking seriously: <code>toolApproval</code>. Attach it to <code>generateText</code>, <code>streamText</code>, or a <code>ToolLoopAgent</code>, and a tool call can come back as <code>'user-approval'</code> instead of running — the model's turn ends, your app shows the pending call, a human decides, and you resume with a <code>tool-approval-response</code>. Pair it with <code>experimental_toolApprovalSecret</code> and the SDK HMAC-signs the approval at issuance, binding the signature to the exact tool name, call id, and input arguments — change any of them before the approval is replayed and the signature breaks. That's real engineering, not a checkbox.</p>
+
+          <p>It's also, by the SDK's own documentation, doing one specific job: deciding <em>whether a human saw this call before it ran</em>. It says so directly — per-tenant resource permissions aren't evaluated by the approval system itself; you implement that policy yourself inside the approval function. It doesn't issue a credential — approvals are state markers, not authorization tokens. And it lives inside one SDK's tool-calling loop, so the instant your agent also has an MCP server, a Mastra tool, or a bare queue worker doing the actual mutation, the approval state doesn't travel with it.</p>
+
+          <p>None of that is a flaw in the SDK. It's scope. The question is what sits underneath it.</p>
+
+          <hr class="post-rule" />
+
+          <h2>What toolApproval verifies, and what it doesn't</h2>
+
+          <p>Read the guarantee <code>experimental_toolApprovalSecret</code> actually gives you: the server signed <em>this tool, this call id, this input</em>, and rejects a replayed approval whose signature doesn't match — fail-closed. That's the right primitive for "don't let the client forge a yes." It says nothing about whether <em>this user</em> was entitled to do <em>this thing to this tenant's resource</em> in the first place. That check — the one the docs push into your own approval function via <code>runtimeContext</code> — is exactly the boundary nominee's <code>authorizer</code> hook exists for, and nominee runs it twice: once while planning the action, and again immediately before the credential resolves and the tool executes.</p>
+
+          <pre><code><span class="c">// packages/core/src/nominee.ts — executeCapability(), after the capability</span>
+<span class="c">// is atomically consumed, before token resolution:</span>
+<span class="k">if</span> (action.resource) {
+  currentAuthorization = <span class="k">await</span> <span class="fn">checkExternalAuthorization</span>({ user, action, resource, tenant, inputHash })
+  <span class="c">// a permission revoked while approval was pending fails closed here —</span>
+  <span class="c">// the tool never runs</span>
+}</code></pre>
+
+          <p>That recheck exists as a named test in the core suite — <code>packages/core/test/action.test.ts</code>, <code>"rechecks resource authorization after approval and before execution"</code> — because the gap it closes is real: an approval that takes ten minutes to resolve is ten minutes in which the resource's permissions can legitimately change.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Where the credential comes from</h2>
+
+          <p>Say the tool needs a GitHub token to actually close the issue. <code>toolApproval</code> doesn't have an opinion about that — the token is however you already had it in scope, held for however long your process holds it. nominee's decision-bound path treats the credential as part of the same authorization, not a separate concern:</p>
+
+          <pre><code><span class="k">import</span> { nomineeTool } <span class="k">from</span> <span class="s">'nominee-ai'</span>
+
+<span class="k">const</span> closeIssue = <span class="fn">nomineeTool</span>({
+  nominee,
+  user: <span class="s">'user_123'</span>,
+  connection: <span class="s">'github'</span>,       <span class="c">// fresh token, resolved at call time</span>
+  resource: (input) => <span class="s">`repo:${input.repo}`</span>,  <span class="c">// checked by nominee's authorizer</span>
+  approval: <span class="k">true</span>,
+  action: <span class="s">'close_issue'</span>,
+  inputSchema: z.<span class="fn">object</span>({ repo: z.<span class="fn">string</span>(), issue: z.<span class="fn">number</span>() }),
+  <span class="k">async</span> <span class="fn">execute</span>({ repo, issue }, { token }) {
+    <span class="c">// token is fresh — fetched only after approval clears and the</span>
+    <span class="c">// capability is consumed, never held in the model's context</span>
+  },
+})</code></pre>
+
+          <p>Underneath, <code>nomineeTool</code> routes every call through <code>nominee.run()</code> — plan the action, evaluate policy, clear approval, issue a single-use capability, resolve the credential under that capability's scope ceiling, execute exactly once, seal a receipt. The capability itself is bound to a fingerprint of the input; if the arguments change between authorization and execution, <code>executeCapability()</code> throws <code>AuthorizationInputChangedError</code> before the tool runs, receipt and all.</p>
+
+          <p>One honest caveat: today, <code>nomineeTool</code>'s <code>approval: true</code> does not hook into the SDK's native <code>toolApproval</code>/<code>tool-approval-request</code> message round-trip. It runs nominee's own approval engine in-process, inside <code>execute</code> — a webhook, Slack, or an Auth0 CIBA push resolves it, and the call blocks (or, via <code>prepareAction()</code>, surfaces a durable action id you resume out of band with <code>ActionPendingError</code> if the process can't hold the request open). Same shape as the SDK's pause-and-resume, different plumbing, and not yet the same wire protocol. If you're building fresh, that's worth knowing going in.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The part that doesn't fit inside one SDK</h2>
+
+          <p>A <code>toolApproval</code> config lives on a <code>generateText</code>/<code>streamText</code> call. It's real for exactly the tools invoked through that call. The moment your system also runs an MCP server that an internal team hits directly, or a Mastra workflow, or an OpenAI Agents SDK loop for a different surface — the approval state, the input-binding guarantee, and the evidence all reset to zero in each one, because each is a separate SDK with its own approval primitive (or none).</p>
+
+          <p>nominee's policy, capability, and receipt semantics are the same object enforced identically across all of them — <code>nominee-ai</code>, <code>nominee-eve</code>, <code>nominee-mastra</code>, <code>nominee-openai</code>, <code>nominee-mcp</code> — each with its own adapter test suite (<code>packages/{ai,eve,mastra,openai,mcp}/test/</code>) built against the same core lifecycle in <code>packages/core/test/action.test.ts</code>. A tool guarded once behaves the same whether the LLM in front of it is running inside Vercel's loop this month and an MCP client next quarter.</p>
+
+          <p>And every decision — including refusals — lands on a hash-chained receipt, not just the pending-approval turns. A denied call, an approval that timed out, a resource check that failed after a pause: all of it is on the same evidence chain as the calls that succeeded, verifiable with <code>verifyDurableReceipts()</code>. <code>toolApproval</code>'s signed request proves the approval wasn't forged in that one turn; it isn't a durable log of every decision the system made.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Where nominee begins</h2>
+
+          <div class="post-compare-wrap">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>AI SDK toolApproval</th>
+                  <th>nominee</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Pauses for a human</th>
+                  <td class="y">✓</td>
+                  <td class="y">✓</td>
+                </tr>
+                <tr>
+                  <th>Signature binds tool + call id + input</th>
+                  <td class="y">✓ (with the secret configured)</td>
+                  <td class="y">✓ (exact-input hash, always)</td>
+                </tr>
+                <tr>
+                  <th>Per-tenant resource entitlement</th>
+                  <td class="x">You write it, in the approval function</td>
+                  <td class="y">Built in — <code>authorizer</code> hook</td>
+                </tr>
+                <tr>
+                  <th>Rechecked after the pause, before execution</th>
+                  <td class="x">✗</td>
+                  <td class="y">✓</td>
+                </tr>
+                <tr>
+                  <th>Issues a scoped, fresh credential</th>
+                  <td class="x">✗</td>
+                  <td class="y">✓ — call-time, action-scoped</td>
+                </tr>
+                <tr>
+                  <th>Portable outside this one SDK's loop</th>
+                  <td class="x">✗</td>
+                  <td class="y">✓ — same lifecycle, five adapters</td>
+                </tr>
+                <tr>
+                  <th>Durable, tamper-evident log of every decision</th>
+                  <td class="x">✗</td>
+                  <td class="y">✓ — hash-chained receipts</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="post-compare-note"><code>toolApproval</code> and nominee aren't competing for the same job. One decides whether a human saw a call. The other decides whether the call may execute — for a specific user, against a specific resource, with a credential scoped to exactly that action — and keeps proof either way.</p>
+
+          <hr class="post-rule" />
+
+          <h2>When you don't need this</h2>
+
+          <p>If your entire agent lives inside one AI SDK server process, your resource checks are simple enough to write inline in a <code>toolApproval</code> function, your tools don't touch third-party credentials, and a per-turn signed approval is evidence enough for your use case — <code>toolApproval</code> plus <code>experimental_toolApprovalSecret</code> is a solid, small, well-built answer on its own. Don't add a layer you don't need.</p>
+
+          <p>Reach for nominee when the same authorization has to hold across more than one framework, when "who can do this to which tenant's resource" is a real access-control question and not a config flag, or when an auditor is eventually going to ask for the receipt, not just the last message in a chat transcript.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">Guard your AI SDK tools with one line.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npm i nominee nominee-ai
+              <span class="copy-hint">zero deps</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="https://github.com/bharath31/nominee/tree/main/packages/ai">nominee-ai on GitHub →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>

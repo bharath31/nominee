@@ -1671,7 +1671,8 @@ function fingerprintInput(input: unknown): string {
   return sha256(serialized ?? 'undefined')
 }
 
-function nearestTool(pattern: string, tools: string[]): string | undefined {
+/** Closest guarded tool name to a rule pattern, for "did you mean" suggestions. */
+export function nearestTool(pattern: string, tools: string[]): string | undefined {
   const literal = pattern.replace(/\*/g, '')
   let best: { tool: string; distance: number } | undefined
   for (const tool of tools) {
