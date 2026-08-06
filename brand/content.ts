@@ -24,6 +24,10 @@ export const brand = {
   taglineShort: 'Your agent calls tools.',
   taglineShortLine2: 'Your rules decide what runs.',
 
+  /** Familiar shorthand for the landing hero, grounded in a product developers use. */
+  analogy:
+    'Like GitHub branch protection for agent tools. Your rules let routine calls run, hold risky calls for review, and block forbidden calls before the tool runs.',
+
   /** Scope qualifier — names what nominee is. */
   subhead:
     'nominee is an open-source TypeScript library that checks every AI tool call before your code runs.',

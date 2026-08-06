@@ -67,7 +67,7 @@ When the story changes, update `content.ts`, re-render the assets, and walk this
 |---|---|---|
 | README hero + banner alt | `README.md` | tagline, banner alt, problem, layer, when-not, examples |
 | README banner image | `.github/media/banner.png` | tagline (rendered) |
-| Landing hero | `site/index.html` | tagline (short), subhead, insight |
+| Landing hero | `site/index.html` | tagline (short), analogy, insight |
 | Live playground | `site/playground/` | editable support-refund proof using the published package |
 | Landing layer + when-not | `site/index.html` (`#why`) | layer diagram, when-not |
 | Landing OG image | `site/assets/og.png` | tagline (rendered) |

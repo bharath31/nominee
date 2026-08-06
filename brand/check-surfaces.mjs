@@ -33,6 +33,16 @@ if (llmsRoot && llmsSite && sha256(llmsRoot) !== sha256(llmsSite)) {
   errors.push('llms.txt and site/llms.txt are out of sync — keep them identical')
 }
 
+const landing = read('site/index.html')
+if (
+  landing &&
+  !landing.includes(
+    'Like GitHub branch protection for agent tools.</strong> Your rules let routine',
+  )
+) {
+  errors.push('site/index.html is missing the canonical GitHub branch-protection analogy')
+}
+
 // 2. llms.txt must mention decision-bound API and all adapter packages
 const llmsRequired = [
   'nominee.run(',
