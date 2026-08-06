@@ -13,7 +13,7 @@ export const Og: React.FC = () => {
       style={{
         backgroundColor: c.paper,
         backgroundImage: `radial-gradient(800px 500px at 50% -30%, ${hexA(c.seal, 0.08)}, transparent 70%)`,
-        padding: '76px 90px',
+        padding: '58px 76px',
         justifyContent: 'space-between',
       }}
     >
@@ -37,26 +37,28 @@ export const Og: React.FC = () => {
           style={{
             fontFamily: display,
             fontWeight: 600,
-            fontSize: 62,
+            fontSize: 70,
             lineHeight: 1.04,
             letterSpacing: '-0.035em',
             color: c.ink,
             maxWidth: 1020,
           }}
         >
-          {brand.taglineFull}
+          {brand.taglineShort}
+          <br />
+          {brand.taglineShortLine2}
         </div>
         <div
           style={{
             fontFamily: sans,
-            fontSize: 26,
-            lineHeight: 1.45,
+            fontSize: 25,
+            lineHeight: 1.35,
             color: c.muted,
-            marginTop: 22,
-            maxWidth: 940,
+            marginTop: 18,
+            maxWidth: 980,
           }}
         >
-          Framework-neutral, no SaaS.
+          {brand.subhead}
         </div>
       </div>
 
@@ -64,15 +66,15 @@ export const Og: React.FC = () => {
         <span
           style={{
             fontFamily: mono,
-            fontSize: 24,
+            fontSize: 22,
             color: c.seal,
             border: `1px solid ${hexA(c.seal, 0.28)}`,
             background: hexA(c.seal, 0.06),
             borderRadius: 11,
-            padding: '10px 18px',
+            padding: '9px 16px',
           }}
         >
-          injected exfiltration → blocked before the tool runs
+          $25 runs · $200 waits for you · $2,000 is blocked
         </span>
         <span style={{ fontFamily: mono, fontSize: 20, color: c.inkSoft }}>nominee.dev</span>
       </div>

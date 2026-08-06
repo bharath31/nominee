@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live playground — nominee</title>
+    <meta
+      name="description"
+      content="Edit an AI agent's allow, ask, and deny rules, run refund calls, approve risky actions, and inspect real nominee receipts in your browser."
+    />
+    <link rel="canonical" href="https://nominee.dev/playground/" />
+    <meta name="theme-color" content="#faf9f5" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://esm.sh" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/home.css" />
+    <link rel="stylesheet" href="/playground/playground.css" />
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" />
+            <circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/docs/">Docs</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main class="playground-shell">
+      <section class="playground-intro">
+        <div>
+          <p class="eyebrow">Support agent playground</p>
+          <h1>The agent wants to refund an order. You set the limit.</h1>
+          <p>
+            Edit the allow, ask, and deny rules. Then run the agent, approve calls that wait
+            for you, and see whether the refund tool executed.
+          </p>
+        </div>
+        <div class="runtime-status loading" data-runtime role="status">
+          <span class="runtime-dot"></span>
+          <span data-runtime-copy>Loading nominee@2.2.1…</span>
+        </div>
+      </section>
+
+      <section class="playground-grid" aria-label="Editable nominee agent playground">
+        <div class="play-panel agent-panel">
+          <div class="panel-head">
+            <div>
+              <span class="panel-kicker">Agent UI</span>
+              <h2>Support agent</h2>
+            </div>
+            <span class="agent-state" data-agent-state>ready</span>
+          </div>
+
+          <div class="conversation" data-conversation aria-live="polite">
+            <div class="message customer">
+              <span>Customer</span>
+              <p>Order <strong>ord_42</strong> arrived damaged. Please issue a refund.</p>
+            </div>
+            <div class="message agent">
+              <span>Agent</span>
+              <p>I found the order. Choose the refund amount to test.</p>
+            </div>
+          </div>
+
+          <div class="agent-controls">
+            <div class="amount-control">
+              <span>Refund amount</span>
+              <div class="amount-buttons" role="group" aria-label="Refund amount">
+                <button type="button" data-play-amount="25" aria-pressed="false">$25</button>
+                <button type="button" data-play-amount="200" aria-pressed="true">$200</button>
+                <button type="button" data-play-amount="2000" aria-pressed="false">$2,000</button>
+              </div>
+            </div>
+            <button class="run-agent" type="button" data-run disabled>Run agent</button>
+          </div>
+
+          <div class="approval-prompt" data-approval hidden>
+            <div>
+              <span>Approval requested</span>
+              <strong data-approval-copy>Refund $200 for ord_42?</strong>
+              <small>The refund tool has not run.</small>
+            </div>
+            <div class="approval-actions">
+              <button type="button" data-deny>Deny</button>
+              <button type="button" data-approve>Approve once</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="play-panel code-panel">
+          <div class="panel-head">
+            <div>
+              <span class="panel-kicker">Editable policy</span>
+              <h2>policy.ts</h2>
+            </div>
+            <button class="reset-policy" type="button" data-reset>Reset</button>
+          </div>
+          <label class="sr-only" for="policy-editor">Editable nominee policy rules</label>
+          <textarea id="policy-editor" data-policy spellcheck="false" autocomplete="off"></textarea>
+          <p class="editor-note">
+            Try changing <code>500</code> to <code>100</code>, then run the $200 refund again.
+          </p>
+        </div>
+
+        <div class="play-panel receipts-panel">
+          <div class="panel-head receipts-head">
+            <div>
+              <span class="panel-kicker">Proof</span>
+              <h2>Receipt chain</h2>
+            </div>
+            <span class="receipt-verdict" data-receipt-verdict>Run the agent to create receipts.</span>
+          </div>
+          <ol class="receipt-list" data-receipts>
+            <li class="receipt-empty">No decisions yet.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="playground-proof">
+        <div>
+          <strong>This is the real package, not a UI-only simulation.</strong>
+          <p>
+            Policy evaluation, approval, tool execution, and receipt hashing happen inside
+            <code>nominee@2.2.1</code>. The worker has no credentials and cannot access the page DOM.
+          </p>
+        </div>
+        <a href="https://github.com/bharath31/nominee/tree/main/site/playground">View source →</a>
+      </section>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">Open source · framework-neutral · MIT</p>
+      <div class="foot-links">
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="/playground/playground.js" defer></script>
+  </body>
+</html>

@@ -1,12 +1,13 @@
-# support-refund-agent — tenant refunds with durable approvals
+# support-refund-agent — the production refund example
 
 A small Express app that refunds orders through `nominee-ai`'s `nomineeTool`,
 with **PostgreSQL durable stores** under `production: true`.
 
-What it shows:
+It shows how to carry the 10-second `npx nominee-cli` proof into durable
+production wiring:
 
-- **Policy by amount** — refunds ≤ $50 are allowed; larger refunds `ask` a
-  human; everything else falls back to `deny`.
+- **Policy by amount** — refunds ≤ $50 run, refunds ≤ $500 ask a human, and
+  larger refunds are denied before the refund function runs.
 - **Durable approvals** — pending actions live in `PostgresControlStore`, so an
   approval can arrive on a later request via `/approve` or `/deny`.
 - **Approver auth** — approval endpoints require a Bearer credential
@@ -33,12 +34,27 @@ export APPROVER_CREDENTIAL=change-me
 pnpm start
 ```
 
-Then open `http://localhost:3000` and post approvals:
+Then open `http://localhost:3000`, or call the refund endpoint directly:
+
+```bash
+curl -X POST http://localhost:3000/refund \
+  -H 'Content-Type: application/json' \
+  -d '{"orderId":"ord_42","amount":200}'
+```
+
+A $200 call returns `202` with an `actionId`. Approve it, then resume the exact
+input:
 
 ```bash
 curl -X POST http://localhost:3000/approve \
   -H "Authorization: Bearer change-me" \
-  -d "actionId=<pending-action-id>"
+  -H 'Content-Type: application/json' \
+  -d '{"actionId":"<pending-action-id>"}'
+
+curl -X POST http://localhost:3000/refund/resume \
+  -H "Authorization: Bearer change-me" \
+  -H 'Content-Type: application/json' \
+  -d '{"actionId":"<pending-action-id>","orderId":"ord_42","amount":200}'
 ```
 
 ### Tests
@@ -59,6 +75,8 @@ pnpm test
 
 - Server logs `Listening on 3000`.
 - Refunds ≤ $50 execute immediately through `nomineeTool` / `run()`.
-- Larger refunds pause as pending actions; `/approve` with a valid Bearer
+- Refunds from $50.01 through $500 pause as pending actions; `/approve` with a valid Bearer
   credential resolves them; a missing/wrong credential returns `401`.
-- `pnpm test` covers HTML escaping and approver credential checks.
+- Refunds over $500 throw before the refund function runs.
+- `pnpm test` covers all three policy outcomes, HTML escaping, and approver
+  credential checks.

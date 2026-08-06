@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nominee — authorize the action, not the agent</title>
+    <title>nominee — rules for AI agent tool calls</title>
     <meta
       name="description"
-      content="Authorize the action, not the agent. Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof."
+      content="Your agent calls tools. Your rules decide what runs. Open-source TypeScript allow, ask, and deny rules checked before every AI tool call."
     />
     <link rel="canonical" href="https://nominee.dev/" />
     <meta name="theme-color" content="#faf9f5" />
-    <meta property="og:title" content="nominee — authorize the action, not the agent" />
+    <meta property="og:title" content="Your agent calls tools. Your rules decide what runs." />
     <meta
       property="og:description"
-      content="Keep your agent framework and IAM. nominee enforces user-aware policy at the tool boundary, resolves call-time credentials, and keeps tamper-evident proof."
+      content="A $25 refund runs. A $200 refund waits for your approval. A $2,000 refund never reaches the tool."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nominee.dev/" />
@@ -21,10 +21,10 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="nominee — authorize the action, not the agent" />
+    <meta name="twitter:title" content="Your agent calls tools. Your rules decide what runs." />
     <meta
       name="twitter:description"
-      content="Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof."
+      content="Open-source TypeScript rules checked before every AI tool call."
     />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -45,7 +45,7 @@
         "name": "nominee",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Node.js, Cloudflare Workers, any JS runtime",
-        "description": "Authorize the action, not the agent. Enforce user-aware policy at the tool boundary, resolve credentials at execution time, and keep tamper-evident proof.",
+        "description": "Open-source TypeScript allow, ask, and deny rules checked before every AI agent tool call.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "url": "https://nominee.dev/",
         "license": "https://opensource.org/licenses/MIT",
@@ -62,15 +62,15 @@
             "name": "How do I restrict what my AI agent can do?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Declare an allow/deny/ask policy on Nominee and wrap your tools with nominee.guard() or an adapter nomineeTool(). First matching rule wins; unmatched calls follow fallback (default ask). Sub-agents can only narrow authority, never widen it."
+              "text": "Write ordered allow, ask, and deny rules, then wrap your tools with nominee.guard() or a framework adapter. Nominee checks each call before the tool function runs."
             }
           },
           {
             "@type": "Question",
-            "name": "How do I require human approval before an agent deletes anything?",
+            "name": "How do I require human approval before an agent issues a refund?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Use an ask rule for destructive actions (for example ask('email.delete') or ask('support.refund')). Risky calls pause for human approval; the decision is bound to the exact arguments and sealed into the receipt chain."
+              "text": "Add ask('refund.issue') or another ask rule. The call pauses for your approval UI, and the approval applies only to the arguments the person reviewed."
             }
           },
           {
@@ -78,7 +78,7 @@
             "name": "How do I add permissions to AI tool calls?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "nominee is the permission layer at the tool boundary: policy decides whether a call may run, approvals gate high-impact actions, and credentials resolve at execution time. Keep your agent framework and IAM; add nominee around the tools that act."
+              "text": "Keep your agent framework and tools. Put Nominee around the tools that can change data, spend money, or send messages; its rules decide which calls run."
             }
           },
           {
@@ -86,7 +86,7 @@
             "name": "Isn't this just an if-statement with extra steps?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "For one low-risk tool, an if-statement may be enough. nominee is useful when the decision must use the real user and resource, stay bound to exact arguments, narrow delegated authority, control credential delivery, and produce one evidence stream across runtimes."
+              "text": "For one low-risk tool, an if-statement may be enough. Nominee is useful when approvals outlive a request, workers share limits, permissions can change during a pause, or several frameworks need the same rules and receipts."
             }
           },
           {
@@ -94,7 +94,7 @@
             "name": "Can the model talk its way past a deny?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "No. The model never sees the policy — it only ever gets the tools you handed it via nominee.guard(). A deny rule throws PolicyDeniedError inside the wrapper, before your tool's own code runs. The call physically doesn't happen."
+              "text": "Not if the call routes through Nominee: a deny throws PolicyDeniedError before your tool code runs. Keep raw tools and credentials outside model-controlled code so the wrapper cannot be bypassed."
             }
           },
           {
@@ -166,11 +166,8 @@
         <span>nominee</span>
       </a>
       <nav aria-label="Primary">
-        <a href="#how">How it works</a>
-        <a href="#why">Why nominee</a>
-        <a href="#packages">Packages</a>
+        <a href="/playground/">Playground</a>
         <a href="/docs/">Docs</a>
-        <a href="/blog/">Blog</a>
         <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
       </nav>
     </header>
@@ -178,37 +175,52 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="hero-tag">Authorization for agent actions <span class="ref">· MIT</span></p>
-          <h1>Authorize the action.<br />Not the agent.</h1>
+          <p class="hero-tag">Your agent can change real data <span class="ref">· MIT</span></p>
+          <h1>Your agent calls tools.<br />Your rules decide what runs.</h1>
           <p class="lede">
-            Enforce user-aware policy at the tool boundary, resolve credentials at execution
-            time, and keep tamper-evident proof —
-            <strong>open-source, framework-neutral core</strong>.
+            nominee is an open-source TypeScript library that checks every AI tool call before
+            your tool code executes.
           </p>
-          <div class="hero-actions">
-            <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
-              <span class="prompt">›</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
-            </button>
-            <a class="text-link" href="#proof">Run the proof — no keys →</a>
-            <a class="text-link" href="/agent">Live demo →</a>
-            <a class="text-link" href="/docs/">Docs →</a>
+          <div class="hero-outcomes" aria-label="Support agent refund example">
+            <span><strong>$25</strong> runs</span>
+            <span><strong>$200</strong> waits for you</span>
+            <span><strong>$2,000</strong> blocked</span>
           </div>
+          <div class="hero-actions">
+            <a class="btn btn-seal" href="/playground/">Try the live support agent →</a>
+            <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
+              <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
+          <p class="hero-note">No signup or API key. The browser demo runs the published package.</p>
         </div>
 
-        <!-- the insight, above the fold: an injected exfiltration is blocked by policy before the tool runs -->
-        <div class="run" data-demo aria-label="A prompt-injected agent tries to exfiltrate email and is blocked by policy before the tool runs">
-          <div class="run-top">
-            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="run-title">prompt-injected agent · one deny rule</span>
+        <div class="policy-demo" data-policy-demo aria-label="Interactive refund policy example">
+          <div class="policy-demo-top">
+            <span>support-agent</span>
+            <code>refund.issue</code>
           </div>
-          <div class="run-body">
-            <p class="tl" data-d="120"><span class="muted">$</span> agent reads an email — <span class="str">injected instructions</span> inside</p>
-            <p class="tl" data-d="800"><span class="muted">→</span> model obeys: email.forward → attacker@evil.example</p>
-            <p class="tl bad" data-d="900"><span>✗</span> BLOCKED before the tool ran — <span class="hl">deny:email.forward</span> <span class="muted">(exfiltration)</span></p>
-            <p class="tl" data-d="900"><span class="acc">?</span> email.delete? held for a human — <span class="hl">denied</span></p>
-            <p class="tl" data-d="700"><span class="acc">§</span> every decision sealed on the <span class="hl">receipt chain</span></p>
-            <p class="tl" data-d="700"><span class="ok">✓</span> chain verifies — doctored log <span class="ok">detected</span></p>
-            <p class="tl" data-d="900"><span class="muted">→</span> the model was compromised. <span class="ok">the policy didn't care.</span></p>
+          <div class="policy-rules" aria-label="Refund rules">
+            <div class="policy-rule" data-rule="allow"><span class="rule-effect">allow</span><span>amount ≤ $50</span></div>
+            <div class="policy-rule active" data-rule="ask"><span class="rule-effect">ask</span><span>amount ≤ $500</span></div>
+            <div class="policy-rule" data-rule="deny"><span class="rule-effect">deny</span><span>everything else</span></div>
+          </div>
+          <div class="policy-request">
+            <p>The agent tries to call the refund tool</p>
+            <div class="refund-choices" role="group" aria-label="Choose a refund amount">
+              <button type="button" data-amount="25" aria-pressed="false">$25</button>
+              <button type="button" data-amount="200" aria-pressed="true">$200</button>
+              <button type="button" data-amount="2000" aria-pressed="false">$2,000</button>
+            </div>
+            <pre><code>refund.issue({ orderId: <span>'ord_42'</span>, amount: <strong data-amount-value>200</strong> })</code></pre>
+          </div>
+          <div class="policy-result ask" data-policy-result aria-live="polite">
+            <span class="result-effect" data-result-effect>ask</span>
+            <div>
+              <strong data-result-title>The agent is waiting for you</strong>
+              <p data-result-copy><code>refund.issue</code> has not run. Approve or deny it.</p>
+            </div>
+            <button type="button" class="result-approve" data-approve>Approve $200</button>
           </div>
         </div>
       </section>
@@ -235,128 +247,45 @@
         </ul>
       </section>
 
-      <section class="section" id="proof">
+      <section class="section" id="try">
         <div class="section-head">
-          <p class="eyebrow">Run it yourself — no API keys, no network</p>
-          <h2>An injected agent tries to exfiltrate your data. Policy says no.</h2>
+          <p class="eyebrow">Try it in your terminal</p>
+          <h2>See exactly which tool calls run.</h2>
           <p>
-            The tools are wrapped with <code>nominee.guard()</code>. The model obeys the
-            injection anyway — models do — and the deny rule fires
-            <strong>before the tool runs</strong>. Every attempt, allowed or refused, is
-            sealed into a signed, tamper-evident receipt chain. One command:
+            This offline demo runs a support agent against the real <code>nominee</code> package.
+            It proves which refund calls reached the tool, then verifies the receipt log.
           </p>
         </div>
-        <div class="run" aria-label="Output of examples/prompt-injection-blocked">
+        <div class="run" aria-label="Output of the nominee CLI support-agent proof">
           <div class="run-top">
             <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="run-title">$ node run.mjs</span>
+            <span class="run-title">$ npx nominee-cli</span>
           </div>
           <div class="run-body">
-            <p class="tl"><span class="muted">2.</span> the model obeys the injection and tries to exfiltrate</p>
-            <p class="tl"><span class="ok">✓</span> BLOCKED before the tool ran — <span class="hl">deny:email.forward</span> <span class="muted">(exfiltration)</span></p>
-            <p class="tl"><span class="muted">5.</span> the receipt chain (signed, tamper-evident)</p>
-            <p class="tl dim">&nbsp;&nbsp;#0 policy.decision email.read&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow&nbsp;&nbsp;5493c2c54cd5</p>
-            <p class="tl dim">&nbsp;&nbsp;#1 policy.decision email.forward&nbsp;&nbsp;deny&nbsp;&nbsp;&nbsp;ca6a069febdb</p>
-            <p class="tl dim">&nbsp;&nbsp;#2 policy.decision email.delete&nbsp;&nbsp;&nbsp;ask&nbsp;&nbsp;&nbsp;&nbsp;d2fe628a5202</p>
-            <p class="tl dim">&nbsp;&nbsp;#4 approval.resolved email.delete&nbsp;denied&nbsp;2b0ac4aa3ad8</p>
-            <p class="tl dim">&nbsp;&nbsp;#5 policy.decision email.forward&nbsp;&nbsp;allow&nbsp;&nbsp;fd17436d92c0</p>
-            <p class="tl"><span class="ok">✓</span> chain verifies: 6 receipts intact</p>
-            <p class="tl"><span class="ok">✓</span> doctored log detected — broken at #1</p>
+            <p class="tl"><span class="ok">✓</span> $25 refund&nbsp;&nbsp;&nbsp; allowed → refund.issue ran</p>
+            <p class="tl"><span class="acc">?</span> $200 refund&nbsp; agent paused → waiting for your approval</p>
+            <p class="tl"><span class="ok">✓</span> $200 refund&nbsp; approved once → refund.issue ran</p>
+            <p class="tl bad"><span>✗</span> $2,000 refund blocked before refund.issue ran</p>
+            <p class="tl bad"><span>✗</span> customer export blocked before customers.export ran</p>
+            <p class="tl"><span class="ok">✓</span> receipt chain verifies</p>
+            <p class="tl"><span class="ok">✓</span> removed denial detected in the log</p>
           </div>
         </div>
-        <p class="proof-link">
-          <code>cd examples/prompt-injection-blocked && node run.mjs</code> —
-          <a href="https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked">source ↗</a>
-        </p>
-
-        <div class="section-head" style="margin-top: 56px">
-          <p class="eyebrow">Tokens, the supporting act — settled live</p>
-          <h2>Same agent. One outlives its token.</h2>
-          <p>
-            Two agents call a protected API across a session longer than the token
-            lives (~8s here). Left grabs a token once and reuses it. Right calls
-            <code>nominee.run()</code> so the strategy resolves a fresh token at
-            execution time. The real <code>nominee</code>
-            package runs in your browser — open the Network tab and watch the refresh.
-          </p>
-          <p class="proof-link">
-            That's the expiry half. Add <strong>refresh-token rotation + concurrency</strong>
-            and naive code fails <strong>7/8</strong> while nominee gets <strong>8/8</strong> —
-            a runnable proof, no mocks that cheat:
-            <a href="https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness">examples/token-refresh-correctness</a>.
-          </p>
-        </div>
-        <div class="race" data-race>
-          <div class="race-clock"><span data-clock>starting…</span></div>
-          <div class="race-lanes">
-            <div class="lane" data-lane="captured">
-              <div class="lane-head">
-                <span class="lane-name">captured token</span>
-                <span class="lane-sub">grab once, reuse forever — what every orchestrator leaves you to do</span>
-              </div>
-              <div class="race-log" data-log></div>
-              <div class="lane-verdict" data-verdict></div>
-            </div>
-            <div class="lane hi" data-lane="nominee">
-              <div class="lane-head">
-                <span class="lane-name">nominee</span>
-                <span class="lane-sub">nominee.run() — fresh token at execution time</span>
-              </div>
-              <div class="race-log" data-log></div>
-              <div class="lane-verdict" data-verdict></div>
-            </div>
-          </div>
-          <button class="race-replay" data-replay hidden>↻ replay</button>
-        </div>
-
-        <div class="swap" style="margin-top:40px">
-          <p class="swap-head">Start on your DB → Auth0 → Nango. Your agent code never changes — only the <code>strategy</code> line does. The Passport.js of agent auth, scoped to the no-lock-in tail:</p>
-          <div class="code-card" data-tabs>
-            <div class="code-top" role="tablist" aria-label="Swap the strategy">
-              <button class="tab active" data-tab="fn" role="tab" aria-selected="true">function</button>
-              <button class="tab" data-tab="oauth2" role="tab" aria-selected="false">oauth2</button>
-              <button class="tab" data-tab="supabase" role="tab" aria-selected="false">supabase</button>
-              <button class="tab" data-tab="auth0" role="tab" aria-selected="false">auth0</button>
-              <span class="file">agent.ts</span>
-              <button class="code-copy" aria-label="Copy code">copy</button>
-            </div>
-            <pre data-panel="fn"><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
-  strategy: ({ user, connection }) => db.<span class="fn">refreshToken</span>(user, connection), <span class="c">// zero signup</span>
-})
-<span class="c">// everything below is identical, whatever the strategy ↓</span>
-<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
-            <pre data-panel="oauth2" hidden><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
-  strategy: <span class="fn">OAuth2</span>({ connections: { github: { tokenEndpoint, clientId, refreshToken } } }), <span class="c">// bring your own OAuth</span>
-})
-<span class="c">// everything below is identical, whatever the strategy ↓</span>
-<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
-            <pre data-panel="supabase" hidden><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
-  strategy: <span class="fn">Supabase</span>({ url, key, connections: { github: { tokenEndpoint, clientId } } }), <span class="c">// tokens stored in Supabase</span>
-})
-<span class="c">// everything below is identical, whatever the strategy ↓</span>
-<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
-            <pre data-panel="auth0" hidden><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
-  strategy: <span class="fn">Auth0</span>({ domain, clientId, clientSecret, subjectToken, ciba }), <span class="c">// managed Token Vault + CIBA</span>
-})
-<span class="c">// everything below is identical, whatever the strategy ↓</span>
-<span class="k">const</span> token = <span class="k">await</span> nominee.<span class="fn">token</span>({ user, connection: <span class="s">'github'</span> })</code></pre>
-          </div>
-          <p class="swap-foot">
-            The race above runs the <strong>oauth2</strong> line. Want the
-            <strong>auth0</strong> line for real? →
-            <a href="/agent">watch a live agent act on your GitHub, after your approval</a>.
-          </p>
+        <div class="proof-actions">
+          <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
+            <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
+          </button>
+          <span>No signup · no API key · proof runs offline</span>
         </div>
       </section>
 
       <section class="section how" id="how">
         <div class="section-head">
           <p class="eyebrow">How it works</p>
-          <h2>Checked as the user. Bound to the call. On the record.</h2>
+          <h2>Nominee sits between the agent and your tools.</h2>
           <p>
-            Your framework controls the run and approval UI. nominee enforces the application
-            decision underneath it: who is acting, what exact input was authorized, which
-            credential the tool receives, and what evidence remains.
+            Your agent still chooses which tool to request. Nominee checks the user, action, and
+            arguments before your tool function receives control.
           </p>
         </div>
         <div class="how-grid">
@@ -370,28 +299,28 @@
               playsinline
               preload="metadata"
             ></video>
-            <figcaption>A prompt-injected agent tries to exfiltrate the inbox; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a signed receipt of every decision.</figcaption>
+            <figcaption>A separate security proof: untrusted email tells the agent to leak the inbox. The model follows the instruction, but the denied tool never runs.</figcaption>
           </figure>
           <ul class="how-points">
             <li>
               <span class="hp-mark">¶</span>
               <div>
-                <h3>User-aware policy on every call</h3>
-                <p>Declarative allow / deny / ask rules see the user, tool, arguments, and delegation chain. Async predicates can consult your existing RBAC, FGA, OPA, or application policy.</p>
+                <h3>Write the rules in code</h3>
+                <p>Use <code>allow</code>, <code>ask</code>, and <code>deny</code> with the same user, tenant, resource, and arguments your application already knows.</p>
               </div>
             </li>
             <li>
               <span class="hp-mark">⏸</span>
               <div>
-                <h3>Exact-call enforcement</h3>
-                <p>Policy and approval bind to the user, tenant, resource, exact arguments, policy version, and a single-use execution capability. Credentials arrive only after capability consumption.</p>
+                <h3>Approve the call you saw</h3>
+                <p>A $200 approval cannot become a $2,000 refund. The approved arguments execute once, then expire.</p>
               </div>
             </li>
             <li>
               <span class="hp-mark">§</span>
               <div>
-                <h3>On the register</h3>
-                <p>Every decision, approval, capability, credential grant, and outcome is a hash-chained, optionally signed receipt. Mutated records and gaps break verification; externally anchored stream tips expose rollback.</p>
+                <h3>Keep the outcome</h3>
+                <p>Allowed, denied, approved, failed, and completed calls all leave receipts you can verify later.</p>
               </div>
             </li>
           </ul>
@@ -400,9 +329,9 @@
 
       <section class="section" id="install">
         <div class="section-head">
-          <p class="eyebrow">Install and go</p>
-          <h2>Keep your framework. Keep your IAM. Enforce them at the tool boundary.</h2>
-          <p>Start with ordered allow / deny / ask rules, then connect async predicates and token strategies to the authorization and credential systems you already run.</p>
+          <p class="eyebrow">Add it to your agent</p>
+          <h2>Wrap the tools you already have.</h2>
+          <p>Write the rules, pass your existing tool functions to <code>guard()</code>, and keep the rest of your agent code.</p>
         </div>
         <div class="code-card" data-tabs>
           <div class="code-top" role="tablist" aria-label="Setup examples">
@@ -414,23 +343,29 @@
           </div>
           <pre data-panel="default"><code><span class="k">import</span> { Nominee, allow, deny, ask } <span class="k">from</span> <span class="s">'nominee'</span>
 
-<span class="c">// native approvals control the run; nominee enforces application policy:</span>
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
-  policy: [
-    <span class="fn">allow</span>(<span class="s">'email.read'</span>),
-    <span class="fn">deny</span>(<span class="s">'email.forward'</span>, { reason: <span class="s">'exfiltration'</span> }),
-    <span class="fn">ask</span>(<span class="s">'email.delete'</span>), <span class="c">// a human decides, every time</span>
-  ],
+  policy: {
+    rules: [
+      <span class="fn">allow</span>(<span class="s">'orders.read'</span>),
+      <span class="fn">allow</span>(<span class="s">'refund.issue'</span>, { when: ({ input }) => input.amount &lt;= <span class="t">50</span> }),
+      <span class="fn">ask</span>(<span class="s">'refund.issue'</span>, { when: ({ input }) => input.amount &lt;= <span class="t">500</span> }),
+      <span class="fn">deny</span>(<span class="s">'refund.issue'</span>),
+      <span class="fn">deny</span>(<span class="s">'customers.export'</span>),
+    ],
+    fallback: <span class="s">'deny'</span>,
+  },
 })
 
-<span class="c">// one line — every call checked before the tool runs</span>
-<span class="k">const</span> tools = nominee.<span class="fn">guard</span>({ <span class="s">'email.read'</span>: readEmail, <span class="s">'email.forward'</span>: forwardEmail }, { user: <span class="s">'alice'</span> })</code></pre>
+<span class="k">const</span> tools = nominee.<span class="fn">guard</span>({
+  <span class="s">'orders.read'</span>: readOrder,
+  <span class="s">'refund.issue'</span>: issueRefund,
+  <span class="s">'customers.export'</span>: exportCustomers,
+}, { user: session.userId })</code></pre>
           <pre data-panel="ai" hidden><code><span class="k">import</span> { guardTools } <span class="k">from</span> <span class="s">'nominee-ai'</span>
 
-<span class="c">// wrap your existing AI SDK tools — the key is the name your policy matches</span>
 <span class="k">const</span> result = <span class="k">await</span> <span class="fn">generateText</span>({
   model,
-  tools: <span class="fn">guardTools</span>(nominee, { searchEmail, forwardEmail, mergePr }, {
+  tools: <span class="fn">guardTools</span>(nominee, { readOrder, issueRefund }, {
     user: session.userId,
   }),
 })
@@ -450,65 +385,66 @@
   }),
 })</code></pre>
         </div>
+        <p class="swap-foot">
+          Need durable approvals? <a href="https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent">See the Vercel AI SDK + PostgreSQL wiring →</a>
+        </p>
       </section>
 
       <section class="section approval" id="approval">
         <div class="section-head center">
-          <p class="eyebrow">Decision-bound capability</p>
-          <h2>Approve once. Execute exactly that action.</h2>
+          <p class="eyebrow">Human approval</p>
+          <h2>Approve the $200 refund. Nothing else.</h2>
           <p>
-            An <code>ask</code> rule holds deletes, payments, or outbound mail for human review. When a framework pauses your tool run, Nominee enforces the underlying boundary: binding the approval to the exact input, generating a single-use execution capability, re-checking resource permission, and fetching fresh credentials only once the capability is consumed.
+            Nominee binds the approval to the order, amount, user, and current permissions. Changing the amount or replaying the approval stops the call.
           </p>
         </div>
         <div class="approval-card" role="status">
-          <div class="ac-head"><span class="ac-dot"></span> Awaiting countersignature</div>
-          <h3>repo.delete</h3>
-          <p>Delete repository <strong>alice/old-project</strong></p>
+          <div class="ac-head"><span class="ac-dot"></span> Waiting for you</div>
+          <h3>refund.issue</h3>
+          <p>Refund <strong>$200</strong> for order <strong>ord_42</strong></p>
           <div class="ac-actions"><span class="deny">Deny</span><span class="approve">Approve</span></div>
-          <div class="ac-foot">you → triage-bot → github · on the register</div>
+          <div class="ac-foot">alice · support-agent · one use · expires in 10m</div>
         </div>
       </section>
 
       <section class="section" id="why">
         <div class="section-head">
-          <p class="eyebrow">Where nominee sits</p>
-          <h2>A thin, neutral seam — not another platform.</h2>
+          <p class="eyebrow">Why add nominee</p>
+          <h2>Your framework runs the agent. Nominee checks what may run.</h2>
           <p>
-            Your framework should run the agent and its approval UI. nominee enforces the
-            application decision underneath: whether this user may take this exact action on
-            this tenant's resource, which authority reaches execution, and what evidence remains.
+            Keep your framework, approval UI, database, and identity provider. Put the same rules
+            in front of tools wherever the agent runs.
           </p>
         </div>
         <div class="layers" role="img" aria-label="Three layers: your agent or framework on top, nominee in the middle, your tools and vault at the bottom.">
           <div class="layer">
             <span class="layer-tag">your agent / framework</span>
-            <strong>calls a tool as your user</strong>
+            <strong>asks to run a tool</strong>
             <span class="layer-eg">Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP</span>
           </div>
           <div class="layer-arrow"><span>▼</span> <code>run({ user, tenant, action, resource, input }, execute)</code></div>
           <div class="layer layer-mid">
             <span class="layer-tag">nominee</span>
-            <strong>decide · grant · prove</strong>
-            <span class="layer-eg">application authz · exact-call capabilities · atomic budgets · durable evidence</span>
+            <strong>checks your allow · ask · deny rules</strong>
+            <span class="layer-eg">user · tenant · resource · arguments · budget · approval</span>
           </div>
           <div class="layer-arrow"><span>▼</span> <code>execute(input)</code></div>
           <div class="layer">
             <span class="layer-tag">your tools &amp; vault</span>
-            <strong>what actually runs — with only the authority you granted</strong>
+            <strong>runs only the action your rules allow</strong>
             <span class="layer-eg">env · DB · OAuth2 · Auth0 Token Vault · Supabase</span>
           </div>
         </div>
         <div class="when-not">
           <p class="when-not-head">When you <em>don't</em> need nominee</p>
           <ul>
-            <li><strong>A read-only agent</strong> with no authority worth guarding.</li>
-            <li><strong>Your platform's native permission system</strong> covers you end-to-end and you're happy inside it.</li>
-            <li><strong>You want one fully-managed vendor</strong> for tools + auth + policy — use Arcade or Composio directly.</li>
+            <li><strong>Your agent only reads</strong> public or low-risk data.</li>
+            <li><strong>Your framework already enforces</strong> every permission your application needs.</li>
+            <li><strong>A few local if-statements cover your tools</strong> and you do not need durable approvals or shared limits.</li>
           </ul>
           <p class="when-not-foot">
-            Reach for nominee when the action must inherit the real user's resource
-            permissions, broad credentials must move behind the boundary, or several runtimes
-            need <strong>one enforcement and evidence contract</strong>.
+            Use nominee when an agent can change data, spend money, send messages, or act across
+            several workers and frameworks.
           </p>
         </div>
       </section>
@@ -522,7 +458,7 @@
           <div class="package-card">
             <span class="pc-tag">Zero install</span>
             <h3><a href="https://www.npmjs.com/package/nominee-cli">nominee-cli</a></h3>
-            <p>Run the blocked prompt-injection proof with no clone, no build, no API keys. Also verifies exported receipt chains and lints a policy file for unreachable rules.</p>
+            <p>Run the support-agent refund proof with no clone, build, or API key. The proof itself is offline. Also verify receipts and check policy files.</p>
             <button class="copy pkg-install" data-copy="npx nominee-cli" aria-label="Copy: npx nominee-cli">
               <span class="prompt">$</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
             </button>
@@ -611,47 +547,40 @@
           <details>
             <summary><span>How do I restrict what my AI agent can do?</span></summary>
             <p>
-              Declare an allow/deny/ask policy on <code>Nominee</code> and wrap your tools with
-              <code>nominee.guard()</code> or an adapter <code>nomineeTool()</code>. First matching
-              rule wins; unmatched calls follow <code>fallback</code> (default <code>ask</code>).
-              Sub-agents can only narrow authority, never widen it.
+              Write ordered <code>allow</code>, <code>ask</code>, and <code>deny</code> rules,
+              then wrap your tools with <code>nominee.guard()</code> or a framework adapter.
+              Nominee checks each call before the tool function runs.
             </p>
           </details>
           <details>
-            <summary><span>How do I require human approval before an agent deletes anything?</span></summary>
+            <summary><span>How do I require human approval before an agent issues a refund?</span></summary>
             <p>
-              Use an <code>ask</code> rule for destructive actions (for example
-              <code>ask('email.delete')</code> or <code>ask('support.refund')</code>). Risky calls
-              pause for human approval; the decision is bound to the exact arguments and sealed
-              into the receipt chain.
+              Add <code>ask('refund.issue')</code> or another <code>ask</code> rule. The call
+              pauses for your approval UI, and the approval applies only to the arguments the
+              person reviewed.
             </p>
           </details>
           <details>
             <summary><span>How do I add permissions to AI tool calls?</span></summary>
             <p>
-              nominee is the permission layer at the tool boundary: policy decides whether a
-              call may run, approvals gate high-impact actions, and credentials resolve at
-              execution time. Keep your agent framework and IAM; add nominee around the tools
-              that act.
+              Keep your agent framework and tools. Put Nominee around the tools that can change
+              data, spend money, or send messages; its rules decide which calls run.
             </p>
           </details>
           <details>
             <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
             <p>
-              For one low-risk tool, an if-statement may be enough. nominee is useful when
-              the decision must use the real user and resource, stay bound to exact arguments,
-              narrow delegated authority, control credential delivery, and produce one
-              evidence stream across runtimes.
+              For one low-risk tool, an if-statement may be enough. Nominee is useful when
+              approvals outlive a request, workers share limits, permissions can change during
+              a pause, or several frameworks need the same rules and receipts.
             </p>
           </details>
           <details>
             <summary><span>Can the model talk its way past a <code>deny</code>?</span></summary>
             <p>
-              No. The model never sees the policy — it only ever gets the tools you handed it
-              via <code>nominee.guard()</code>. A <code>deny</code> rule throws
-              <code>PolicyDeniedError</code> inside the wrapper, before your tool's own code
-              runs. There's no prompt for the model to argue with; the call physically doesn't
-              happen.
+              Not if the call routes through Nominee: a <code>deny</code> throws
+              <code>PolicyDeniedError</code> before your tool code runs. Keep raw tools and
+              credentials outside model-controlled code so the wrapper cannot be bypassed.
             </p>
           </details>
           <details>
@@ -712,15 +641,16 @@
 
       <section class="cta">
         <div class="cta-inner">
-          <h2>Give your agent a nominee.</h2>
-          <p>Open source, MIT, zero-dependency core. It works the moment you install it.</p>
+          <h2>Try the support agent yourself.</h2>
+          <p>Edit the rules, run a refund call, and approve or deny it in your browser.</p>
           <div class="cta-row">
-            <button class="copy" data-copy="npm i nominee" aria-label="Copy install command">
-              <span class="prompt">›</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
+            <a class="btn btn-seal" href="/playground/">Open live playground →</a>
+            <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
+              <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
             </button>
             <a class="star-cta" href="https://github.com/bharath31/nominee">★ Star on GitHub</a>
           </div>
-          <p class="cta-live"><a href="/agent">▶ Watch a real agent act on your GitHub, after your approval →</a></p>
+          <p class="cta-live"><a href="/docs/">Then protect one of your own tools →</a></p>
         </div>
       </section>
     </main>
@@ -743,7 +673,7 @@
         <a href="/docs/">Docs</a>
         <a href="/blog/">Blog</a>
         <a href="https://www.npmjs.com/package/nominee">npm</a>
-        <a href="https://github.com/bharath31/nominee/blob/main/SECURITY.md">Security</a>
+        <a href="https://github.com/bharath31/nominee/blob/main/.github/SECURITY.md">Security</a>
         <span>MIT</span>
       </div>
     </footer>
@@ -778,7 +708,6 @@
         })
       }
     </script>
-    <script src="/assets/demo.js" defer></script>
-    <script type="module" src="/assets/session.js"></script>
+    <script src="/assets/policy-demo.js" defer></script>
   </body>
 </html>

@@ -6,7 +6,7 @@
     <title>Docs — nominee</title>
     <meta
       name="description"
-      content="nominee docs: the authorization layer for AI agents — allow/deny/ask policy on every tool call, human approvals, hash-chained receipts, token freshness done right (rotation + single-flight), strategies, framework adapters, and the security model."
+      content="Your agent calls tools. Your rules decide what runs. Add open-source TypeScript allow, ask, and deny checks before every AI tool call."
     />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
@@ -82,62 +82,58 @@
       <article class="docs-main">
         <h1>Documentation</h1>
         <p class="lede">
-          <strong>The authorization layer for AI agents.</strong> Your agent logs in as
-          you — nominee decides what it can <em>do</em> as you. Bind application
-          authorization, exact-call capability, credential delivery, and durable evidence —
-          dependency-free core, framework-neutral, self-hostable.
+          <strong>Your agent calls tools. Your rules decide what runs.</strong> nominee is
+          an open-source TypeScript library that checks every AI tool call before your tool
+          code executes.
         </p>
 
         <section id="what" class="doc-section">
           <h2>What nominee is</h2>
           <p>
-            nominee sits between the model and your tools. The primary <code>run()</code>
-            path checks application resource authorization and declarative
-            <code>allow</code> / <code>deny</code> / <code>ask</code> policy, reserves
-            budgets, pauses when needed, consumes one exact-input capability, resolves a
-            credential, runs the side effect once, and records its outcome.
+            nominee sits between the agent and your tools. Each call gets one outcome from
+            your ordered rules: <code>allow</code> runs it, <code>ask</code> pauses for a
+            person, and <code>deny</code> stops it before the tool function runs. Every
+            outcome leaves a receipt.
           </p>
 
           <div class="layer-diagram" role="img" aria-label="Three layers: your agent or framework on top, nominee in the middle, your vault or store at the bottom.">
             <div class="layer">
               <span class="layer-tag">your agent / framework</span>
-              <strong>calls a tool as your user</strong>
+              <strong>asks to run a tool</strong>
               <span class="layer-eg">Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP</span>
             </div>
             <div class="layer-arrow">▼&nbsp;&nbsp;<code>run({ user, tenant, tool, resource, input }, execute)</code></div>
             <div class="layer layer-mid">
               <span class="layer-tag">nominee</span>
-              <strong>decide · grant · prove</strong>
-              <span class="layer-eg">application authz · single-use capability · atomic budgets · durable evidence</span>
+              <strong>checks your allow · ask · deny rules</strong>
+              <span class="layer-eg">user · tenant · resource · arguments · budget · approval</span>
             </div>
             <div class="layer-arrow">▼&nbsp;&nbsp;<code>execute(input)</code></div>
             <div class="layer">
               <span class="layer-tag">your tools &amp; vault</span>
-              <strong>what actually runs — with only the authority you granted</strong>
+              <strong>runs only the action your rules allow</strong>
               <span class="layer-eg">env · DB · OAuth2 · Auth0 Token Vault · Supabase</span>
             </div>
           </div>
 
           <p>
-            The core is dependency-free. Think of it as <em>the Passport.js of agent
-            authorization</em> — scoped to the multi-framework, no-lock-in, standalone tail,
-            where you want this behaviour without buying into one vendor's runtime.
+            The core is dependency-free and framework-neutral. Keep your agent framework,
+            approval UI, identity provider, and tools; add nominee around the actions that
+            need a permission decision.
           </p>
         </section>
 
         <section id="when-not" class="doc-section">
           <h2>When you don't need nominee</h2>
-          <p>nominee is a focused utility, not a platform. Skip it when something you already have does the job:</p>
+          <p>Skip nominee when something you already have does the job:</p>
           <ul class="when-not">
-            <li><strong>A read-only agent with no authority worth guarding.</strong> Nothing to deny; nothing to receipt.</li>
-            <li><strong>Your platform's native permission system covers you end-to-end</strong> and you're happy inside it.</li>
-            <li><strong>You want one fully-managed vendor for tools + auth + policy.</strong> Use Arcade or Composio directly.</li>
+            <li><strong>Your agent only reads</strong> public or low-risk data.</li>
+            <li><strong>Your framework already enforces</strong> every permission your application needs.</li>
+            <li><strong>A few local if-statements cover your tools</strong> and you do not need durable approvals or shared limits.</li>
           </ul>
           <p>
-            Reach for nominee when you need application authorization, constrained
-            credential delivery, and evidence that are
-            <strong>framework-neutral and self-hostable</strong> — the same enforcement
-            contract wherever your agent runs.
+            Reach for nominee when an agent can change data, spend money, send messages, or
+            act across several workers and frameworks.
           </p>
         </section>
 
@@ -163,10 +159,11 @@
 const nominee = new Nominee({
   policy: {
     rules: [
-      allow('email.read'),
-      allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
-      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
-      ask('email.delete'),
+      allow('orders.read'),
+      allow('refund.issue', { when: ({ input }) => input.amount <= 50 }),
+      ask('refund.issue', { when: ({ input }) => input.amount <= 500 }),
+      deny('refund.issue'),
+      deny('customers.export'),
     ],
     fallback: 'deny',
   },
@@ -174,9 +171,20 @@ const nominee = new Nominee({
 })
 
 // One line. Works with plain functions or any framework's { execute } tools.
-const tools = nominee.guard({ 'email.read': readEmail, 'email.forward': forwardEmail }, {
-  user: 'alice',
-})</code></pre>
+const tools = nominee.guard(
+  {
+    'orders.read': readOrder,
+    'refund.issue': issueRefund,
+    'customers.export': exportCustomers,
+  },
+  { user: 'alice' },
+)</code></pre>
+          <p>
+            See the durable production wiring in
+            <a href="https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent"><code>examples/support-refund-agent</code></a>:
+            Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores
+            under <code>production: true</code>.
+          </p>
           <p>
             <strong>Denied calls throw <code>PolicyDeniedError</code> before the tool runs.</strong>
             An <code>ask</code> can resolve inline or surface <code>ActionPendingError</code>

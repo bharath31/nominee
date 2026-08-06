@@ -1,7 +1,5 @@
-// Entry point for `npx nominee-cli`. Hand-rolled argv dispatch — three
+// Command dispatcher for `npx nominee-cli`. Hand-rolled argv dispatch — three
 // subcommands don't need a CLI framework dependency.
-import { realpathSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
 import { runCheck } from './check.js'
 import { runProof } from './proof.js'
 import { runVerify } from './verify.js'
@@ -9,7 +7,7 @@ import { runVerify } from './verify.js'
 const HELP = `nominee — the authorization layer for AI agents
 
 Usage:
-  nominee                    run the blocked prompt-injection proof (offline, no keys)
+  nominee                    run the support-agent policy proof (offline, no keys)
   nominee verify <file>      verify a JSON receipt export's hash chain
   nominee check <policy>     report which rules in a policy file are reachable
 
@@ -65,19 +63,4 @@ export async function main(argv: string[]): Promise<number> {
       console.log(HELP)
       return 1
   }
-}
-
-// `npm`/`npx` install this file's bin entry as a symlink (e.g.
-// node_modules/.bin/nominee -> ../nominee-cli/dist/cli.js). process.argv[1]
-// reflects that symlink path, while import.meta.url reflects the resolved
-// real path — comparing them without realpath-resolving argv[1] first means
-// this guard is always false for every real `npx nominee-cli` invocation,
-// silently skipping main() with exit 0. Resolve the symlink before comparing.
-const isDirectRun =
-  !!process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
-
-if (isDirectRun) {
-  main(process.argv.slice(2)).then((code) => {
-    process.exitCode = code
-  })
 }

@@ -15,7 +15,7 @@ describe('runProof', () => {
     vi.restoreAllMocks()
   })
 
-  it('blocks the injected exfiltration, lets legitimate work through, and exits 0', async () => {
+  it('allows, asks, and denies the intended support-agent actions', async () => {
     const start = Date.now()
     const result = await runProof()
     const elapsed = Date.now() - start
@@ -24,20 +24,22 @@ describe('runProof', () => {
     expect(elapsed).toBeLessThan(10_000)
 
     const output = logs.join('\n')
-    // The exfiltration attempt must never succeed.
-    expect(output).not.toContain('EXFILTRATED')
-    expect(output).toContain('BLOCKED before the tool ran')
-    // Legitimate, in-org forwarding still runs.
-    expect(output).toContain('forwarded 1 emails to boss@acme.com')
+    expect(output).toContain('allowed → refunded $25 for ord_42')
+    expect(output).toContain('waiting for your approval of the $200 refund')
+    expect(output).toContain('approved once → refunded $200 for ord_42')
+    expect(output).toContain('blocked before refund.issue ran')
+    expect(output).toContain('blocked before customers.export ran')
+    expect(output).not.toContain('$2,000 REFUND RAN')
+    expect(output).not.toContain('CUSTOMER EXPORT RAN')
     // Receipt chain verifies, and doctoring it is caught.
-    expect(output).toContain('receipts intact')
-    expect(output).toContain('detected — broken at #')
+    expect(output).toContain('receipts verify')
+    expect(output).toContain('detected at receipt #')
     // Ends with the install CTA.
     expect(output).toContain('Install: npm i nominee')
   })
 
   it('never touches the network or requires environment variables', async () => {
-    // No env vars are read by proof.ts, and the scripted "model" never
+    // No env vars are read by proof.ts, and the scripted agent never
     // performs I/O beyond stdout — this just documents the invariant the
     // acceptance criteria call out explicitly.
     const before = { ...process.env }
