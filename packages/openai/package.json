@@ -1,6 +1,6 @@
 {
   "name": "nominee-openai",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Decision-bound tools for the OpenAI Agents SDK",
   "type": "module",
   "main": "./dist/index.cjs",
