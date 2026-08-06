@@ -1,4 +1,4 @@
-// Entry point for `npx nominee`. Hand-rolled argv dispatch — three
+// Entry point for `npx nominee-cli`. Hand-rolled argv dispatch — three
 // subcommands don't need a CLI framework dependency.
 import { pathToFileURL } from 'node:url'
 import { runCheck } from './check.js'

@@ -4,10 +4,14 @@ Zero-install CLI for [nominee](https://nominee.dev) — the authorization layer
 for AI agent tool calls. No clone, no build, no API keys:
 
 ```
-npx nominee
+npx nominee-cli
 ```
 
-## `nominee` (no args)
+(the package is `nominee-cli`; it installs a `nominee` binary — `npx nominee`
+alone resolves the unrelated core `nominee` library instead, which has no
+CLI, so always invoke it as `npx nominee-cli`.)
+
+## `nominee-cli` (no args)
 
 Runs the blocked prompt-injection proof in-process — the same scenario as
 [`examples/prompt-injection-blocked/run.mjs`](../../examples/prompt-injection-blocked/run.mjs),
@@ -25,7 +29,7 @@ the log is detectable.
   of those ever regress.
 
 ```
-$ npx nominee
+$ npx nominee-cli
 
 1. Agent reads the inbox (allowed by policy)
 
@@ -78,12 +82,12 @@ writeFileSync('receipts.json', JSON.stringify(nominee.receipts))
 ```
 
 ```
-$ npx nominee verify receipts.json
+$ npx nominee-cli verify receipts.json
 ✓ 7 receipts intact
 ```
 
 ```
-$ npx nominee verify tampered.json
+$ npx nominee-cli verify tampered.json
 ✗ broken at #3 (content does not match hash)
 ```
 
@@ -119,7 +123,7 @@ your real tools' argument shapes may still report as reachable/unreachable
 based on its tool name alone.
 
 ```
-$ npx nominee check policy.mjs
+$ npx nominee-cli check policy.mjs
 Checking 4 rule(s) against 10 sample call(s)
 
   ✓ allow:email.read matched at least one sample call
