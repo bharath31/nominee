@@ -64,6 +64,15 @@ pnpm dev           # the agent (interactive chat)
 See [`github-agent/README.md`](./github-agent/README.md) for the full walkthrough,
 including the `pnpm setup:auth0` Token Vault + CIBA path.
 
+## [`opa-recipe`](./opa-recipe) / [`fga-recipe`](./fga-recipe)
+
+Nominee is the enforcement point (PEP), not the decision point (PDP) — these
+recipes show the seam. A nominee rule's `when` predicate calls a mocked
+OPA-shaped (`opa-recipe`) or OpenFGA/WorkOS-FGA-shaped (`fga-recipe`)
+decision function; the decision's `reason` lands on the resulting receipt
+unchanged. No server, no network — each README documents the one-line swap
+to a real OPA instance or FGA store.
+
 ## See also
 
 - [`packages/auth0`](../packages/auth0) — the `auth0()` strategy (Token Vault +
