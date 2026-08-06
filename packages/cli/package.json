@@ -1,6 +1,6 @@
 {
   "name": "nominee-cli",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Zero-install CLI for nominee — run the blocked-injection proof, verify a receipt chain, or check a policy file with npx nominee-cli",
   "type": "module",
   "main": "./dist/cli.js",
