@@ -1,43 +1,48 @@
 # Model Context Protocol (MCP) Integration
 
-The `nominee-mcp` package lets you build MCP servers that enforce Nominee authorization policies on every tool call.
+The `nominee-mcp` package registers decision-bound tools on the current MCP TypeScript SDK's
+high-level `McpServer`.
 
 ## Installation
 
 ```bash
-npm install nominee nominee-mcp @modelcontextprotocol/sdk
+npm install nominee nominee-mcp @modelcontextprotocol/sdk zod
 ```
 
 ## Usage
 
-Use `registerNomineeTool` to add an MCP tool protected by Nominee.
-
 ```typescript
-import { Nominee, allow, ask } from 'nominee';
-import { registerNomineeTool } from 'nominee-mcp';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { Nominee, allow, ask } from 'nominee'
+import { registerNomineeTool } from 'nominee-mcp'
+import { z } from 'zod'
 
 const nominee = new Nominee({
   policy: {
     rules: [allow('github.issue.read'), ask('github.issue.create')],
-    fallback: 'deny'
-  }
-});
+    fallback: 'deny',
+  },
+})
 
-const server = new Server({ name: 'github-server', version: '1.0.0' }, { capabilities: { tools: {} } });
+const server = new McpServer({ name: 'github-server', version: '1.0.0' })
 
-registerNomineeTool(server, nominee, {
+registerNomineeTool(server, {
   name: 'read_issue',
   description: 'Read a GitHub issue',
-  action: 'github.issue.read', // Maps to policy
-  schema: z.object({ repo: z.string(), issue_number: z.number() }),
-  execute: async (input, { user }) => {
-    return { content: [{ type: 'text', text: `Issue ${input.issue_number}` }] };
-  }
-});
+  action: 'github.issue.read',
+  inputSchema: z.object({ repo: z.string(), issueNumber: z.number().int().positive() }),
+  nominee,
+  user: 'user-123',
+  execute: async ({ repo, issueNumber }) => ({
+    content: [{ type: 'text', text: `${repo} issue ${issueNumber}` }],
+  }),
+})
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+await server.connect(new StdioServerTransport())
 ```
+
+`registerNomineeTool` accepts the server and one configuration object. The configuration uses
+`inputSchema` (not the old `schema` option) and requires both `nominee` and `user`. Set
+`connection` to fetch a fresh token at execution time, or use resolver functions for `user`,
+`resource`, `tenant`, and `connection` when they depend on the MCP request.
