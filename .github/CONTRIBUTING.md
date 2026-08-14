@@ -4,6 +4,8 @@ Thank you for your interest in contributing to Nominee! Nominee's goal is to be 
 
 The core engine (`nominee`) is entirely dependency-free. We welcome pull requests for new adapters and strategies.
 
+How-to questions go to [GitHub Discussions](https://github.com/bharath31/nominee/discussions). See [SUPPORT.md](../SUPPORT.md). The issue tracker is for defects and labelled `good first issue` work.
+
 ## Adding a new Strategy
 
 A strategy is a package that provides tokens and handles human approvals. Currently, we have the built-in `tokens` strategy and `nominee-auth0`. We'd love community strategies for Clerk, Supabase, WorkOS, and others.

@@ -1,0 +1,96 @@
+{
+  "discussions": [
+    {
+      "category": "Show and tell",
+      "title": "What are you guarding?",
+      "body": "nominee is useful when an agent can change real data — refunds, merges, forwards, deletes — and you want a rule to fire **before** the tool function runs.\n\nIf you are evaluating the library, this thread is the place to say what tool you need to gate.\n\nUseful shape:\n\n- Framework (AI SDK, Eve, OpenAI Agents, Mastra, MCP, something else)\n- One tool name you would deny or `ask` on\n- Whether a human has to approve, or a static deny is enough\n\nIf your agent is read-only, you probably do not need nominee — say so; that is a valid outcome.\n\nRunnable proof with no signup: `npx nominee-cli`\nDocs: https://nominee.dev/docs/"
+    },
+    {
+      "category": "Ideas",
+      "title": "Which framework should we adapt next?",
+      "body": "Official adapters today: `nominee-ai`, `nominee-eve`, `nominee-openai`, `nominee-mastra`, `nominee-mcp`. Each routes through `nominee.run()` so authorization is bound to the exact arguments.\n\nThis thread is for **the next adapter**, not a rewrite of the core.\n\nPlease include:\n\n- Framework name and the tool primitive it already has (`tool()`, `createTool`, …)\n- Whether it has a native approval/resume API we should record as `frameworkApproval` instead of asking twice\n- A link to a minimal official example\n\nLangChain JS is a frequent request; there is no official adapter yet. If that is what you need, say so here rather than opening an issue until we have a concrete `run()` mapping.\n\nCore stays dependency-free — adapters live in their own packages."
+    },
+    {
+      "category": "Q&A",
+      "title": "How do I bind an approval to the exact tool arguments?",
+      "body": "If you `authorize()` in one place and execute later with a mutated `amount` or `to`, you have an unbound decision.\n\n**Answer:** use `nominee.run()` (or `prepareAction` → `executeCapability`). The capability is bound to a canonical hash of the input. Changing arguments after approval throws `AuthorizationInputChangedError` instead of executing.\n\n```ts\nawait nominee.run(\n  { tool: 'refund.issue', input: { orderId, amount }, user },\n  async ({ input, token }) => issueRefund(input, token),\n)\n```\n\n`production: true` disables unbound `authorize()` / `token()` on purpose.\n\nDeeper: https://nominee.dev/docs/ and `packages/core/src/action.ts`.\n\nIf that still does not match your runtime, reply with the adapter and where the tool `execute` lives."
+    },
+    {
+      "category": "Show and tell",
+      "title": "Share a policy that surprised you",
+      "body": "First matching rule wins; unmatched calls fall back to `ask` unless you set `fallback: 'deny'`. Sub-agent policies can only narrow.\n\nPaste a redacted policy that did something you did not expect — a `when` predicate that never fired, a `max` budget that escalated, a deny that was shadowed by an earlier `allow('*')`.\n\n`npx nominee-cli check policy.mjs` only checks tool-name reachability against a built-in sample list; it does not execute `when`. That is a known limitation (and a good first issue).\n\nKeep customer data and tokens out of the paste."
+    }
+  ],
+  "issues": [
+    {
+      "title": "Add and/or/not helpers for policy `when` predicates",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\n`when` is a raw function. Combining two input checks means nested `&&` / `||` at every call site. Small, composable helpers would make policies readable without changing evaluation order.\n\n## Pointer\n\n- Implement in [`packages/core/src/policy.ts`](packages/core/src/policy.ts)\n- Export from [`packages/core/src/index.ts`](packages/core/src/index.ts)\n- Tests in [`packages/core/test/policy.test.ts`](packages/core/test/policy.test.ts)\n\nCore must stay dependency-free.\n\n## Acceptance criterion\n\n```ts\nallow('email.forward', {\n  when: and(\n    ({ input }) => String(input?.to ?? '').endsWith('@acme.com'),\n    not(({ input }) => Boolean(input?.bcc)),\n  ),\n})\n```\n\n- `and` / `or` / `not` accept the same `when` signature (sync or async) and return a `when` function.\n- Tests cover: all true, one false, async predicates, and that a non-matching `when` still falls through to the next rule.\n- `pnpm --filter nominee test` passes.\n\nDo not change first-match-wins semantics."
+    },
+    {
+      "title": "Add input-amount / allowlist predicate helpers + tests",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\nThe refund proof repeats `({ input }) => (input?.amount ?? 0) <= 50`. A tiny helper for numeric ceilings and string allowlists would make first policies copy-pasteable without teaching the whole `ToolCall` type.\n\n## Pointer\n\n- [`packages/core/src/policy.ts`](packages/core/src/policy.ts)\n- Tests: [`packages/core/test/policy.test.ts`](packages/core/test/policy.test.ts)\n- Keep examples in comments aligned with [`packages/cli/src/proof.ts`](packages/cli/src/proof.ts)\n\n## Acceptance criterion\n\nHelpers along the lines of:\n\n- `lte('amount', 50)` — reads a numeric field off `input`, missing/NaN is false\n- `inList('to', ['finance@acme.com'])` — string field must be in the list\n\nEach helper is a `when` predicate. Tests include missing field, wrong type, and a full `PolicyEngine.evaluate` that allows then denies. No new runtime dependencies."
+    },
+    {
+      "title": "`nominee check`: report rules shadowed by an earlier matching pattern",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\nFirst matching rule wins. `allow('*')` then `deny('customers.export')` means the deny never runs. `nominee check` today only reports tool names that miss the built-in sample list ([`packages/cli/src/check.ts`](packages/cli/src/check.ts)) — it does not warn about shadowing.\n\nThe existing unreachable-name fixture is [`packages/cli/test/fixtures/unreachable-policy.mjs`](packages/cli/test/fixtures/unreachable-policy.mjs).\n\n## Pointer\n\n- Logic: [`packages/cli/src/check.ts`](packages/cli/src/check.ts)\n- Tests: [`packages/cli/test/check.test.ts`](packages/cli/test/check.test.ts)\n- Add a fixture e.g. `packages/cli/test/fixtures/shadowed-rule.mjs`\n\n## Acceptance criterion\n\nGiven:\n\n```js\nexport default {\n  rules: [\n    { effect: 'allow', tools: ['*'] },\n    { effect: 'deny', tools: ['customers.export'] },\n  ],\n  fallback: 'deny',\n}\n```\n\n`runCheck` exits `1` and prints that `deny:customers.export` is shadowed by an earlier rule (name the earlier `allow:*`). A policy where `deny('customers.export')` comes **first** still exits `0`.\n\nDo not execute `when` predicates (same limitation as today)."
+    },
+    {
+      "title": "`nominee check`: fixture for wildcard-only vs typo that has no Levenshtein hint",
+      "labels": ["good first issue", "help wanted", "testing"],
+      "body": "## Why\n\n`nearestSampleTool` in [`packages/cli/src/check.ts`](packages/cli/src/check.ts) suppresses suggestions when edit distance is large. There is a test for `emial.send` → `email.read`, but none for a pattern that should **not** suggest, and none for a legitimate wildcard like `refund.*` that matches nothing in `SAMPLE_TOOLS`.\n\n## Pointer\n\n- [`packages/cli/src/check.ts`](packages/cli/src/check.ts) (`SAMPLE_TOOLS`, `nearestSampleTool`)\n- [`packages/cli/test/check.test.ts`](packages/cli/test/check.test.ts)\n- New fixtures under `packages/cli/test/fixtures/`\n\n## Acceptance criterion\n\n1. A fixture whose only rule is `allow('refund.issue')` exits `1`, reports never-matched, and does **not** print `did you mean` (distance above threshold).\n2. Optionally: if you add `refund.issue` to `SAMPLE_TOOLS` instead, document the list in [`packages/cli/README.md`](packages/cli/README.md) and make the existing misspelling test still pass.\n\nPick one approach in the PR description. Prefer (1) if you do not want to expand the sample set."
+    },
+    {
+      "title": "`nominee check --tools`: extra sample tool names for reachability",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\n`SAMPLE_TOOLS` in [`packages/cli/src/check.ts`](packages/cli/src/check.ts) is a fixed list (`email.read`, `github.merge_pr`, …). A real policy named `refund.issue` is reported unreachable even when it is the whole product.\n\n## Pointer\n\n- CLI entry: [`packages/cli/src/index.ts`](packages/cli/src/index.ts) (or wherever `check` is dispatched)\n- [`packages/cli/src/check.ts`](packages/cli/src/check.ts)\n- Tests: [`packages/cli/test/check.test.ts`](packages/cli/test/check.test.ts)\n- Docs: [`packages/cli/README.md`](packages/cli/README.md)\n\n## Acceptance criterion\n\n`runCheck(file, { tools: ['refund.issue'] })` (or argv `--tools=refund.issue`) treats `refund.issue` as a sample call. A policy of `allow('refund.issue')` then exits `0`. Built-in samples remain unless the caller replaces them — document which.\n\nNo network. Core stays untouched."
+    },
+    {
+      "title": "Add `formatReceiptsCsv` (or `toCSV`) next to `toJSONL` / `formatReceipts`",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\nOperators paste receipt chains into spreadsheets. Today we have compact text (`formatReceipts`) and JSONL (`ReceiptLedger.toJSONL`) in [`packages/core/src/receipt.ts`](packages/core/src/receipt.ts). CSV of the non-sensitive columns would make an audit export without inventing a new store.\n\n## Pointer\n\n- [`packages/core/src/receipt.ts`](packages/core/src/receipt.ts)\n- Export from [`packages/core/src/index.ts`](packages/core/src/index.ts)\n- Tests: [`packages/core/test/receipt.test.ts`](packages/core/test/receipt.test.ts)\n\n## Acceptance criterion\n\nExport a function that writes CSV with at least: `seq,at,type,user,tool,effect,decision,rule,reason,inputHash,prev,hash`.\n\n- Escape commas/quotes in `reason`.\n- Do **not** include raw `input` or tokens even if `inputMode` was `'raw'`.\n- Round-trip test: parse the CSV, `verifyReceipts` still works on the original array (CSV is a projection, not a replacement for JSON).\n- One-line mention in [`packages/core/README.md`](packages/core/README.md).\n\nCall the chain **tamper-evident**, never tamper-proof."
+    },
+    {
+      "title": "Optional `reason` (and `rule`) in `formatReceipts` compact output",
+      "labels": ["good first issue", "help wanted", "enhancement"],
+      "body": "## Why\n\n[`formatReceipts`](packages/core/src/receipt.ts) prints `#seq type tool outcome hash[:12]`. Denials without `reason` are hard to skim in a terminal. The CLI proof already cares about human-readable receipts.\n\n## Pointer\n\n- [`packages/core/src/receipt.ts`](packages/core/src/receipt.ts) (`formatReceipts`)\n- [`packages/core/test/receipt.test.ts`](packages/core/test/receipt.test.ts)\n\n## Acceptance criterion\n\nEither:\n\n- append `rule` and `reason` when present, truncated to a sane width, or\n- `formatReceipts(receipts, { verbose: true })` for the extra columns.\n\nExisting default snapshot/string assertions in `receipt.test.ts` must stay stable **or** be updated in the same PR. Prefer an opt-in flag if the current string is treated as a contract."
+    },
+    {
+      "title": "Docs: AI SDK integration still uses `parameters` instead of `inputSchema`",
+      "labels": ["good first issue", "help wanted", "documentation"],
+      "body": "## Why\n\n[`docs/integrations/ai-sdk.md`](docs/integrations/ai-sdk.md) shows `tool({ parameters: z.object(...) })`. Current Vercel AI SDK tools use `inputSchema`. Copy-pasting the guide fails typecheck on `ai@5+` / `ai@7`.\n\nSame smell in [`docs/integrations/openai-agents.md`](docs/integrations/openai-agents.md) if that SDK has moved — check before changing it.\n\n## Pointer\n\n- [`docs/integrations/ai-sdk.md`](docs/integrations/ai-sdk.md)\n- Cross-check [`packages/ai/README.md`](packages/ai/README.md) and [`packages/ai/test`](packages/ai/test) for the live shape\n\n## Acceptance criterion\n\n- The AI SDK snippet type-checks against the peer range declared in `packages/ai/package.json`.\n- `guardTools` / `nominee.run()` wording stays; do not revive `authorize()` as the execution path (see `brand/check-surfaces.mjs`).\n- Do not edit `site/index.html`, `llms.txt`, `site/llms.txt`, or `brand/content.ts`."
+    },
+    {
+      "title": "Docs: list `nominee check` sample tools and the `when`-not-executed limitation",
+      "labels": ["good first issue", "help wanted", "documentation"],
+      "body": "## Why\n\n[`packages/cli/README.md`](packages/cli/README.md) already says `when` is not executed, but the **exact** `SAMPLE_TOOLS` list lives only in [`packages/cli/src/check.ts`](packages/cli/src/check.ts). Contributors invent `refund.issue` policies, run `check`, and think the CLI is broken.\n\n## Pointer\n\n- [`packages/cli/README.md`](packages/cli/README.md)\n- Optionally one sentence in [`docs/production.md`](docs/production.md) **only if** you already have that file open — do not expand scope\n\n## Acceptance criterion\n\nREADME contains the full current `SAMPLE_TOOLS` list (keep it in sync with `check.ts` — if you change the list, change both). Explicit note: a well-formed `allow('refund.issue')` is reported unreachable against the built-in samples. Point to Discussions for questions."
+    },
+    {
+      "title": "Example: tiny Express/standalone `run()` snippet in `docs/integrations/standalone.md`",
+      "labels": ["good first issue", "help wanted", "documentation", "examples"],
+      "body": "## Why\n\n[`docs/integrations/standalone.md`](docs/integrations/standalone.md) is the non-framework path. Newcomers wrapping a plain function (not an SDK `tool()`) still need to see `nominee.run({ tool, input, user }, execute)` rather than `authorize()` then a bare call.\n\n## Pointer\n\n- [`docs/integrations/standalone.md`](docs/integrations/standalone.md)\n- Mirror the contract in [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) (decision-bound execution)\n\n## Acceptance criterion\n\nOne copy-pasteable TypeScript snippet: default-deny policy, `ask` on a write tool, `run()` around a fake `issueRefund`. Mention that `production: true` needs durable stores (`nominee-postgres`). No new package. Do not touch guarded brand surfaces (`site/index.html`, `llms.txt`, `brand/content.ts`)."
+    },
+    {
+      "title": "Track remaining adapter compatibility work from #48",
+      "labels": ["help wanted", "integrations"],
+      "body": "## Why\n\n#48 was closed in the August 2026 triage. [`docs/adapter-compatibility.md`](docs/adapter-compatibility.md) still flags real follow-ups: CJS `nominee-ai` vs `ai@7` on older Node, open-ended peer floors on mastra/mcp/openai, and adapters whose unit tests still call `execute` with `as never` fakes.\n\nThis issue is the tracker so the repo does not look finished.\n\n## Pointer\n\n- [`docs/adapter-compatibility.md`](docs/adapter-compatibility.md)\n- Compat tests: `packages/ai/test/ai.compat.test.ts`, `packages/eve/test/eve.compat.test.ts`\n\n## Acceptance criterion (split PRs are fine)\n\nPick **one**:\n\n1. Document the `ai@7` CJS trap in `packages/ai/README.md` with the Node version floor, or stop shipping a CJS entry that `require('ai')`s an ESM-only peer.\n2. Add an upper bound **or** a CI job that fails when a peer major is published and the compat test cannot be imported.\n\nNot a good-first-issue if you take (1) as a packaging change — say so in the PR."
+    },
+    {
+      "title": "Track remaining security-review discipline from #51",
+      "labels": ["help wanted", "security"],
+      "body": "## Why\n\n#51 was closed; [`docs/security-review-checklist.md`](docs/security-review-checklist.md) exists. Remaining work from triage: attacker models, non-goals, and claim-to-test traceability so we never ship \"stops prompt injection\" / \"tamper-proof\" / \"compliance-ready\".\n\n## Pointer\n\n- [`docs/security-review-checklist.md`](docs/security-review-checklist.md)\n- [`docs/positioning.md`](docs/positioning.md) (prohibited claims)\n- [`security-contract/contract.test.ts`](security-contract/contract.test.ts)\n\n## Acceptance criterion\n\nAdd a short \"Non-goals / prohibited claims\" section to the checklist that maps each prohibited phrase to the test or doc that forbids it. Optional: one CI grep in `brand/check-surfaces.mjs` **or** a tiny script that fails if `site/blog` or READMEs contain `tamper-proof` / `compliance-ready` / `stops prompt injection`.\n\nIf you add a grep, keep `site/blog/` included — that is where overclaims hurt most."
+    },
+    {
+      "title": "Track remaining comparison-proof work from #53",
+      "labels": ["help wanted", "documentation", "positioning"],
+      "body": "## Why\n\n#53 asked for developer-facing comparison articles. Several essays already live under `site/blog/` (`native-approval-vs-action-authorization`, `oauth-scopes-vs-action-authorization`, `fga-opa-decide-nominee-executes`). Bottom-of-funnel how-tos are a separate Linear ticket (NOM-15).\n\n## Pointer\n\n- [`docs/competitive-map.md`](docs/competitive-map.md)\n- [`site/blog/`](site/blog/)\n\n## Acceptance criterion\n\nAdd a table at the top of `docs/competitive-map.md` linking each comparison axis to the live essay URL. Note gaps (no LangChain adapter essay yet). Do not edit `brand/content.ts` or `site/index.html`."
+    },
+    {
+      "title": "Track remaining partner-kit gaps from #54",
+      "labels": ["help wanted", "documentation", "integrations"],
+      "body": "## Why\n\n#54 was closed after adding kits under [`docs/partner-kits/`](docs/partner-kits/). Remaining: keep kits honest (\"not a replacement for\") and executable where we claim they are.\n\n## Pointer\n\n- [`docs/partner-kits/auth0.md`](docs/partner-kits/auth0.md)\n- [`docs/partner-kits/workos-fga.md`](docs/partner-kits/workos-fga.md)\n- [`docs/partner-kits/opa.md`](docs/partner-kits/opa.md)\n- [`docs/partner-kits/arcade-composio.md`](docs/partner-kits/arcade-composio.md)\n- Recipes: `examples/opa-recipe`, `examples/fga-recipe`\n\n## Acceptance criterion\n\nFor **one** kit: add a \"Runnable?\" line that is either a relative path to an example that `pnpm --filter` tests, or an explicit \"illustrative only\". Fix any kit that currently implies a runnable server that is not in the repo."
+    }
+  ]
+}

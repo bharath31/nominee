@@ -1,0 +1,31 @@
+name: Good first issue
+description: A tightly scoped change a newcomer can land in one PR
+title: '[good first issue] '
+labels: ['good first issue', 'help wanted']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this only for a change that already has a file pointer and an acceptance criterion.
+        Questions go to [Discussions](https://github.com/bharath31/nominee/discussions).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or wrong, in one paragraph.
+    validations:
+      required: true
+  - type: input
+    id: file
+    attributes:
+      label: Primary file
+      placeholder: packages/core/src/policy.ts
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criterion
+      description: A test or doc check that proves the change is done.
+    validations:
+      required: true

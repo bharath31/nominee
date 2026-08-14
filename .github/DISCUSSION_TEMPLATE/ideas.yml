@@ -1,0 +1,18 @@
+title: '[Idea] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose an adapter, predicate, export format, or docs gap. Keep it small enough that a first-time contributor could pick it up.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this, and who it helps
+    validations:
+      required: true

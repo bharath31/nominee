@@ -13,7 +13,8 @@
   <a href="https://nominee.dev/playground/">Playground</a> ·
   <a href="https://nominee.dev/agent">Security demo</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
-  <a href=".github/SECURITY.md">Security</a>
+  <a href=".github/SECURITY.md">Security</a> ·
+  <a href="SUPPORT.md">Support</a>
 </p>
 
 <p align="center">
@@ -355,6 +356,8 @@ This is infrastructure, not a compliance certification—read
 ## Contributing
 
 PRs for community strategies (Clerk, WorkOS, Firebase, …) and additional framework adapters are enthusiastically welcome — `nominee-auth0`, `nominee-supabase`, and the adapter packages show the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md). By participating you agree to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
+
+Questions belong in [Discussions](https://github.com/bharath31/nominee/discussions), not the issue tracker — see [SUPPORT.md](SUPPORT.md). Tightly scoped `good first issue`s are labelled in [Issues](https://github.com/bharath31/nominee/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 Found a security issue? Please report it privately — see [SECURITY.md](.github/SECURITY.md).
 
