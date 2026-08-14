@@ -1,4 +1,6 @@
-<h1 align="center">nominee</h1>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=4" alt="nominee — the authorization layer for AI agents. An injected email-forward call travels toward the tool and is denied at the policy gate before it runs." width="100%" />
+</p>
 
 <p align="center">
   Building an AI agent that can change real data?<br />
