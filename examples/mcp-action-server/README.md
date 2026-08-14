@@ -70,3 +70,19 @@ denies and approval gates are recorded rather than enforced, while
 `observations()` reports execution attempts and argument shapes. It retains no
 raw string/boolean values or user IDs; numeric aggregates may be sensitive.
 Observe mode and `production: true` cannot be combined.
+
+## MCP registry (not listed yet)
+
+`server.json` and `mcpName` in `package.json` match
+`io.github.bharath31/nominee-mcp-action-server`. The package is still
+`"private": true`. A human with npm + GitHub owner access must un-privatise,
+publish, then:
+
+```bash
+npx mcp-publisher login
+npx mcp-publisher publish
+```
+
+Do not claim a registry listing until search on
+registry.modelcontextprotocol.io returns this server. See
+[docs/placements/mcp-registry.md](../../docs/placements/mcp-registry.md).

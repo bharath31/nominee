@@ -2,6 +2,7 @@
   "name": "mcp-action-server",
   "version": "1.0.4",
   "private": true,
+  "mcpName": "io.github.bharath31/nominee-mcp-action-server",
   "scripts": {
     "build": "tsup src/index.ts --format esm",
     "start": "node dist/index.js",

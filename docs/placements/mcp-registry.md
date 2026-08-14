@@ -3,9 +3,21 @@
 **Route in:** official MCP registry + `nominee-mcp`.
 **Guide:** [docs/integrations/mcp.md](../integrations/mcp.md)
 
-The registry lists servers, not libraries. Draft `server.json` belongs with a
-public reference server. Until that package is published with an `mcp-name`
-marker, do not write “listed in the MCP registry” on public surfaces.
+The registry lists servers, not libraries. Draft `server.json` already lives
+at [`examples/mcp-action-server/server.json`](../../examples/mcp-action-server/server.json).
+The npm package is still `"private": true`, so it cannot be published until a
+human removes that flag, publishes, and runs `npx mcp-publisher login`.
+
+Until that package is on the registry with an `mcpName` marker, do not write
+“listed in the MCP registry” on public surfaces.
+
+`package.json` should include (when un-privatised):
+
+```json
+"mcpName": "io.github.bharath31/nominee-mcp-action-server"
+```
+
+matching `server.json` `"name"`.
 
 Headline (allowed): the model can be hijacked; the denied tool still does not
 run. Prohibited: “stops prompt injection.”

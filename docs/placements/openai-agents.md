@@ -1,6 +1,8 @@
 # OpenAI Agents JS listing
 
-**Route in:** ecosystem page / awesome list for `@openai/agents`.
+**Route in:** ecosystem page / third-party mention in official docs, or the SDK awesome list.
+**Repos:** [`openai/openai-agents-js`](https://github.com/openai/openai-agents-js) · docs https://openai.github.io/openai-agents-js/
+**Fallback listing:** [`e2b-dev/awesome-ai-sdks`](https://github.com/e2b-dev/awesome-ai-sdks) (this *is* the SDK list; `awesome-ai-agents` is products)
 **Guide:** [docs/integrations/openai-agents.md](../integrations/openai-agents.md)
 **Package:** `nominee-openai`
 **Example:** `examples/openai-support-agent` (native HITL composition)
