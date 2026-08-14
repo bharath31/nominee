@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent tool permissions for multi-tenant SaaS — nominee</title>
+    <meta name="description" content="Derive user and tenant from the signed-in session, authorize the application resource at execution, and keep model-supplied tool arguments out of the trust boundary." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/agent-tool-permissions-multi-tenant-saas/" />
+    <meta property="og:title" content="Agent tool permissions for multi-tenant SaaS" />
+    <meta property="og:description" content="A TypeScript pattern that binds an agent tool call to the authenticated user, tenant, application resource, and exact input." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/agent-tool-permissions-multi-tenant-saas/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Agent tool permissions for multi-tenant SaaS" />
+    <meta name="twitter:description" content="Keep tenant identity in trusted application context and recheck resource access before an agent tool mutates data." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "Agent tool permissions for multi-tenant SaaS",
+      "description": "A TypeScript pattern that binds an agent tool call to the authenticated user, tenant, application resource, and exact input.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/agent-tool-permissions-multi-tenant-saas/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1"><circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" /><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" /><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" /><ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" /></g></svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary"><a href="/#how">How it works</a><a href="/#why">Why nominee</a><a href="/docs/">Docs</a><a href="/blog/" aria-current="page">Blog</a><a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a></nav>
+    </header>
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta"><span class="post-date">August 14, 2026</span><span class="post-tag">How-to</span></div>
+          <h1>Agent tool permissions<br />for multi-tenant SaaS.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 7 min read</p>
+        </div>
+        <div class="post-body">
+          <p>Short answer: take <code>user</code> and <code>tenant</code> from your authenticated application session, identify the target as an application resource, and check that relationship inside the execution path. Treat the model’s tool arguments as untrusted input. A <code>tenantId</code> chosen by the model cannot establish tenancy.</p>
+
+          <p>For a write-capable agent, the useful authorization tuple is the principal, tenant, action, resource, and exact input. The model may propose the action and input. Your application must supply the principal and tenant.</p>
+
+          <hr class="post-rule" />
+          <h2>The common shortcut trusts the wrong field</h2>
+
+          <pre><code><span class="k">async function</span> <span class="fn">sendInvoice</span>({ tenantId, invoiceId }) {
+  <span class="c">// tenantId came from the model's tool arguments</span>
+  <span class="k">const</span> invoice = <span class="k">await</span> db.invoice.<span class="fn">findFirst</span>({
+    where: { id: invoiceId, tenantId },
+  })
+  <span class="k">return</span> billing.<span class="fn">send</span>(invoice)
+}</code></pre>
+
+          <p>This can work in a single-tenant product or a local prototype where all data belongs to one trusted operator. It can also work when database row-level security derives the tenant from the database session and enforces the boundary end to end. In that case, keep the database control and test it.</p>
+
+          <p>The shortcut fails in a hosted SaaS application if changing one argument changes which tenant the tool queries. Tool schemas validate shape. They do not prove that the signed-in user belongs to the requested tenant or may act on the requested invoice.</p>
+
+          <hr class="post-rule" />
+          <h2>Bind trusted context before the side effect</h2>
+
+          <p>Nominee passes the application identity and resource to an <code>authorizer</code> while planning. It checks the authorizer again after capability consumption, immediately before execution. A permission revoked during an approval wait therefore stops the call.</p>
+
+          <pre><code><span class="k">import</span> { Nominee, allow } <span class="k">from</span> <span class="s">'nominee'</span>
+
+<span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  policy: {
+    rules: [<span class="fn">allow</span>(<span class="s">'invoice.send'</span>)],
+    fallback: <span class="s">'deny'</span>,
+  },
+  authorizer: ({ user, action, resource, tenant }) =&gt;
+    applicationAuthz.<span class="fn">can</span>({ user, action, resource, tenant }),
+})
+
+<span class="k">const</span> input = {
+  invoiceId: modelArgs.invoiceId,
+  message: modelArgs.message,
+}
+
+<span class="k">await</span> nominee.<span class="fn">run</span>(
+  {
+    tool: <span class="s">'invoice.send'</span>,
+    input,
+    user: session.userId,
+    tenant: session.tenantId,
+    resource: <span class="s">'invoice:'</span> + input.invoiceId,
+  },
+  () =&gt;
+    billing.<span class="fn">sendInvoice</span>({
+      tenantId: session.tenantId,
+      invoiceId: input.invoiceId,
+      message: input.message,
+    }),
+)</code></pre>
+
+          <p>The side effect receives the tenant from the session again. It never reads a tenant identifier from <code>modelArgs</code>. The resource string gives your existing FGA, RBAC, or custom authorizer a stable object to check.</p>
+
+          <h2>Keep policy and relationship authorization separate</h2>
+
+          <ul>
+            <li><strong>Policy</strong> handles rules such as “invoice sends are allowed, exports require review, deletes are denied.”</li>
+            <li><strong>Your authorizer</strong> decides whether this user can perform the action on this invoice inside this tenant.</li>
+          </ul>
+
+          <p>Nominee acts as the enforcement point. It does not replace Auth0 FGA, OpenFGA, WorkOS FGA, OPA, database RLS, or your own permission service. Teams with one trusted tenant and a complete database boundary may not need it. Teams with several agent frameworks can use it to keep the execution check consistent.</p>
+
+          <p>The companion essay explains the composition in more detail: <a href="/blog/fga-opa-decide-nominee-executes/">FGA and OPA decide; nominee executes</a>.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">Test the execution boundary</p>
+            <p class="cta-head">Run allow, ask, and deny against the published package.</p>
+            <div class="post-cta-install"><span class="prompt">$</span> npx nominee-cli<span class="copy-hint">proof runs offline after npx installs the package</span></div>
+            <div class="post-cta-links"><a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a><a class="text-link" href="/docs/">Read the API guide →</a></div>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer>
+      <div class="foot-brand"><svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1"><circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" /></g></svg><span>nominee</span></div>
+      <p class="foot-note">Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design. Auth0 is one strategy of many. PRs for other providers welcome.</p>
+      <div class="foot-links"><a href="https://github.com/bharath31/nominee">GitHub</a><a href="/docs/">Docs</a><a href="https://www.npmjs.com/package/nominee">npm</a><a href="/blog/">Blog</a><span>MIT</span></div>
+    </footer>
+  </body>
+</html>

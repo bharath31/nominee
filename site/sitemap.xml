@@ -31,6 +31,48 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://nominee.dev/blog/ai-sdk-human-in-the-loop-approval/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/mcp-server-authorization/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/agent-tool-permissions-multi-tenant-saas/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/openai-agents-sdk-approval-workflow/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/mastra-human-in-the-loop/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/least-privilege-ai-agent-credentials/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nominee.dev/blog/langchain-js-tool-permissions/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://nominee.dev/blog/verify-agent-action-audit-trail/</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
