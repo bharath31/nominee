@@ -104,8 +104,20 @@ if (githubAgentReadme && /authorize\(\)/.test(githubAgentReadme)) {
 // sentence negates the phrase — site/blog is included because that is where
 // overclaims hurt most.
 const PROHIBITED_CLAIMS = [/tamper-proof/gi, /compliance-ready/gi, /stops prompt injection/gi]
-const CLAIM_NEGATION =
-  /\b(not|never|won't|do not|don't|isn't|is not|cannot|can't|without caveats|we won't use)\b/i
+function claimNegationGoverns(sentence, phrase) {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const gap = String.raw`[\s"'“”‘’:,-]{0,12}`
+  const before = new RegExp(
+    String.raw`\b(?:not|never|won't|will not|do not|don't|isn't|is not|aren't|are not|cannot|can't|without)\b${gap}${escaped}`,
+    'i',
+  )
+  const after = new RegExp(
+    String.raw`${escaped}${gap}(?:is not|isn't|are not|aren't|cannot|can't|won't)\b`,
+    'i',
+  )
+  const wontUse = new RegExp(String.raw`we won't use (?:it|${escaped})`, 'i')
+  return before.test(sentence) || after.test(sentence) || wontUse.test(sentence)
+}
 
 function walkFiles(dir, acc = []) {
   if (!existsSync(dir)) return acc
@@ -149,7 +161,7 @@ for (const abs of claimFiles) {
     let match = pattern.exec(content)
     while (match) {
       const sentence = sentenceAround(content, match.index)
-      if (!CLAIM_NEGATION.test(sentence)) {
+      if (!claimNegationGoverns(sentence, match[0])) {
         errors.push(
           `${rel} uses prohibited claim "${match[0]}" without negation: ${sentence.trim().slice(0, 120)}`,
         )

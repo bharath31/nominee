@@ -17,7 +17,7 @@ requires durable action/receipt stores (`nominee-postgres`); this snippet is
 the in-memory default.
 
 ```ts
-import { Nominee, allow, ask, deny } from 'nominee'
+import { Nominee, allow, ask } from 'nominee'
 
 const nominee = new Nominee({
   policy: {
@@ -27,14 +27,18 @@ const nominee = new Nominee({
     ],
     fallback: 'deny',
   },
+  // Inline settlement so this snippet actually returns. Out-of-band
+  // approvals use resolveActionApproval → resumeAction → executeCapability
+  // and must persist the original input alongside the action id.
+  onApprovalRequest: (req) => req.approve(),
 })
 
 async function issueRefund(user: string, amount: number, orderId: string) {
   return nominee.run(
     { tool: 'refund.issue', input: { amount, orderId }, user },
-    async ({ input }) => {
+    async () => {
       // Fake side effect. Denied calls never reach here.
-      return `refunded $${input.amount} for ${input.orderId}`
+      return `refunded $${amount} for ${orderId}`
     },
   )
 }
@@ -45,11 +49,13 @@ export async function postRefund(req: { user: string; body: { amount: number; or
 }
 ```
 
-An `ask` rule pauses until `onApprovalRequest` / `resolveActionApproval`.
-Official adapters and this standalone path share the same contract: bind
-authorization to the argument fingerprint; resolve credentials inside the
-`run()` callback; surface `ActionPendingError` when approval outlives the
-request. See [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md).
+An `ask` rule pauses until `onApprovalRequest` or `resolveActionApproval`.
+Without one of those, `run()` throws `ActionPendingError` and the callback
+never runs. Official adapters and this standalone path share the same
+contract: bind authorization to the argument fingerprint; resolve credentials
+inside the `run()` callback; persist the original input with `error.actionId`
+when approval outlives the request. See
+[`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md).
 
 `nominee.guard()` still wraps a map of functions for convenience. Prefer
 `run()` (or an official adapter) whenever the call must stay decision-bound.
