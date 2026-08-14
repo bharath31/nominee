@@ -202,16 +202,19 @@ perform for guarded tools. A rule that depends entirely on `input` matching
 your real tools' argument shapes may still report as reachable/unreachable
 based on its tool name alone.
 
+Pass `--tools=refund.issue,inventory.adjust` to **append** extra sample names
+(built-ins stay). Pass `--replace-samples` with `--tools` to use only the
+names you listed. `check` also reports rules that can never fire because an
+earlier pattern already matches the same tool name (`allow('*')` shadows a
+later `deny('customers.export')`). `when` predicates are still not executed.
+
 ```
-$ npx nominee-cli check policy.mjs
-Checking 4 rule(s) against 10 sample call(s)
+$ npx nominee-cli check policy.mjs --tools=refund.issue
+Checking 1 rule(s) against 11 sample call(s)
 
-  ✓ allow:email.read matched at least one sample call
-  ✓ allow:email.forward matched at least one sample call
-  ✗ allow:emial.send never matched any sample call — did you mean "email.read"?
-  ✓ ask:email.delete matched at least one sample call
+  ✓ allow:refund.issue matched at least one sample call
 
-1 rule pattern(s) never matched a sample call.
+All rules reachable.
 ```
 
 Exit code `0` when every rule matches at least one sample call, `1` if any

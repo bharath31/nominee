@@ -1,5 +1,5 @@
 import { offerActivationReport } from './activation.js'
-import { runCheck } from './check.js'
+import { parseCheckArgs, runCheck } from './check.js'
 import { runDeveloperActivation } from './developer-activation.js'
 import { runObserve } from './observe.js'
 import { runProof } from './proof.js'
@@ -15,6 +15,8 @@ Usage:
   nominee                    run the support-agent policy proof (offline, no keys)
   nominee verify <file>      verify a JSON receipt export's hash chain
   nominee check <policy>     report which rules in a policy file are reachable
+                             [--tools=name,name] extra sample tool names
+                             [--replace-samples] use --tools instead of builtins
   nominee activate <policy> <receipts>
                             locally prove and optionally share real activation
 
@@ -61,12 +63,12 @@ export async function main(argv: string[]): Promise<number> {
     }
 
     case 'check': {
-      const file = rest[0]
-      if (!file) {
-        console.log('Usage: nominee check <policy-file>')
+      const parsed = parseCheckArgs(rest)
+      if (!parsed.file) {
+        console.log('Usage: nominee check <policy-file> [--tools=name,name] [--replace-samples]')
         return 1
       }
-      return (await runCheck(file)).code
+      return (await runCheck(parsed.file, parsed)).code
     }
 
     case 'activate': {
