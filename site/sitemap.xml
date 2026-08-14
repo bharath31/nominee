@@ -26,6 +26,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://nominee.dev/blog/how-to-test-an-agent-policy/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://nominee.dev/blog/audit-log-for-ai-agent-actions/</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
