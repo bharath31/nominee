@@ -52,7 +52,7 @@ Per integration and week:
 - days to first real governed action;
 - connected authorization sources;
 - protected actions per integration;
-- governed daily/weekly active principals, and 7/28-day retention;
+- governed daily/weekly active principals, and 7/28/90-day retention;
 - allow / ask / deny / fail status mix;
 - whether a previously broad credential now sits behind the boundary;
 - expansion from one protected action to two.
@@ -60,6 +60,26 @@ Per integration and week:
 The last two are the ones that indicate Nominee is actually load-bearing. An
 integration that only renders a confirmation dialog has not exercised the
 authorization boundary.
+
+## Day-90 retention gate
+
+500 activations is a distribution milestone. Fit is whether the first 100
+activated principals still have nominee evaluating real actions at day 90.
+Above 60% means keep distributing; 30–60% means find the leak; below 30% means
+stop acquisition spend. The full table, the pending decision log, and the
+offline report live in [retention-gate.md](retention-gate.md).
+
+Partners export `usageReporter` JSONL from their own sink — nominee never
+collects it — then:
+
+```bash
+node scripts/retention-cohort-report.mjs path/to/events.jsonl
+```
+
+The report will not invent a rate when the export is empty, when day-90
+windows are still open, or when action names were omitted (`includeAction` is
+opt-in). The credential-behind-the-boundary signal is not in the event shape;
+write that down from partner interviews.
 
 ## Launch-site analytics
 
