@@ -139,7 +139,7 @@
 
           <pre><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="fn">Nominee</span>({
   policy: { rules: [allow(<span class="s">'orders.read'</span>), deny(<span class="s">'customers.export'</span>)], fallback: <span class="s">'ask'</span> },
-  receipts: { key: process.env.RECEIPT_KEY, onReceipt: (r) => sink.<span class="fn">write</span>(r) },
+  receipts: { key: process.env.NOMINEE_RECEIPT_KEY, onReceipt: (r) => sink.<span class="fn">write</span>(r) },
 })
 
 <span class="k">await</span> nominee.<span class="fn">run</span>({ tool: <span class="s">'customers.export'</span>, input: {}, user }, exportCustomers)
