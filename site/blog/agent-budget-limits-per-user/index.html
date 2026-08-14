@@ -79,7 +79,7 @@
   used.<span class="fn">set</span>(key, n + 1)
   <span class="k">return</span> index.<span class="fn">query</span>(query)
 }</code></pre>
-          <p>That Map is enough when you have one Node process, one tool class, you are fine hard-failing at N, and a restart that zeros the counter is acceptable (dev, single replica, budget as a courtesy). Pair it with the provider's RPM cap if you are protecting the bill, not the data.</p>
+          <p>That Map is enough when you have one Node process, one tool class, you are fine hard-failing at N, and a restart that zeros the counter is acceptable (dev, single replica, budget as a courtesy). If you are protecting the total bill, pair it with cumulative usage accounting or a provider spend quota; an RPM cap only slows the rate at which cost accumulates.</p>
           <p>A per-request output-token cap is one useful component when generated-output cost is the risk. It does not cap input tokens, repeated model requests, or tool/API spend, so an aggregate cost limit still needs cumulative usage accounting or a provider spend quota. That is separate again from “this tenant and user can hit this policy rule 10,000 times or refund in a loop.” Keep the controls you need; do not pretend they substitute.</p>
           <hr class="post-rule" />
           <h2>Where the Map lies</h2>
