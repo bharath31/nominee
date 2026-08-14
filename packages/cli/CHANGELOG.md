@@ -1,5 +1,13 @@
 # nominee-cli
 
+## 2.6.0
+
+### Minor Changes
+
+- 450634b: Add an authenticated loopback-only console for observation reports, live
+  receipt verdicts, one-time approvals, honest chain verification, and starter
+  policy generation, plus an explicit opt-in bridge for running agents.
+
 ## 2.5.0
 
 ### Minor Changes
