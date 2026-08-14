@@ -17,6 +17,7 @@ export interface NomineeMcpPendingContent {
   nominee: typeof NOMINEE_MCP_PENDING
   actionId: string
   approvalId: string
+  [key: string]: unknown
 }
 
 interface McpResolverCall<TInput> {
