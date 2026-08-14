@@ -448,6 +448,7 @@ const CSV_COLUMNS = [
   'user',
   'tool',
   'effect',
+  'enforcement',
   'decision',
   'rule',
   'reason',
@@ -456,9 +457,16 @@ const CSV_COLUMNS = [
   'hash',
 ] as const
 
-function csvEscape(value: string): string {
-  if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+/** Prefix formula-like cells so Excel/LibreOffice do not evaluate them. */
+function neutralizeCsvFormula(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) return `'${value}`
   return value
+}
+
+function csvEscape(value: string): string {
+  const safe = neutralizeCsvFormula(value)
+  if (/[",\r\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`
+  return safe
 }
 
 /**
@@ -478,6 +486,7 @@ export function formatReceiptsCsv(receipts: readonly Receipt[]): string {
       r.user,
       r.tool ?? '',
       r.effect ?? '',
+      r.enforcement ?? '',
       r.decision === undefined ? '' : String(r.decision),
       r.rule ?? '',
       r.reason ?? '',

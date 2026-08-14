@@ -228,7 +228,9 @@ describe('ReceiptLedger', () => {
     )
     const csv = formatReceiptsCsv(ledger.all)
     expect(
-      csv.startsWith('seq,at,type,user,tool,effect,decision,rule,reason,inputHash,prev,hash'),
+      csv.startsWith(
+        'seq,at,type,user,tool,effect,enforcement,decision,rule,reason,inputHash,prev,hash',
+      ),
     ).toBe(true)
     expect(csv).toContain('"external, ""quoted"""')
     expect(csv).not.toContain('hunter2')
@@ -238,5 +240,24 @@ describe('ReceiptLedger', () => {
     const cols = lines[1]?.match(/("([^"]|"")*"|[^,]*)/g) ?? []
     expect(cols[0]).toBe('0')
     expect(verifyReceipts([...ledger.all]).ok).toBe(true)
+  })
+
+  it('prefixes formula-like CSV cells and records observe enforcement', () => {
+    const ledger = new ReceiptLedger()
+    ledger.append(
+      entry({
+        user: '=HYPERLINK("http://evil.example")',
+        tool: '+cmd',
+        effect: 'deny',
+        enforcement: 'observe',
+        reason: '@SUM(A1)',
+      }),
+    )
+    const csv = formatReceiptsCsv(ledger.all)
+    expect(csv).toContain(`"'=HYPERLINK(""http://evil.example"")"`)
+    expect(csv).toContain(`'+cmd`)
+    expect(csv).toContain(`'@SUM(A1)`)
+    expect(csv).toContain(',deny,observe,')
+    expect(csv).not.toMatch(/(?:^|,)=HYPERLINK/)
   })
 })

@@ -155,7 +155,7 @@ await nominee.flushReceipts()
 import { verifyReceipts, formatReceipts, formatReceiptsCsv } from 'nominee'
 formatReceipts(nominee.receipts)
 formatReceipts(nominee.receipts, { verbose: true }) // includes rule + reason
-formatReceiptsCsv(nominee.receipts) // spreadsheet projection; still verify the JSON chain
+formatReceiptsCsv(nominee.receipts) // spreadsheet projection; includes enforcement; still verify the JSON chain
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
