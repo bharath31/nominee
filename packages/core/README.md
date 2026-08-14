@@ -74,13 +74,13 @@ See [docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observ
 ## Quickstart
 
 ```ts
-import { Nominee, allow, deny, ask } from 'nominee'
+import { Nominee, allow, deny, ask, lte } from 'nominee'
 
 const nominee = new Nominee({
   policy: {
     rules: [
       allow('orders.read'),
-      allow('refund.issue', { when: ({ input }) => input.amount <= 50 }),
+      allow('refund.issue', { when: lte('amount', 50) }),
       ask('refund.issue', { when: ({ input }) => input.amount <= 500 }),
       deny('refund.issue'),
       deny('customers.export'),
@@ -152,8 +152,10 @@ nominee.verifyReceipts()  // { ok: true, checked: 128 }
 await nominee.flushReceipts()
 
 // Later, offline, from your exported log:
-import { verifyReceipts } from 'nominee'
+import { verifyReceipts, formatReceipts, formatReceiptsCsv } from 'nominee'
 formatReceipts(nominee.receipts)
+formatReceipts(nominee.receipts, { verbose: true }) // includes rule + reason
+formatReceiptsCsv(nominee.receipts) // spreadsheet projection; still verify the JSON chain
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
@@ -247,6 +249,7 @@ nominee.resolveApproval(id, 'approved' | 'denied')
 nominee.receipts
 nominee.verifyReceipts()
 formatReceipts(nominee.receipts)
+formatReceiptsCsv(nominee.receipts)
 await nominee.flushReceipts()
 await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })

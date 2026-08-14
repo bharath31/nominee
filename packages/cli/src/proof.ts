@@ -7,7 +7,7 @@
 //   - $2,000 is denied before the refund function is called.
 // A customer export is denied too. The proof finishes by verifying the receipt
 // chain and showing that removing a denial from the log is detectable.
-import { Nominee, allow, ask, deny, verifyReceipts } from 'nominee'
+import { Nominee, allow, ask, deny, lte, verifyReceipts } from 'nominee'
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`
@@ -54,11 +54,11 @@ export async function runProof(): Promise<ProofResult> {
       rules: [
         allow('orders.read'),
         allow<RefundInput>('refund.issue', {
-          when: ({ input }) => (input?.amount ?? 0) <= 50,
+          when: lte('amount', 50),
           reason: 'small refunds may run automatically',
         }),
         ask<RefundInput>('refund.issue', {
-          when: ({ input }) => (input?.amount ?? 0) <= 500,
+          when: lte('amount', 500),
           reason: 'a person approves larger refunds',
         }),
         deny('refund.issue', { reason: 'refund is over the agent limit' }),

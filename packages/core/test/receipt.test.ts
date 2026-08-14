@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { type Receipt, ReceiptLedger, formatReceipts, verifyReceipts } from '../src/index.js'
+import {
+  type Receipt,
+  ReceiptLedger,
+  formatReceipts,
+  formatReceiptsCsv,
+  verifyReceipts,
+} from '../src/index.js'
 
 const entry = (over: Partial<Parameters<ReceiptLedger['append']>[0]> = {}) => ({
   type: 'policy.decision',
@@ -187,5 +193,50 @@ describe('ReceiptLedger', () => {
     expect(formatReceipts(ledger.all)).toMatch(
       /^#0 policy\.decision email\.read allow [a-f0-9]{12}$/,
     )
+  })
+
+  it('appends rule and truncated reason when verbose', () => {
+    const ledger = new ReceiptLedger()
+    ledger.append(
+      entry({
+        tool: 'email.forward',
+        effect: 'deny',
+        rule: 'deny:email.forward',
+        reason: 'external forwarding is exfiltration and this reason is deliberately long',
+      }),
+    )
+    const compact = formatReceipts(ledger.all)
+    expect(compact).toMatch(/^#0 policy\.decision email\.forward deny [a-f0-9]{12}$/)
+    expect(compact).not.toContain('deny:email.forward')
+    const verbose = formatReceipts(ledger.all, { verbose: true })
+    expect(verbose).toContain('deny:email.forward')
+    expect(verbose).toContain('external forwarding is exfiltration')
+    expect(verbose.endsWith('…') || verbose.includes('…')).toBe(true)
+  })
+
+  it('exports CSV without raw input and still verifies the original chain', () => {
+    const ledger = new ReceiptLedger({ input: 'raw' })
+    ledger.append(
+      entry({
+        tool: 'email.forward',
+        effect: 'deny',
+        rule: 'deny:email.forward',
+        reason: 'external, "quoted"',
+        decision: 'denied',
+        input: { to: 'attacker@evil.top', secret: 'hunter2' },
+      }),
+    )
+    const csv = formatReceiptsCsv(ledger.all)
+    expect(
+      csv.startsWith('seq,at,type,user,tool,effect,decision,rule,reason,inputHash,prev,hash'),
+    ).toBe(true)
+    expect(csv).toContain('"external, ""quoted"""')
+    expect(csv).not.toContain('hunter2')
+    expect(csv).not.toContain('attacker@evil.top')
+    const lines = csv.trim().split('\n')
+    expect(lines).toHaveLength(2)
+    const cols = lines[1]?.match(/("([^"]|"")*"|[^,]*)/g) ?? []
+    expect(cols[0]).toBe('0')
+    expect(verifyReceipts([...ledger.all]).ok).toBe(true)
   })
 })

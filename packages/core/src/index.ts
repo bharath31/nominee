@@ -52,13 +52,22 @@ export type {
   ToolObservation,
 } from './observe.js'
 
-export { allow, deny, ask, matchTool, PolicyEngine } from './policy.js'
-export type { Policy, Rule, RuleOptions, Effect, ToolCall, PolicyDecision } from './policy.js'
+export { allow, deny, ask, and, or, not, lte, inList, matchTool, PolicyEngine } from './policy.js'
+export type {
+  Policy,
+  Rule,
+  RuleOptions,
+  WhenPredicate,
+  Effect,
+  ToolCall,
+  PolicyDecision,
+} from './policy.js'
 
 export {
   ReceiptLedger,
   MemoryAtomicReceiptStore,
   formatReceipts,
+  formatReceiptsCsv,
   sealReceipt,
   verifyReceipts,
 } from './receipt.js'
@@ -66,6 +75,7 @@ export type {
   Receipt,
   ReceiptEntry,
   ReceiptOptions,
+  FormatReceiptsOptions,
   VerifyResult,
   AtomicReceiptStore,
   AtomicReceiptOptions,

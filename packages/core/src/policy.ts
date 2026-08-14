@@ -35,6 +35,11 @@ export interface ToolCall {
   chain?: string[]
 }
 
+/** Argument-level condition used by {@link RuleOptions.when} and the `and`/`or`/`not` helpers. */
+export type WhenPredicate<TInput = any> = (
+  call: Omit<ToolCall, 'input'> & { input?: TInput },
+) => boolean | Promise<boolean>
+
 export interface RuleOptions<TInput = any> {
   /**
    * Argument-level condition: the rule only matches when this returns true.
@@ -42,7 +47,7 @@ export interface RuleOptions<TInput = any> {
    * call's `input` type defaults to `any` (call sites vary by tool); narrow
    * it by passing a type argument, e.g. `allow<{ to: string }>(...)`.
    */
-  when?: (call: Omit<ToolCall, 'input'> & { input?: TInput }) => boolean | Promise<boolean>
+  when?: WhenPredicate<TInput>
   /**
    * Budget for `allow` rules: after this rule has allowed `max` calls for a
    * given user, further matches escalate to `'ask'`. Ignored on deny/ask.
@@ -76,6 +81,62 @@ export function deny<TInput = any>(tools: string | string[], opts: RuleOptions<T
 /** Pause matching calls until a human approves (via the approval engine). */
 export function ask<TInput = any>(tools: string | string[], opts: RuleOptions<TInput> = {}): Rule {
   return { effect: 'ask', tools: Array.isArray(tools) ? tools : [tools], ...opts }
+}
+
+/**
+ * Compose `when` predicates. Evaluation order is unchanged: the combined
+ * function is still one `when` on one rule. Empty `and()` is true; empty `or()` is false.
+ */
+export function and<TInput = any>(...preds: WhenPredicate<TInput>[]): WhenPredicate<TInput> {
+  return async (call) => {
+    for (const pred of preds) {
+      if (!(await pred(call))) return false
+    }
+    return true
+  }
+}
+
+/** True when any predicate is true. */
+export function or<TInput = any>(...preds: WhenPredicate<TInput>[]): WhenPredicate<TInput> {
+  return async (call) => {
+    for (const pred of preds) {
+      if (await pred(call)) return true
+    }
+    return false
+  }
+}
+
+/** Negate a `when` predicate. */
+export function not<TInput = any>(pred: WhenPredicate<TInput>): WhenPredicate<TInput> {
+  return async (call) => !(await pred(call))
+}
+
+function inputField(input: unknown, field: string): unknown {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined
+  return (input as Record<string, unknown>)[field]
+}
+
+/**
+ * `when` helper: a numeric input field must be ≤ `ceiling`. Missing, non-numeric,
+ * or NaN values are false. Example: `allow('refund.issue', { when: lte('amount', 50) })`.
+ */
+export function lte(field: string, ceiling: number): WhenPredicate {
+  return ({ input }) => {
+    const value = inputField(input, field)
+    return typeof value === 'number' && Number.isFinite(value) && value <= ceiling
+  }
+}
+
+/**
+ * `when` helper: a string input field must be one of `allowed`. Missing or
+ * non-string values are false. Example: `allow('email.forward', { when: inList('to', ['finance@acme.com']) })`.
+ */
+export function inList(field: string, allowed: readonly string[]): WhenPredicate {
+  const set = new Set(allowed)
+  return ({ input }) => {
+    const value = inputField(input, field)
+    return typeof value === 'string' && set.has(value)
+  }
 }
 
 export interface Policy {
