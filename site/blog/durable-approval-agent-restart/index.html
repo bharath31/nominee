@@ -103,13 +103,15 @@
 
           <pre><code><span class="k">import</span> { Nominee, allow, ask, ActionPendingError } <span class="k">from</span> <span class="s">'nominee'</span>
 
+<span class="k">const</span> RECEIPT_STREAM = <span class="s">'order-agent'</span>
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   policy: {
     rules: [<span class="fn">allow</span>(<span class="s">'order.read'</span>), <span class="fn">ask</span>(<span class="s">'order.cancel'</span>, { reason: <span class="s">'cancellations over 2 days old need a human'</span> })],
     fallback: <span class="s">'deny'</span>,
   },
+  actionTtlMs: <span class="n">7</span> * <span class="n">24</span> * <span class="n">60</span> * <span class="n">60</span> * <span class="n">1000</span>, <span class="c">// match your maximum approval SLA</span>
   actionStore, <span class="c">// durable — see below</span>
-  receipts: { store: receiptStore, key: process.env.NOMINEE_RECEIPT_KEY }, <span class="c">// durable — see below</span>
+  receipts: { store: receiptStore, stream: RECEIPT_STREAM, key: process.env.NOMINEE_RECEIPT_KEY }, <span class="c">// durable — see below</span>
 })
 
 <span class="k">try</span> {
@@ -154,12 +156,12 @@ process B: executed -&gt; { orderId: 'ord_512', cancelled: true }</code></pre>
 
           <h2>The catch: two stores have to be durable, not one</h2>
 
-          <p>This is the part worth being precise about, because it's easy to fix half of it and assume you're done. The example above passes a <em>shared</em> <code>actionStore</code> to both instances, so the action's lifecycle state (its status, its approval, its capability) survives the "restart." Look at what each instance's own receipt log actually contains, though:</p>
+          <p>This is the part worth being precise about, because it's easy to fix half of it and assume you're done. The example above passes a <em>shared</em> <code>actionStore</code> to both instances, so the action's lifecycle state (its status, its approval, its capability) survives the "restart." Each instance's local <code>nominee.receipts</code> view contains only the entries that instance appended, though:</p>
 
           <pre><code>process A receipts: action.planned, policy.decision, approval.requested
 process B receipts: approval.resolved, capability.issued, capability.consumed, execution.started, execution.succeeded</code></pre>
 
-          <p>Two separate, incomplete chains — because in this illustration only the <em>action</em> store was shared; each <code>Nominee</code> instance's receipt ledger is still its own in-memory list by default. In a real deployment you need the receipt stream durable and shared too — <code>receipts: { store, stream }</code> pointed at the same backing store as the action state (<code>nominee-postgres</code> supplies both), so the full chain — plan, ask, approve, execute — lives in one place regardless of which process wrote each entry. Get only the action store durable and you have correct approval resumption with a broken audit trail; get only the receipts durable and you have a nice log of a workflow that can't actually resume after a restart. Production mode enforces both: `new Nominee({ production: true, ... })` refuses to construct unless the action store, the receipt store, and strict delivery are all configured — it won't let you ship the half-durable version by accident.</p>
+          <p>Those are two incomplete <em>local views</em>, not two chains. The configuration already points both instances at the same atomic receipt store and exact <code>order-agent</code> stream, so the durable ledger is one chain containing plan, ask, approve, and execute regardless of which process appended each entry. <code>await nominee.verifyDurableReceipts()</code> loads and verifies that complete shared stream; inspecting only <code>nominee.receipts</code> does not. If you omit <code>receipts.store</code>, only the action state is durable and the audit trail really does split into process-local chains. If you omit the durable action store, you have a durable log of a workflow that cannot resume. <code>nominee-postgres</code> supplies both stores. Production mode enforces the pair: <code>new Nominee({ production: true, ... })</code> refuses to construct unless the action store, atomic receipt store, and strict receipt delivery are configured.</p>
 
           <hr class="post-rule" />
 
@@ -176,7 +178,7 @@ process B receipts: approval.resolved, capability.issued, capability.consumed, e
 
           <h2>When you don't need this</h2>
 
-          <p>If every approval in your system resolves inside one request — a synchronous confirm dialog, a same-session click — the <code>await</code> version at the top of this post is simpler and correct; don't add a durable action store for a pause that never outlives the request handling it. This pattern earns its place once an approval can plausibly outlive the process asking for it: anything measured in minutes to days, anything routed through Slack or email, anything that has to survive a deploy landing mid-wait. If your agent's tokens are also going stale during that same pause, that's a related and separate problem — see <a href="/blog/oauth-refresh-is-probably-broken/">your AI agent's OAuth token refresh is probably broken</a>.</p>
+          <p>If every approval in your system resolves inside one request — a synchronous confirm dialog, a same-session click — the <code>await</code> version at the top of this post is simpler and correct; don't add a durable action store for a pause that never outlives the request handling it. This pattern earns its place once an approval can plausibly outlive the process asking for it: anything measured in minutes to days, anything routed through Slack or email, anything that has to survive a deploy landing mid-wait. Pending actions expire after 24 hours by default; the example sets <code>actionTtlMs</code> to seven days, so set a bounded TTL that actually covers your approval SLA (or pass <code>expiresInMs</code> for a particular action). If your agent's tokens are also going stale during that same pause, that's a related and separate problem — see <a href="/blog/oauth-refresh-is-probably-broken/">your AI agent's OAuth token refresh is probably broken</a>.</p>
 
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
