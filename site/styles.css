@@ -66,9 +66,10 @@ em { font-style: normal; color: var(--seal); }
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 12px 24px;
   padding: 16px clamp(20px, 5vw, 56px);
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(10px);
@@ -76,7 +77,13 @@ em { font-style: normal; color: var(--seal); }
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.02em; }
 .brand-seal { width: 26px; height: 26px; color: var(--seal); }
-.site-header nav { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 30px); }
+.site-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px clamp(14px, 2.4vw, 30px);
+}
 .site-header nav a { font-size: 14px; color: var(--muted); transition: color 0.18s; }
 .site-header nav a:hover { color: var(--paper); }
 .nav-cta { color: var(--paper) !important; font-weight: 500; }
