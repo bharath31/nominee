@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Ask a question (Discussions)
+    url: https://github.com/bharath31/nominee/discussions
+    about: How-to, design, and "is this the right tool?" questions — not defects.
   - name: Security vulnerability
     url: https://github.com/bharath31/nominee/security/advisories/new
     about: Report security issues privately — please do not open a public issue.

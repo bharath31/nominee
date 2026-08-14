@@ -1,0 +1,17 @@
+title: '[Show and tell] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share a policy, an adapter, or a production-shaped `run()` path. Redact tokens and customer data.
+  - type: textarea
+    id: what
+    attributes:
+      label: What did you build?
+    validations:
+      required: true
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy sketch (optional)
+      render: typescript

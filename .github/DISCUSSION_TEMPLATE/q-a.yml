@@ -1,0 +1,33 @@
+title: '[Q&A] '
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Questions about using nominee live here. Confirmed bugs belong in Issues.
+        Runnable proof: `npx nominee-cli`. Docs: https://nominee.dev/docs/
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      placeholder: How do I bind an approval to the exact tool arguments?
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime / adapter
+      options:
+        - not sure
+        - nominee (core)
+        - nominee-ai
+        - nominee-eve
+        - nominee-openai
+        - nominee-mastra
+        - nominee-mcp
+        - nominee-cli
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Policy or code snippet
+      render: typescript
