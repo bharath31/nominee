@@ -1,5 +1,11 @@
 # nominee-ai
 
+## 2.4.0
+
+### Patch Changes
+
+- 1b7f5a7: Document the CommonJS + ai@7 Node ≥22.12 require()-of-ESM trap in the package README.
+
 ## 2.2.1
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # nominee-cli
 
+## 2.4.0
+
+### Minor Changes
+
+- c6ae510: Keep the bundled proof signal as a trial and add `nominee activate`, which locally verifies a
+  non-empty policy plus an intact, matching enforced execution before offering a separate,
+  fully-disclosed developer activation report.
+
+### Patch Changes
+
+- Updated dependencies [887ae0b]
+  - nominee@2.4.0
+
 ## 2.3.0
 
 ### Minor Changes
