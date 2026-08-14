@@ -77,7 +77,7 @@
 
         <div class="post-body">
 
-          <p>Short answer: wrap the tool, not the prompt. Put the pause in the function the agent actually calls, make the pause block until a specific human decides, and make "denied" a real code path your agent handles — not an exception you forgot to catch. Everything past this paragraph is what that looks like in practice, starting with the version most teams build first.</p>
+          <p>Short answer: wrap the tool, not the prompt. Put the pause in the function the agent actually calls, make the pause block until a human your application authenticates decides, and make "denied" a real code path your agent handles — not an exception you forgot to catch. If the receipt itself must prove who approved, use nominee's durable resolution API with an explicit <code>approver</code>; the inline callback shown first records the decision, not that identity.</p>
 
           <hr class="post-rule" />
 
@@ -114,17 +114,16 @@
 
           <p>The fix is to stop writing the approval check inside each tool function, and instead declare "this tool needs a human" once, as policy, and let one engine enforce it consistently. With <a href="https://github.com/bharath31/nominee">nominee</a>, an <code>ask</code> rule plus <code>guard()</code> does that for a plain function:</p>
 
-          <pre><code><span class="k">import</span> { Nominee, allow, ask, deny } <span class="k">from</span> <span class="s">'nominee'</span>
+          <pre><code><span class="k">import</span> { Nominee, ask } <span class="k">from</span> <span class="s">'nominee'</span>
 
 <span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
   policy: {
     rules: [
       <span class="fn">ask</span>(<span class="s">'closeTicket'</span>, { reason: <span class="s">'closing a ticket needs a second pair of eyes'</span> }),
-      <span class="fn">deny</span>(<span class="s">'deleteTicket'</span>),
     ],
     fallback: <span class="s">'deny'</span>,
   },
-  receipts: { key: process.env.RECEIPT_KEY },
+  receipts: { key: process.env.NOMINEE_RECEIPT_KEY },
   onApprovalRequest: <span class="k">async</span> (req) =&gt; {
     <span class="c">// req.detail is the exact tool input the approver is being asked about</span>
     <span class="k">const</span> approved = <span class="k">await</span> <span class="fn">notifySlackAndWaitForClick</span>(req.action, req.detail)
@@ -157,9 +156,11 @@ result: { ticketId: 'tkt_991', status: 'closed' }
 
           <ul>
             <li><strong>The pause is declared once</strong>, as a rule keyed by tool name — not re-implemented inside every function that needs one.</li>
-            <li><strong>Denial is a first-class outcome</strong>, not an exception with a string message you have to pattern-match on. <code>req.deny()</code> resolves to an <code>ApprovalDeniedError</code> your agent loop can catch and branch on deliberately.</li>
+            <li><strong>Denial is a first-class outcome</strong>, not an exception with a string message you have to pattern-match on. <code>req.deny()</code> itself returns <code>void</code> and settles the callback; the outer awaited <code>tools.closeTicket(...)</code> call then rejects with <code>ApprovalDeniedError</code>, which is where your agent loop should catch and branch.</li>
             <li><strong>Every decision is receipted</strong> — including the ask itself, before anyone answered it, and including a denial, if that's what happens. <code>closeTicket</code> never runs until <code>capability.consumed</code> — that's not a comment describing the intent, it's the literal order execution happens in.</li>
           </ul>
+
+          <p>This inline callback receipts the ask and the approve-or-deny decision, but not the approver's identity: the resolution is recorded as coming via <code>callback</code>. When “who approved?” must be answerable from the chain, prepare the action, persist its pending id, and resolve it later with <code>resolveActionApproval(id, { decision, approver, via })</code>. That is the durable pattern described below.</p>
 
           <hr class="post-rule" />
 
@@ -171,7 +172,7 @@ result: { ticketId: 'tkt_991', status: 'closed' }
 
           <h2>When you don't need this</h2>
 
-          <p>If you have exactly one gated tool, one approver, and the process handling the approval genuinely won't restart mid-flight — the naive <code>if</code> block at the top of this post is a reasonable, low-ceremony answer, and adding a policy engine for one check is not obviously worth it. This is worth reaching for once you have more than a couple of gated tools, once "who approved this and when" needs to be answerable after the fact, or once denial needs to be something your agent can reason about rather than an error string it happens to catch.</p>
+          <p>If you have exactly one gated tool, one approver, and the process handling the approval genuinely won't restart mid-flight — the naive <code>if</code> block at the top of this post is a reasonable, low-ceremony answer, and adding a policy engine for one check is not obviously worth it. This is worth reaching for once you have more than a couple of gated tools, once approval decisions need a consistent receipt trail, or once denial needs to be something your agent can reason about rather than an error string it happens to catch. Use the durable resolver, not the inline callback, when that trail must name the approver.</p>
 
           <p>For the deeper argument on why a native SDK's approval hook (Vercel AI SDK's <code>toolApproval</code>, for instance) and a policy-enforcement layer are solving related but different problems, see <a href="/blog/native-approval-vs-action-authorization/">the AI SDK can pause a tool call — it can't tell you who's allowed to make it</a>.</p>
 
@@ -180,7 +181,7 @@ result: { ticketId: 'tkt_991', status: 'closed' }
             <p class="cta-head">Run the ask-and-approve proof in 10 seconds.</p>
             <div class="post-cta-install">
               <span class="prompt">$</span> npx nominee-cli
-              <span class="copy-hint">no signup, no network calls</span>
+              <span class="copy-hint">proof runs offline after npx installs the package</span>
             </div>
             <div class="post-cta-links">
               <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>

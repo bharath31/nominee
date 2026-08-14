@@ -109,7 +109,7 @@
     fallback: <span class="s">'deny'</span>,
   },
   actionStore, <span class="c">// durable — see below</span>
-  receipts: { store: receiptStore, key: process.env.RECEIPT_KEY }, <span class="c">// durable — see below</span>
+  receipts: { store: receiptStore, key: process.env.NOMINEE_RECEIPT_KEY }, <span class="c">// durable — see below</span>
 })
 
 <span class="k">try</span> {
@@ -180,13 +180,14 @@ process B receipts: approval.resolved, capability.issued, capability.consumed, e
 
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
-            <p class="cta-head">Run the pause-and-resume proof in 10 seconds.</p>
+            <p class="cta-head">Run the local ask-and-receipt proof in 10 seconds.</p>
             <div class="post-cta-install">
               <span class="prompt">$</span> npx nominee-cli
-              <span class="copy-hint">no signup, no network calls</span>
+              <span class="copy-hint">proof runs offline after npx installs the package</span>
             </div>
             <div class="post-cta-links">
               <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="https://nominee.dev/agent">See the deployed durable pause-and-resume demo →</a>
               <a class="text-link" href="/docs/#production">Read the production runbook →</a>
               <a class="text-link" href="/docs/">Read the docs →</a>
             </div>
