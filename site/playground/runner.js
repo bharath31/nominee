@@ -134,7 +134,7 @@ async function decide({ runId, decision }) {
     return
   }
   self.postMessage({
-    type: 'blocked',
+    type: 'denied',
     runId,
     text: 'You denied the refund. refund.issue never ran.',
     ...proof(nominee),

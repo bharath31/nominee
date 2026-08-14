@@ -64,13 +64,14 @@ Install: npm i nominee
 
 ### Optional activation report
 
-On an interactive terminal, a successful proof asks once whether to share an
-anonymous activation. It prints the exact three-field payload before asking:
+When both standard input and output are attached to an interactive terminal, a
+successful proof asks once whether to share an anonymous activation. It prints
+the exact three-field payload before asking:
 `event`, a random installation-scoped UUID, and the installed `nominee-cli`
 version. Nothing is sent unless you answer yes. The choice is saved before the
-request, the request times out after three seconds, non-interactive runs never
-prompt, and `DO_NOT_TRACK=1` disables even the prompt. No reporting code exists
-in the core `nominee` package.
+request, the request times out after three seconds, redirected or other
+non-interactive runs never prompt, and `DO_NOT_TRACK=1` disables even the
+prompt. No reporting code exists in the core `nominee` package.
 
 ## `nominee verify <file>`
 

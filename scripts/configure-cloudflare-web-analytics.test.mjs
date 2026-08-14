@@ -40,6 +40,21 @@ test('does not mutate an already-configured Pages project', async () => {
   assert.equal(requests[0].url.pathname, projectPath)
 })
 
+test('fails before analytics lookup when Pages is only partially configured', async () => {
+  const requests = []
+  const fetchImpl = async (url, init) => {
+    requests.push({ url: new URL(url), init })
+    return response({ build_config: { web_analytics_tag: 'tag-without-token' } })
+  }
+
+  await assert.rejects(
+    configureCloudflareWebAnalytics({ accountId, apiToken: 'api', fetchImpl }),
+    /partial Web Analytics configuration/,
+  )
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].url.pathname, projectPath)
+})
+
 test('reuses an existing Web Analytics site and attaches it to Pages', async () => {
   const requests = []
   let projectReads = 0

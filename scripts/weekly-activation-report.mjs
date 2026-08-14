@@ -75,8 +75,13 @@ export function summarizeDownloadSeries(series, start, end) {
   }
 }
 
+/** The latest UTC date whose full 24-hour window has elapsed. */
+export function previousCompletedUtcDay(now = Date.now()) {
+  return new Date(now - 864e5).toISOString().slice(0, 10)
+}
+
 async function main() {
-  const end = process.argv[3] ?? new Date().toISOString().slice(0, 10)
+  const end = process.argv[3] ?? previousCompletedUtcDay()
   const start =
     process.argv[2] ??
     new Date(Date.parse(`${end}T00:00:00Z`) - 6 * 864e5).toISOString().slice(0, 10)

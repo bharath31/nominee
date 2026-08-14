@@ -77,7 +77,15 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
   const env = options.env ?? process.env
   const input = options.input ?? process.stdin
   const output = options.output ?? process.stdout
-  if (trackingDisabled(env) || !('isTTY' in input) || !input.isTTY) return
+  if (
+    trackingDisabled(env) ||
+    !('isTTY' in input) ||
+    !input.isTTY ||
+    !('isTTY' in output) ||
+    output.isTTY !== true
+  ) {
+    return
+  }
 
   const file = options.stateFile ?? STATE_FILE
   const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS

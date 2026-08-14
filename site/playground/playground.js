@@ -151,6 +151,13 @@
       return
     }
 
+    if (data.type === 'denied') {
+      appendMessage('Nominee', data.text, 'blocked')
+      if (data.receipts) renderReceipts(data.receipts, data.verified)
+      finish('denied by you', 'blocked')
+      return
+    }
+
     if (data.type === 'complete') {
       track('playground_allowed')
       appendMessage('Agent', data.text, 'allowed')

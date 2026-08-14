@@ -62,8 +62,16 @@ export async function configureCloudflareWebAnalytics({
   const projectPath = `/accounts/${accountId}/pages/projects/${projectName}`
   const project = await cloudflareRequest(client, projectPath)
   const currentBuildConfig = project.build_config ?? {}
+  const hasAnalyticsTag = Boolean(currentBuildConfig.web_analytics_tag)
+  const hasAnalyticsToken = Boolean(currentBuildConfig.web_analytics_token)
 
-  if (currentBuildConfig.web_analytics_tag && currentBuildConfig.web_analytics_token) {
+  if (hasAnalyticsTag !== hasAnalyticsToken) {
+    throw new Error(
+      `Cloudflare Pages project ${projectName} has a partial Web Analytics configuration`,
+    )
+  }
+
+  if (hasAnalyticsTag && hasAnalyticsToken) {
     return { changed: false, skipped: false, projectName, host }
   }
 

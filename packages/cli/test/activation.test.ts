@@ -17,7 +17,8 @@ async function terminal(answer: string) {
   const input = new PassThrough() as PassThrough & { isTTY: boolean }
   input.isTTY = true
   input.end(`${answer}\n`)
-  const output = new PassThrough()
+  const output = new PassThrough() as PassThrough & { isTTY: boolean }
+  output.isTTY = true
   let text = ''
   output.on('data', (chunk) => {
     text += chunk.toString()
@@ -60,6 +61,22 @@ describe('CLI activation reporting', () => {
     expect(send).not.toHaveBeenCalled()
     await expect(readFile(file)).rejects.toThrow()
     expect(io.text()).toBe('')
+  })
+
+  it('does not prompt when output is redirected', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nominee-activation-'))
+    dirs.push(dir)
+    const file = join(dir, 'state.json')
+    const input = new PassThrough() as PassThrough & { isTTY: boolean }
+    input.isTTY = true
+    input.end('yes\n')
+    const output = new PassThrough()
+    const send = vi.fn(async (_payload: Record<string, string>) => undefined)
+
+    await offerActivationReport({ env: {}, stateFile: file, input, output, send })
+
+    expect(send).not.toHaveBeenCalled()
+    await expect(readFile(file)).rejects.toThrow()
   })
 
   it('asks only once after a developer declines', async () => {

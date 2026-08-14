@@ -97,7 +97,9 @@ persists the choice locally **before** attempting the request so it asks only
 once, reads `cliVersion` from its own installed package, and does nothing when
 `DO_NOT_TRACK=1` is set. The optional request is capped at three seconds and
 cannot change the successful proof's exit code. No reporting code exists in the
-core library.
+core library. The prompt appears only when both standard input and output are
+attached to a terminal, so redirected proof runs never wait on an invisible
+question.
 
 The Worker accepts a CLI event only when it carries the expected version-4
 installation UUID and a valid CLI version. It returns `503` instead of claiming
@@ -115,6 +117,10 @@ For a weekly acquisition baseline, run:
 ```bash
 node scripts/weekly-activation-report.mjs 2026-08-03 2026-08-09
 ```
+
+With no dates, the script ends on the previous completed UTC day and covers the
+seven-day window ending there; it never includes the still-in-progress current
+day by default.
 
 The report subtracts, for each day and each published package, the minimum
 download count observed across all packages. That common floor is labeled as
