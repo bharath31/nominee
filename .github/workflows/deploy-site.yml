@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      # The script skips known analytics permission gaps, but fails on Pages
+      # lookup errors and partial configuration so deploys cannot hide drift.
       - name: Configure Cloudflare Web Analytics
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         run: node scripts/configure-cloudflare-web-analytics.mjs

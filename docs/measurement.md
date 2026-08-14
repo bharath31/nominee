@@ -72,11 +72,59 @@ deployment, so analytics markup and tokens do not need to be copied into every
 HTML file.
 
 The `CLOUDFLARE_API_TOKEN` repository secret needs **Pages Write**. Its first
-analytics run also needs **Account Settings Read and Write** to list or create
-the Web Analytics site; subsequent runs return immediately once the Pages
-project is configured.
+analytics run also needs the account-level **Account Analytics** permission
+(Read to reuse an existing site, Edit to create one) to list or create the Web
+Analytics site; subsequent runs return immediately once the Pages project is
+configured.
+
+Analytics is advisory, so a token without that permission logs a warning and
+the deployment continues — the site publishes with or without the beacon.
+Anything else (an unreadable Pages project, a half-applied build config) still
+fails the run.
 
 Web Analytics measures acquisition and page performance, not product
 activation. It does not support custom events. Keep playground outcomes such as
 `blocked`, `approval_requested`, and `approved` in the agent Worker's optional
 Analytics Engine `FUNNEL` binding described in `site/agent-worker/README.md`.
+
+## Activated developer (phase 0)
+
+An **activated developer** is an anonymous CLI installation that successfully
+finishes the offline proof and then explicitly opts in to reporting
+`cli_proof_completed`. This is intentionally narrower than downloads, page
+views, or playground runs. The CLI shows the exact payload before asking,
+persists the choice locally **before** attempting the request so it asks only
+once, reads `cliVersion` from its own installed package, and does nothing when
+`DO_NOT_TRACK=1` is set. The optional request is capped at three seconds and
+cannot change the successful proof's exit code. No reporting code exists in the
+core library. The prompt appears only when both standard input and output are
+attached to a terminal, so redirected proof runs never wait on an invisible
+question.
+
+The Worker accepts a CLI event only when it carries the expected version-4
+installation UUID and a valid CLI version. It returns `503` instead of claiming
+success when the Analytics Engine `FUNNEL` binding is unavailable; in that case
+the CLI says the activation was not sent. Enable the binding before treating
+opt-ins as an activation source.
+
+The playground records the anonymous path from `playground_run` through allow,
+block, approval request, approve, or deny in the Worker's optional `FUNNEL`
+dataset. These events diagnose the acquisition funnel; they do not count as an
+activated developer.
+
+For a weekly acquisition baseline, run:
+
+```bash
+node scripts/weekly-activation-report.mjs 2026-08-03 2026-08-09
+```
+
+With no dates, the script ends on the previous completed UTC day and covers the
+seven-day window ending there; it never includes the still-in-progress current
+day by default.
+
+The report subtracts, for each day and each published package, the minimum
+download count observed across all packages. That common floor is labeled as
+estimated automated monorepo traffic. The remainder is still only an
+**estimated human download** and must never be presented as observed activation.
+Series are joined by their explicit `day` field; missing date coverage fails the
+report instead of silently substituting zero.

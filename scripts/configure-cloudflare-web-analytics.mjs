@@ -5,9 +5,19 @@ import { pathToFileURL } from 'node:url'
 
 const API_ROOT = 'https://api.cloudflare.com/client/v4'
 
+const ANALYTICS_PERMISSION_HINT =
+  'The Cloudflare API token needs the account-level Account Analytics permission ' +
+  '(Read to reuse an existing site, Edit to create one).'
+
 function errorMessages(body) {
   const errors = Array.isArray(body?.errors) ? body.errors : []
   return errors.map((error) => error.message ?? String(error)).join('; ')
+}
+
+// Cloudflare answers a token that is valid but under-scoped with 403 / code 10000,
+// which is indistinguishable from a bad token by message alone.
+function isPermissionError(error) {
+  return error?.status === 401 || error?.status === 403
 }
 
 async function cloudflareRequest({ accountId, apiToken, fetchImpl }, path, init = {}) {
@@ -23,10 +33,11 @@ async function cloudflareRequest({ accountId, apiToken, fetchImpl }, path, init 
 
   if (!response.ok || body.success !== true) {
     const detail = errorMessages(body) || `HTTP ${response.status}`
-    const permissionHint = path.includes('/rum/')
-      ? ' The Cloudflare API token needs Account Settings Read and Write.'
-      : ''
-    throw new Error(`Cloudflare request failed for ${path}: ${detail}.${permissionHint}`)
+    const permissionHint = path.includes('/rum/') ? ` ${ANALYTICS_PERMISSION_HINT}` : ''
+    const error = new Error(`Cloudflare request failed for ${path}: ${detail}.${permissionHint}`)
+    error.status = response.status
+    error.path = path
+    throw error
   }
 
   return body.result
@@ -51,22 +62,37 @@ export async function configureCloudflareWebAnalytics({
   const projectPath = `/accounts/${accountId}/pages/projects/${projectName}`
   const project = await cloudflareRequest(client, projectPath)
   const currentBuildConfig = project.build_config ?? {}
+  const hasAnalyticsTag = Boolean(currentBuildConfig.web_analytics_tag)
+  const hasAnalyticsToken = Boolean(currentBuildConfig.web_analytics_token)
 
-  if (currentBuildConfig.web_analytics_tag && currentBuildConfig.web_analytics_token) {
-    return { changed: false, projectName, host }
+  if (hasAnalyticsTag !== hasAnalyticsToken) {
+    throw new Error(
+      `Cloudflare Pages project ${projectName} has a partial Web Analytics configuration`,
+    )
   }
 
-  const sites = await cloudflareRequest(
-    client,
-    `/accounts/${accountId}/rum/site_info/list?per_page=50`,
-  )
-  let site = sites.find((candidate) => siteMatchesHost(candidate, host))
+  if (hasAnalyticsTag && hasAnalyticsToken) {
+    return { changed: false, skipped: false, projectName, host }
+  }
 
-  if (!site) {
-    site = await cloudflareRequest(client, `/accounts/${accountId}/rum/site_info`, {
-      method: 'POST',
-      body: JSON.stringify({ auto_install: false, host }),
-    })
+  // Analytics is a nice-to-have; an under-scoped token must never block the deploy.
+  let site
+  try {
+    const sites = await cloudflareRequest(
+      client,
+      `/accounts/${accountId}/rum/site_info/list?per_page=50`,
+    )
+    site = sites.find((candidate) => siteMatchesHost(candidate, host))
+
+    if (!site) {
+      site = await cloudflareRequest(client, `/accounts/${accountId}/rum/site_info`, {
+        method: 'POST',
+        body: JSON.stringify({ auto_install: false, host }),
+      })
+    }
+  } catch (error) {
+    if (!isPermissionError(error)) throw error
+    return { changed: false, skipped: true, projectName, host, reason: ANALYTICS_PERMISSION_HINT }
   }
 
   if (!site?.site_tag || !site?.site_token) {
@@ -92,7 +118,7 @@ export async function configureCloudflareWebAnalytics({
     throw new Error(`Cloudflare Web Analytics was not attached to Pages project ${projectName}`)
   }
 
-  return { changed: true, projectName, host }
+  return { changed: true, skipped: false, projectName, host }
 }
 
 async function main() {
@@ -102,6 +128,13 @@ async function main() {
     projectName: process.env.CLOUDFLARE_PAGES_PROJECT ?? 'nominee-dev',
     host: process.env.CLOUDFLARE_WEB_ANALYTICS_HOST ?? 'nominee.dev',
   })
+
+  if (result.skipped) {
+    console.log(
+      `::warning::Skipped Cloudflare Web Analytics for ${result.host}: ${result.reason} The site still deploys without it.`,
+    )
+    return
+  }
 
   const verb = result.changed ? 'Enabled' : 'Already enabled'
   console.log(`${verb}: Cloudflare Web Analytics for ${result.host} on ${result.projectName}`)
