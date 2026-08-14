@@ -99,7 +99,7 @@
 allow(<span class="s">'email.forward'</span>, { when: ({ input }) => input.to.<span class="fn">endsWith</span>(<span class="s">'@acme.com'</span>) })
 deny(<span class="s">'email.forward'</span>, { reason: <span class="s">'external forwarding is exfiltration'</span> })
 ask(<span class="s">'email.delete'</span>)</code></pre>
-          <p>The injected forward throws before the mailer; the delete waits for a human; both land on a tamper-evident receipt chain. That is containment plus evidence. It is still not detection: a polite injection that only asks for an on-domain forward will be allowed, because the policy said so.</p>
+          <p>The injected forward throws before the mailer; the delete creates a pending approval that <code>guard()</code> / <code>run()</code> surfaces as an <code>ActionPendingError</code> for durable resume; both land on a tamper-evident receipt chain. That is containment plus evidence. It is still not detection: a polite injection that only asks for an on-domain forward will be allowed, because the policy said so.</p>
           <p>Skip nominee when you have no write tools, when a single wrapper function already is the product, or when you wanted a hosted connector catalog. Deeper argument: <a href="/blog/your-agent-logs-in-as-you/">Your agent logs in as you. It shouldn't get to be you.</a></p>
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
