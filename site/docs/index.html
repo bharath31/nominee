@@ -190,6 +190,18 @@ npx nominee-cli check nominee.policy.ts</code></pre>
             Review and edit the file before enforcing it. The generator refuses to overwrite an
             existing policy unless <code>--force</code> is explicit.
           </p>
+          <h3>Use the local console</h3>
+          <pre><code>npx nominee-cli console --report nominee.observations.json</code></pre>
+          <p>
+            The loopback-only console renders the report, writes the same starter policy,
+            live-tails receipt decisions, verifies supplied chains with explicit caveats, and
+            resolves live <code>ask</code> calls from the browser. It needs no signup or cloud
+            relay. Import <code>createConsoleBridge</code> from
+            <code>nominee-cli/console</code> in a running agent and compose only the hooks you
+            want; if the approval connection fails, the bridge denies or expires the request.
+            Live console state is process-local, so durable production approvals still belong in
+            your application store.
+          </p>
           <div class="callout">
             <strong>Observe mode is not a security control.</strong> While it is on, a
             <code>deny</code> rule records a denial and the call still runs. It says so:

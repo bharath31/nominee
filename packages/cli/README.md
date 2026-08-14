@@ -250,9 +250,54 @@ Exit code `0` when every rule matches at least one sample call, `1` if any
 rule never matches, the file can't be loaded, or the default export isn't one
 of the two shapes above.
 
-## Coming next
+## `nominee console`
 
-`nominee console` — a local web UI for live-tailing receipts and resolving
-`ask` approvals from the browser — is not implemented yet. It needs its own
-HTTP server and is a substantially larger piece of work than the three
-commands above; see the `// TODO` in `src/cli.ts`.
+Starts a polished local dashboard on `127.0.0.1:4317`. It needs no account or
+cloud relay and opens an authenticated, one-time bootstrap URL in your browser:
+
+```bash
+npx nominee-cli console --report nominee.observations.json
+```
+
+The dashboard renders call, mutation, unbounded-argument, and policy-verdict
+headlines; drills into each observed tool; writes the same starter policy as
+`generate`; tails receipt decisions; and shows exactly what receipt-chain
+verification does and does not prove. Load an existing receipt array with
+`--receipts receipts.json`, choose a fixed output with `--policy-out`, or use
+`--no-open` on a headless machine. Loaded files are durable inputs; live state
+is process-local and disappears when the console stops.
+
+### Connect a running agent
+
+The command prints `NOMINEE_CONSOLE_URL` and a random 256-bit
+`NOMINEE_CONSOLE_TOKEN`. Export them in the agent process, then opt in by
+composing the bridge hooks:
+
+```ts
+import { Nominee } from 'nominee'
+import { createConsoleBridge } from 'nominee-cli/console'
+
+const bridge = createConsoleBridge()
+const nominee = new Nominee({
+  policy,
+  onApprovalRequest: bridge.onApprovalRequest,
+  receipts: { onReceipt: bridge.onReceipt, delivery: 'strict' },
+})
+
+// In an observe-mode inventory run only:
+const follower = bridge.followObservations(() => nominee.observations())
+// await follower.stop() during shutdown
+```
+
+An `ask` stays in the agent process while the browser displays its full input.
+Approve or deny once; a replay is rejected. If the console connection fails,
+the bridge resolves the approval as denied (or expired on timeout), so the tool
+does not run. Using receipt `delivery: 'strict'` likewise makes a broken live
+receipt path fail closed.
+
+The HTTP surface refuses non-loopback binds. Producer writes require the random
+Bearer token; browser mutations require an HttpOnly same-site session plus a
+CSRF token and same-origin request. Approval details remain in memory only and
+are removed on settlement. The core `nominee` package still contains no
+telemetry or console transport; nothing is published unless the application
+explicitly composes this bridge.

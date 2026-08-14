@@ -1,5 +1,6 @@
 import { offerActivationReport } from './activation.js'
 import { parseCheckArgs, runCheck } from './check.js'
+import { runConsole } from './console.js'
 import { runDeveloperActivation } from './developer-activation.js'
 import { runObserve } from './observe.js'
 import { runGeneratePolicy } from './policy.js'
@@ -14,6 +15,7 @@ const HELP = `nominee — the authorization layer for AI agents
 Usage:
   nominee observe            see what a sample agent can do — policy gates off
   nominee generate <report>  write an evidence-backed nominee.policy.ts
+  nominee console            open the local report and approval surface
   nominee                    run the support-agent policy proof (offline, no keys)
   nominee verify <file>      verify a JSON receipt export's hash chain
   nominee check <policy>     report which rules in a policy file are reachable
@@ -29,15 +31,18 @@ Options for generate:
   --out <file>               output path (default: nominee.policy.ts)
   --force                    replace an existing output file
 
+Options for console:
+  --report <file>            preload an observe-mode JSON report
+  --receipts <file>          preload a JSON receipt array
+  --policy-out <file>        fixed policy output (default: nominee.policy.ts)
+  --port <number>            loopback port (default: 4317)
+  --no-open                  do not open the browser automatically
+
 Options:
   -h, --help                 show this help
 
 Install: npm i nominee
 Docs:    https://nominee.dev`
-
-// `nominee console` (a local web UI for live approve/deny + tailing) is
-// intentionally out of scope for this pass — see README.md "coming next".
-// TODO: nominee console — local HTTP server + approve/deny UI + live tailing.
 
 export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
@@ -124,11 +129,45 @@ export async function main(argv: string[]): Promise<number> {
       return (await runDeveloperActivation(policy, receipts)).code
     }
 
-    case 'console':
-      console.log(
-        'nominee console: not implemented yet (coming next — see packages/cli/README.md).',
-      )
-      return 1
+    case 'console': {
+      const values = new Map<string, string>()
+      let invalid = false
+      for (let index = 0; index < rest.length; index++) {
+        const arg = rest[index]
+        if (arg === '--no-open') continue
+        if (!['--report', '--receipts', '--policy-out', '--port'].includes(arg ?? '')) {
+          invalid = true
+          break
+        }
+        const value = rest[index + 1]
+        if (!value || value.startsWith('--')) {
+          invalid = true
+          break
+        }
+        values.set(arg as string, value)
+        index++
+      }
+      const rawPort = values.get('--port')
+      const port = rawPort === undefined ? undefined : Number(rawPort)
+      if (
+        invalid ||
+        (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65_535))
+      ) {
+        console.log(
+          'Usage: nominee console [--report <file>] [--receipts <file>] [--policy-out <file>] [--port <number>] [--no-open]',
+        )
+        return 1
+      }
+      return (
+        await runConsole({
+          reportFile: values.get('--report'),
+          receiptsFile: values.get('--receipts'),
+          policyOut: values.get('--policy-out'),
+          port,
+          open: !rest.includes('--no-open'),
+        })
+      ).code
+    }
 
     case '-h':
     case '--help':

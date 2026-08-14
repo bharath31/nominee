@@ -43,7 +43,7 @@ Four design commitments matter most:
 ```text
 packages/
   core/     published as nominee           - engine, action lifecycle, Strategy interface
-  cli/      published as nominee-cli       - flagship 10-second support-refund proof
+  cli/      published as nominee-cli       - local console, policy generator, and runnable proof
   ai/       published as nominee-ai        - Vercel AI SDK and Cloudflare Agents adapter
   eve/      published as nominee-eve       - Vercel Eve adapter
   openai/   published as nominee-openai    - OpenAI Agents SDK adapter

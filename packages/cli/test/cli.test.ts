@@ -70,10 +70,11 @@ describe('cli dispatch', () => {
     expect(logs.join('\n')).toContain('unknown command "bogus"')
   })
 
-  it('reports "console" as not yet implemented and exits 1', async () => {
-    const code = await main(['console'])
+  it('validates console options instead of using the old implementation stub', async () => {
+    const code = await main(['console', '--host', '0.0.0.0'])
     expect(code).toBe(1)
-    expect(logs.join('\n')).toContain('not implemented yet')
+    expect(logs.join('\n')).toContain('Usage: nominee console')
+    expect(logs.join('\n')).not.toContain('not implemented yet')
   })
 })
 
