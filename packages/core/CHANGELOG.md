@@ -1,5 +1,11 @@
 # nominee
 
+## 2.4.0
+
+### Minor Changes
+
+- 887ae0b: Add `and`/`or`/`not`, `lte`, and `inList` policy helpers, plus `formatReceipts({ verbose })` and `formatReceiptsCsv`.
+
 ## 2.3.0
 
 ### Minor Changes
