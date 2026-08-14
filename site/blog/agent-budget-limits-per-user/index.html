@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent budget limits per user — nominee</title>
+    <meta name="description" content="A per-user agent budget is a counter in your process: after N successful tool calls, further matches pause for a human instead of running. Rate limits on the LLM API are not that. How to implement the counter, when a max-tokens cap is enough, and when to escalate rather than hard-fail." />
+    <link rel="canonical" href="https://nominee.dev/blog/agent-budget-limits-per-user/" />
+    <meta property="og:title" content="Agent budget limits per user" />
+    <meta property="og:description" content="Count tool calls per user in your process. After N, ask a human — do not keep spending." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/agent-budget-limits-per-user/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "Agent budget limits per user",
+      "description": "Count tool calls per user in your process. After N, ask a human — do not keep spending.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/agent-budget-limits-per-user/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">How-to</span>
+          </div>
+          <h1>A per-user agent budget is a counter on tool calls, not a max-tokens slider.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 5 min read</p>
+          <p class="post-disclosure">I work at Auth0. You can ship this counter with a Map and a mutex. nominee's <code>allow(..., { max })</code> is one implementation that escalates to a human instead of hard-failing.</p>
+        </div>
+        <div class="post-body">
+          <p>If the search was “agent budget limits per user,” you want this: <strong>after this principal has been allowed to run a class of tools N times, the next match does not run until a human says so</strong> (or you deny it). Count in <em>your</em> process, keyed by <code>user</code> (and tenant, if you have one), incremented only when the call actually ran. Provider rate limits, <code>maxTokens</code>, and “please only search twice” in the prompt are not that counter.</p>
+          <hr class="post-rule" />
+          <h2>The naive approach (and when it is sufficient)</h2>
+          <pre><code><span class="k">const</span> used = <span class="k">new</span> <span class="fn">Map</span>() <span class="c">// `${user}:${toolClass}` → number</span>
+
+<span class="k">async function</span> <span class="fn">search</span>(user, query) {
+  <span class="k">const</span> key = <span class="s">`${user}:search`</span>
+  <span class="k">const</span> n = used.<span class="fn">get</span>(key) ?? 0
+  <span class="k">if</span> (n >= 20) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">'search budget exhausted'</span>)
+  <span class="k">const</span> result = <span class="k">await</span> index.<span class="fn">query</span>(query)
+  used.<span class="fn">set</span>(key, n + 1)
+  <span class="k">return</span> result
+}</code></pre>
+          <p>That Map is enough when you have one Node process, one tool class, you are fine hard-failing at N, and a restart that zeros the counter is acceptable (dev, single replica, budget as a courtesy). Pair it with the provider's RPM cap if you are protecting the bill, not the data.</p>
+          <p>A <code>maxTokens</code> cap is enough when the risk is “this chat costs too much,” not “this user-agent pair can search our corpus 10,000 times or refund in a loop.” Those are different budgets. Keep both if you need both; do not pretend they substitute.</p>
+          <hr class="post-rule" />
+          <h2>Where the Map lies</h2>
+          <ul>
+            <li><strong>Concurrency.</strong> Two in-flight calls both read <code>n = 19</code> and both run. You need an atomic increment (in-process mutex, Redis <code>INCR</code>, or a durable store).</li>
+            <li><strong>Replicas.</strong> Each instance has its own Map. Production needs a shared counter keyed by tenant+user+rule.</li>
+            <li><strong>Hard fail vs escalate.</strong> Throwing looks like an error to the model, which retries. Asking a human breaks the loop without teaching the model to probe.</li>
+            <li><strong>Count denies?</strong> Usually no. A denied export should not eat the search budget. Increment on allow-and-execute.</li>
+          </ul>
+          <hr class="post-rule" />
+          <h2>When nominee is a fit (and when it is not)</h2>
+          <p><code>allow('search.*', { max: 20 })</code> is that counter: call 21 for the same user escalates to <code>ask</code> (receipt <code>escalated: 'budget'</code>), it does not silently deny. Under <code>production: true</code> the reservation lives on the action store so two replicas cannot both spend the last slot.</p>
+          <pre><code>allow(<span class="s">'orders.read'</span>)
+allow(<span class="s">'search.*'</span>, { max: 20 })
+ask(<span class="s">'refund.issue'</span>, { when: ({ input }) => input.amount &lt;= 500 })
+deny(<span class="s">'refund.issue'</span>)</code></pre>
+          <p>Skip nominee when a platform quota already stops the dangerous calls, when the agent is read-only, or when you only needed to cap LLM spend — use the provider dashboard. Skip it if you wanted OpenFGA to encode “how many” as a relationship tuple; you can still call FGA from a <code>when</code> predicate and keep a local <code>max</code> for loop containment. Deeper: <a href="/blog/native-approval-vs-action-authorization/">Native approval vs action authorization.</a></p>
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">Allow, ask, deny — then the chain verifies.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">no signup</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
