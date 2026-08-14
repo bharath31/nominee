@@ -2,7 +2,8 @@
 
 **Route in:** docs PR + community integrations list.
 **Guide:** [docs/integrations/ai-sdk.md](../integrations/ai-sdk.md)
-**Package:** `nominee-ai` — `guardTools(nominee, tools, { user })`
+**Package:** `nominee-ai` — `nomineeTool` for resource/connection/scopes;
+`guardTools(nominee, tools, { user })` only binds policy to a user.
 
 ## Suggested PR title
 
@@ -13,14 +14,25 @@ Add nominee as a community integration for tool-call authorization and HITL
 Vercel AI SDK already has excellent human-in-the-loop primitives. nominee sits
 under them when the decision must also include application user/resource
 authorization, exact-input binding, a fresh credential at execute time, and a
-hash-chained receipt — including denials.
+hash-chained receipt — including denials. Use `nomineeTool` for those
+requirements; `guardTools` only passes `{ tool, input, user }`.
 
 ```ts
-import { guardTools } from 'nominee-ai'
+import { nomineeTool } from 'nominee-ai'
+import { z } from 'zod'
 
-const result = await generateText({
-  model,
-  tools: guardTools(nominee, tools, { user: session.userId }),
+const merge = nomineeTool({
+  nominee,
+  action: 'github.merge',
+  user: session.userId,
+  resource: ({ input }) => `pr:${input.number}`,
+  connection: 'github',
+  scopes: ['repo'],
+  inputSchema: z.object({ number: z.number() }),
+  execute: async (_input, { token }) => {
+    await mergePullRequest(token)
+    return 'merged'
+  },
 })
 ```
 
