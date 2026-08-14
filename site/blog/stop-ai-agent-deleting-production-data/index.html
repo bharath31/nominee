@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How to stop an AI agent from deleting production data — nominee</title>
+    <meta name="description" content="An allow-list of read-only tools is the naive fix, and it's often the right one. Here's when it stops being enough, and how a deny rule blocks a destructive call before the function that would run it is ever invoked — with a receipt of the attempt either way." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/stop-ai-agent-deleting-production-data/" />
+    <meta property="og:title" content="How to stop an AI agent from deleting production data" />
+    <meta property="og:description" content="An allow-list of read-only tools is the naive fix. Here's when it stops being enough, and how a deny rule blocks a destructive call before the function that would run it is ever invoked." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/stop-ai-agent-deleting-production-data/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="How to stop an AI agent from deleting production data" />
+    <meta name="twitter:description" content="An allow-list of read-only tools is the naive fix. Here's when it stops being enough, and how a deny rule blocks a destructive call before the function that would run it is ever invoked." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "How to stop an AI agent from deleting production data",
+      "description": "An allow-list of read-only tools is the naive fix, and it's often the right one. Here's when it stops being enough, and how a deny rule blocks a destructive call before the function that would run it is ever invoked.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/stop-ai-agent-deleting-production-data/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">Engineering</span>
+          </div>
+          <h1>How to stop an AI agent<br>from deleting production data.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 8 min read</p>
+        </div>
+
+        <div class="post-body">
+
+          <p>Short answer: don't give the agent a function that can drop a table or delete a record in the first place, if you can avoid it — and where you can't avoid it, block the destructive call in the layer that decides whether a tool call runs, not in the prompt, and not in the model's judgment. A system prompt saying "never drop tables" is a request, not a control. It's the difference between telling someone the rule and installing a lock.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The naive fix, and why it's often correct</h2>
+
+          <p>The most common and, honestly, frequently sufficient answer is: don't expose the destructive tool at all. Give the agent <code>readOrders</code>, <code>readInventory</code>, <code>searchLogs</code> — and no <code>dropTable</code>, no <code>deleteRecord</code>, no raw SQL execution tool. If the capability doesn't exist in the tool list, no prompt injection, hallucination, or bad plan can invoke it. This is the correct starting point for any agent that doesn't have a real business reason to mutate destructively, and it costs nothing beyond the discipline of not adding the tool.</p>
+
+          <p>It stops being sufficient the moment there's a legitimate reason for the capability to exist somewhere in the system — a cleanup job, an admin agent, a migration assistant — and "somewhere in the system" turns out to mean "reachable, in principle, by the same agent loop that also reads untrusted content." That's most agents with any real utility: an email-triage agent that also has a <code>deleteRecord</code> tool for closing out duplicate tickets is one crafted email away from an attacker asking it, in-band, to delete something else.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The next naive fix, and where it breaks</h2>
+
+          <p>The next thing people try is a guard inside the destructive function itself:</p>
+
+          <pre><code><span class="k">async</span> <span class="k">function</span> <span class="fn">dropTable</span>({ table }) {
+  <span class="k">if</span> (table.<span class="fn">startsWith</span>(<span class="s">'tmp_'</span>)) {
+    <span class="k">return</span> db.<span class="fn">drop</span>(table)
+  }
+  <span class="k">throw</span> <span class="k">new</span> <span class="t">Error</span>(<span class="s">'refusing to drop a non-temp table'</span>)
+}</code></pre>
+
+          <p>This is real protection, and better than nothing. Its failure mode is that it lives inside the function that also does the dangerous thing — every new destructive tool needs its own copy of the same discipline, someone eventually writes one without the check because they were focused on the happy path, and there's no single place to look to answer "what destructive actions can this agent take" without reading every tool's source.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Moving the block outside the function</h2>
+
+          <p>The fix that scales past one tool is the same shape as most access-control problems: stop trusting each function to protect itself, and put a single deny-by-default check in front of all of them. With <a href="https://github.com/bharath31/nominee">nominee</a>, that's a <code>deny</code> policy rule enforced by <code>guard()</code> — the destructive function's own code is never reached if the rule fires:</p>
+
+          <pre><code><span class="k">import</span> { Nominee, allow, deny, PolicyDeniedError } <span class="k">from</span> <span class="s">'nominee'</span>
+
+<span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  policy: {
+    rules: [
+      <span class="fn">allow</span>(<span class="s">'readTable'</span>),
+      <span class="fn">deny</span>(<span class="s">'dropTable'</span>, { reason: <span class="s">'schema-destructive calls are never automated, no exceptions'</span> }),
+    ],
+    fallback: <span class="s">'deny'</span>,
+  },
+  receipts: { key: process.env.RECEIPT_KEY },
+  agent: <span class="s">'db-agent'</span>,
+})
+
+<span class="k">async</span> <span class="k">function</span> <span class="fn">dropTable</span>({ table }) { <span class="k">return</span> db.<span class="fn">drop</span>(table) }
+<span class="k">async</span> <span class="k">function</span> <span class="fn">readTable</span>({ table }) { <span class="k">return</span> db.<span class="fn">read</span>(table) }
+
+<span class="k">const</span> tools = nominee.<span class="fn">guard</span>({ readTable, dropTable }, { user: <span class="s">'agent_pipeline'</span> })</code></pre>
+
+          <p>Now feed it a legitimate read and an attempted drop — run against the real package, nothing mocked:</p>
+
+          <pre><code><span class="k">await</span> tools.<span class="fn">readTable</span>({ table: <span class="s">'orders'</span> })
+<span class="c">// { table: 'orders', rows: 42 }</span>
+
+<span class="k">try</span> {
+  <span class="k">await</span> tools.<span class="fn">dropTable</span>({ table: <span class="s">'orders'</span> })
+} <span class="k">catch</span> (err) {
+  err <span class="k">instanceof</span> <span class="t">PolicyDeniedError</span> <span class="c">// true</span>
+  err.message
+  <span class="c">// 'nominee: policy denied "dropTable" for agent_pipeline (rule deny:dropTable)</span>
+  <span class="c">//   — schema-destructive calls are never automated, no exceptions'</span>
+}
+
+<span class="c">// the actual db.drop() call inside dropTable() never ran — dropped === false</span></code></pre>
+
+          <p>And the receipt chain shows exactly what was attempted and blocked, whether or not anyone's watching a dashboard when it happens:</p>
+
+          <pre><code>#0 action.planned readTable 4e7673008b4c
+#1 policy.decision readTable allow f2f300b23340
+#2 capability.issued readTable 04b2708984a4
+#3 capability.consumed readTable e6e43a8c53ae
+#4 execution.started readTable 09c17ddf9539
+#5 execution.succeeded readTable succeeded e79d83b60705
+#6 action.planned dropTable 0d10d7252fba
+#7 policy.decision dropTable deny a54b16ea5a45</code></pre>
+
+          <p>Note what's missing from that list: <code>capability.issued</code>, <code>execution.started</code>. The chain stops at <code>policy.decision … deny</code> — the drop was refused at the planning stage, not caught after the fact. That's the property that matters: the function containing <code>db.drop()</code> was never called. A deny that happens to log the attempt but still runs the tool isn't a deny, it's an audit trail for damage that already happened.</p>
+
+          <hr class="post-rule" />
+
+          <h2>What this is not</h2>
+
+          <p>Be precise about the claim here: a deny rule stops a specific, named tool call from executing. It does not detect that an incoming message is a prompt injection, and it does not stop a model from <em>deciding</em> to try — a compromised or confused agent can still attempt the call. What it changes is the outcome of that attempt. That's blast-radius containment, not injection detection, and it's worth keeping those two ideas separate: the agent can be fully fooled by a malicious email, decide to act on it, call the tool — and still not be able to drop the table, because the decision of whether the call executes never belonged to the model in the first place. The <a href="/blog/your-agent-logs-in-as-you/">supporting proof for that exact scenario</a> — a prompt-injected agent trying to exfiltrate data and physically failing — is worth reading if this is the threat model you're defending against.</p>
+
+          <p>It's also worth being honest about the boundary: this only holds if the destructive capability is only reachable through the guarded path. If the agent (or the code calling it) can reach <code>db.drop()</code> directly, or holds a raw database credential outside of nominee's decision-bound execution, the policy layer never gets a chance to say no. Put genuinely high-impact operations behind a separate service that only accepts the decision-bound call, not a shared credential the agent process also happens to hold.</p>
+
+          <hr class="post-rule" />
+
+          <h2>When you don't need this</h2>
+
+          <p>If you can get away with simply not exposing the destructive tool — do that first; it's strictly stronger than any runtime check, because there's nothing to bypass. Reach for a policy layer once a destructive capability has to exist somewhere reachable by the same process that handles untrusted input, once more than one tool needs the same kind of protection, or once "prove nothing destructive ran without authorization" needs to be an answerable question after the fact, not just a hope.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">Watch a blocked exfiltration attempt in 10 seconds.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">no signup, no network calls</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked">prompt-injection-blocked example →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>

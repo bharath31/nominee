@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How to make an agent's pending approval survive a restart — nominee</title>
+    <meta name="description" content="Awaiting a promise for an approval that might take an hour works until the process redeploys while it's still pending. What durability actually requires: a persisted action id instead of an in-memory callback, and two different stores that both have to survive, not just one." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/durable-approval-agent-restart/" />
+    <meta property="og:title" content="How to make an agent's pending approval survive a restart" />
+    <meta property="og:description" content="Awaiting a promise for an hour-long approval works until the process redeploys mid-wait. What durability actually requires: a persisted action id, not an in-memory callback — and two stores that both have to survive." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/durable-approval-agent-restart/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="How to make an agent's pending approval survive a restart" />
+    <meta name="twitter:description" content="Awaiting a promise for an hour-long approval works until the process redeploys mid-wait. A persisted action id, not an in-memory callback — and two stores that both have to survive." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "How to make an agent's pending approval survive a restart",
+      "description": "Awaiting a promise for an approval that might take an hour works until the process redeploys while it's still pending. What durability actually requires: a persisted action id instead of an in-memory callback, and two stores that both have to survive.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/durable-approval-agent-restart/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">Engineering</span>
+          </div>
+          <h1>How to make an agent's pending approval<br>survive a restart.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 10 min read</p>
+        </div>
+
+        <div class="post-body">
+
+          <p>Short answer: don't hold the approval as a pending promise in process memory. Persist a stable action id the moment the approval is requested, return control to the caller, and resolve the action later — from a webhook, a cron job, a completely different process — by looking that id back up. If you're awaiting anything across the gap between "asked" and "answered," that's the bug, no matter how it's implemented.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Why the obvious version doesn't survive</h2>
+
+          <p>The obvious way to pause for an approval is to <code>await</code> it:</p>
+
+          <pre><code><span class="k">async</span> <span class="k">function</span> <span class="fn">cancelOrder</span>({ orderId }) {
+  <span class="k">const</span> approved = <span class="k">await</span> <span class="fn">waitForSlackApproval</span>(orderId) <span class="c">// could take an hour</span>
+  <span class="k">if</span> (!approved) <span class="k">throw</span> <span class="k">new</span> <span class="t">Error</span>(<span class="s">'denied'</span>)
+  <span class="k">return</span> orders.<span class="fn">cancel</span>(orderId)
+}</code></pre>
+
+          <p>This is fine for an approval that resolves in seconds inside one request-response cycle. It stops being fine the moment the wait is long enough that something else happens first: the container redeploys, the serverless function's execution limit is hit, the process crashes and gets rescheduled. Whatever was holding that <code>await</code> — the closure, the pending promise, the callback waiting on a websocket — is gone. Not denied, not logged as abandoned. Gone, along with any way to tell the difference between "still waiting" and "never happened."</p>
+
+          <p>The tell that you have this bug: if you can't answer "which of our agent's pending approvals are still open right now" with a database query — only by asking whether the relevant process is still running — the state lives in memory, not in something durable.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The shape that survives: a persisted id, not a held promise</h2>
+
+          <p><a href="https://github.com/bharath31/nominee">nominee</a>'s action lifecycle is built around exactly this split. <code>prepareAction()</code> either resolves with an execution capability immediately, or comes back — synchronously, without blocking — with a <code>pending_approval</code> status and a durable action id. <code>run()</code>, the higher-level call, surfaces that same moment as a typed error instead of a status you have to check:</p>
+
+          <pre><code><span class="k">import</span> { Nominee, allow, ask, ActionPendingError } <span class="k">from</span> <span class="s">'nominee'</span>
+
+<span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  policy: {
+    rules: [<span class="fn">allow</span>(<span class="s">'order.read'</span>), <span class="fn">ask</span>(<span class="s">'order.cancel'</span>, { reason: <span class="s">'cancellations over 2 days old need a human'</span> })],
+    fallback: <span class="s">'deny'</span>,
+  },
+  actionStore, <span class="c">// durable — see below</span>
+  receipts: { store: receiptStore, key: process.env.RECEIPT_KEY }, <span class="c">// durable — see below</span>
+})
+
+<span class="k">try</span> {
+  <span class="k">await</span> nominee.<span class="fn">run</span>({ tool: <span class="s">'order.cancel'</span>, input: { orderId }, user: session.userId }, () =&gt;
+    orders.<span class="fn">cancel</span>(orderId),
+  )
+} <span class="k">catch</span> (err) {
+  <span class="k">if</span> (err <span class="k">instanceof</span> <span class="t">ActionPendingError</span>) {
+    <span class="k">await</span> jobs.<span class="fn">save</span>({ actionId: err.actionId, orderId }) <span class="c">// your own durable job row</span>
+    <span class="k">return</span> res.<span class="fn">status</span>(<span class="n">202</span>).<span class="fn">json</span>({ actionId: err.actionId })
+  }
+  <span class="k">throw</span> err
+}</code></pre>
+
+          <p>Nothing here is awaiting the human. The request handler returns immediately with a <code>202</code> and an id. That id is the entire handoff — it's what a webhook, a cron sweep, or a different service instance uses to pick the thread back up, with zero shared in-memory state:</p>
+
+          <pre><code><span class="c">// in a completely separate process, minutes or hours later — a webhook handler:</span>
+<span class="k">await</span> nominee.<span class="fn">resolveActionApproval</span>(actionId, {
+  decision: <span class="s">'approved'</span>,
+  approver: <span class="s">'ravi@acme-ops.example'</span>,
+  via: <span class="s">'dashboard'</span>,
+})
+
+<span class="k">const</span> resumed = <span class="k">await</span> nominee.<span class="fn">resumeAction</span>(actionId)
+<span class="k">const</span> result = <span class="k">await</span> nominee.<span class="fn">executeCapability</span>(resumed.capability, { orderId }, ({ input }) =&gt;
+  orders.<span class="fn">cancel</span>(input.orderId),
+)</code></pre>
+
+          <p>To prove that's not just a comment, here's two independent <code>Nominee</code> instances — no shared memory, no closures crossing between them, only a shared store — standing in for two separate processes either side of a restart, run against the real package:</p>
+
+          <pre><code><span class="c">// process A: plans the action, hits ActionPendingError, persists the id, exits</span>
+process A: action pending, id=act_f7ec76c256fe2832d5c47bdc77d072cb093f — persisting id and returning 202
+--- process A exits / redeploys here ---
+
+<span class="c">// process B: brand-new Nominee instance, only knows the id from the job row</span>
+process B: resumed status = ready
+process B: executed -&gt; { orderId: 'ord_512', cancelled: true }</code></pre>
+
+          <p>Process B never held a promise from process A. It looked up the same durable store by id and picked up exactly where the action left off.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The catch: two stores have to be durable, not one</h2>
+
+          <p>This is the part worth being precise about, because it's easy to fix half of it and assume you're done. The example above passes a <em>shared</em> <code>actionStore</code> to both instances, so the action's lifecycle state (its status, its approval, its capability) survives the "restart." Look at what each instance's own receipt log actually contains, though:</p>
+
+          <pre><code>process A receipts: action.planned, policy.decision, approval.requested
+process B receipts: approval.resolved, capability.issued, capability.consumed, execution.started, execution.succeeded</code></pre>
+
+          <p>Two separate, incomplete chains — because in this illustration only the <em>action</em> store was shared; each <code>Nominee</code> instance's receipt ledger is still its own in-memory list by default. In a real deployment you need the receipt stream durable and shared too — <code>receipts: { store, stream }</code> pointed at the same backing store as the action state (<code>nominee-postgres</code> supplies both), so the full chain — plan, ask, approve, execute — lives in one place regardless of which process wrote each entry. Get only the action store durable and you have correct approval resumption with a broken audit trail; get only the receipts durable and you have a nice log of a workflow that can't actually resume after a restart. Production mode enforces both: `new Nominee({ production: true, ... })` refuses to construct unless the action store, the receipt store, and strict delivery are all configured — it won't let you ship the half-durable version by accident.</p>
+
+          <hr class="post-rule" />
+
+          <h2>Two more things this pattern buys you for free</h2>
+
+          <ul>
+            <li><strong>Capability rotation on retry.</strong> If your webhook or job runner retries <code>resumeAction()</code> before the first capability is consumed, the old one is invalidated and a fresh one issued — a duplicate delivery can't accidentally execute the action twice through two different capabilities.</li>
+            <li><strong>Provider-native polling for the same call.</strong> If your approval comes from a provider that tracks its own pending state (Auth0 CIBA, for instance) rather than your webhook, <code>resumeAction()</code> polls it once and returns <code>pending_approval</code> again if it's still open — same resume call, same durable id, whether the approval mechanism is your own dashboard or someone else's.</li>
+          </ul>
+
+          <p>For the fuller production checklist — idempotency keys downstream, external receipt anchoring, alerting on stuck actions — see the <a href="https://github.com/bharath31/nominee/blob/main/docs/production.md">production runbook</a>, and <a href="https://nominee.dev/agent">nominee.dev/agent</a> for a deployed reference: a Cloudflare Durable Object agent whose receipt chain resumes across hibernation and whose credential is fetched fresh only at resume, not held across the gap.</p>
+
+          <hr class="post-rule" />
+
+          <h2>When you don't need this</h2>
+
+          <p>If every approval in your system resolves inside one request — a synchronous confirm dialog, a same-session click — the <code>await</code> version at the top of this post is simpler and correct; don't add a durable action store for a pause that never outlives the request handling it. This pattern earns its place once an approval can plausibly outlive the process asking for it: anything measured in minutes to days, anything routed through Slack or email, anything that has to survive a deploy landing mid-wait. If your agent's tokens are also going stale during that same pause, that's a related and separate problem — see <a href="/blog/oauth-refresh-is-probably-broken/">your AI agent's OAuth token refresh is probably broken</a>.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">Run the pause-and-resume proof in 10 seconds.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">no signup, no network calls</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="/docs/#production">Read the production runbook →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
