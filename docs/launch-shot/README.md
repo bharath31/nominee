@@ -2,7 +2,8 @@
 
 Linear [NOM-18](https://linear.app/brth31/issue/NOM-18). A launch is real,
 necessary, and **one-shot**. Nothing in this directory is a post. Do not
-submit to Hacker News, Product Hunt, or a subreddit from a PR.
+submit to Product Hunt or a subreddit from a PR. Do **not** draft or
+push a Hacker News / Show HN post.
 
 ## Hard gates — all three, no exceptions
 
@@ -21,7 +22,6 @@ is the most expensive mistake in the project.
 
 | File | Use when all gates are checked |
 | --- | --- |
-| [show-hn.md](show-hn.md) | Show HN title, body, first-comment replies |
 | [product-hunt.md](product-hunt.md) | Secondary listing copy |
 | [communities.md](communities.md) | Subreddit rules reminder + drafts |
 | [faq.md](faq.md) | Why not an `if`, in-process wrapping, scale, who uses it |

@@ -6,9 +6,9 @@ than “adapt the post.”
 
 ## r/programming
 
-Only if Show HN is already up and the gates are met. Link the HN thread,
-not a raw landing page, unless their rules prefer the repo. Lead with the
-injection demo being containment, not detection.
+Only after the gates are met. Link the repo, not a landing-page blast,
+unless their rules prefer otherwise. Lead with the injection demo being
+containment, not detection. No Hacker News / Show HN post.
 
 ## r/LocalLLaMA
 

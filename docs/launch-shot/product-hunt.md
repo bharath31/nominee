@@ -1,8 +1,8 @@
 # Product Hunt — draft, do not post
 
-Secondary to Show HN. Lower-quality traffic for developer infrastructure,
-cheap to do the same day **after** the three gates in
-[README.md](README.md).
+Lower-quality traffic for developer infrastructure; cheap to do
+**after** the three gates in [README.md](README.md). Do not pair this
+with a Hacker News / Show HN post from this repo.
 
 ## Name
 
