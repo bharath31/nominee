@@ -86,6 +86,11 @@ Analytics Engine dataset when bound. The binding stays **commented out** in
 Analytics Engine is enabled on the account (error 10089). The code already
 guards `env.FUNNEL?`.
 
+The public `POST /agent/funnel` route accepts only the CLI activation event and
+the named playground outcomes. Arbitrary event names and properties are
+rejected. The CLI event is sent only after the CLI prints its exact payload and
+the developer opts in; `DO_NOT_TRACK=1` suppresses even the prompt.
+
 To enable:
 
 1. Dashboard → Workers → **Analytics Engine** → enable for the account.

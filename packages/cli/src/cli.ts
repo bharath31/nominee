@@ -1,8 +1,10 @@
-// Command dispatcher for `npx nominee-cli`. Hand-rolled argv dispatch — three
-// subcommands don't need a CLI framework dependency.
+import { offerActivationReport } from './activation.js'
 import { runCheck } from './check.js'
 import { runProof } from './proof.js'
 import { runVerify } from './verify.js'
+
+// Command dispatcher for `npx nominee-cli`. Hand-rolled argv dispatch — three
+// subcommands don't need a CLI framework dependency.
 
 const HELP = `nominee — the authorization layer for AI agents
 
@@ -25,8 +27,11 @@ export async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
 
   switch (command) {
-    case undefined:
-      return (await runProof()).code
+    case undefined: {
+      const result = await runProof()
+      if (result.code === 0) await offerActivationReport()
+      return result.code
+    }
 
     case 'verify': {
       const file = rest[0]

@@ -86,3 +86,28 @@ Web Analytics measures acquisition and page performance, not product
 activation. It does not support custom events. Keep playground outcomes such as
 `blocked`, `approval_requested`, and `approved` in the agent Worker's optional
 Analytics Engine `FUNNEL` binding described in `site/agent-worker/README.md`.
+
+## Activated developer (phase 0)
+
+An **activated developer** is an anonymous CLI installation that successfully
+finishes the offline proof and then explicitly opts in to reporting
+`cli_proof_completed`. This is intentionally narrower than downloads, page
+views, or playground runs. The CLI shows the exact payload before asking,
+persists the choice locally so it asks only once, and does nothing when
+`DO_NOT_TRACK=1` is set. No reporting code exists in the core library.
+
+The playground records the anonymous path from `playground_run` through allow,
+block, approval request, approve, or deny in the Worker's optional `FUNNEL`
+dataset. These events diagnose the acquisition funnel; they do not count as an
+activated developer.
+
+For a weekly acquisition baseline, run:
+
+```bash
+node scripts/weekly-activation-report.mjs 2026-08-03 2026-08-09
+```
+
+The report subtracts, for each day and each published package, the minimum
+download count observed across all packages. That common floor is labeled as
+estimated automated monorepo traffic. The remainder is still only an
+**estimated human download** and must never be presented as observed activation.

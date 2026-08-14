@@ -33,6 +33,16 @@ function trackFunnel(env: Env, event: string, detail = ''): void {
   }
 }
 
+const PUBLIC_FUNNEL_EVENTS = new Set([
+  'cli_proof_completed',
+  'playground_run',
+  'playground_allowed',
+  'playground_blocked',
+  'playground_approval_requested',
+  'playground_approved',
+  'playground_denied',
+])
+
 // The payload the agent "reads" mid-run. Like the supporting security example
 // (examples/prompt-injection-blocked), this is a fixed fixture embedded in
 // the worker — the point is what the guarded *tools* will and won't do, not
@@ -191,6 +201,23 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     const path = url.pathname.replace(/\/+$/, '') || '/agent'
+
+    // Explicitly allowlisted, anonymous product-funnel collector. It accepts no
+    // arbitrary properties: just an event name and a short installation id for
+    // deduplicating the CLI's one-time, opt-in activation report.
+    if (path.endsWith('/funnel') && request.method === 'POST') {
+      const body = (await request.json().catch(() => null)) as
+        | { event?: unknown; installationId?: unknown }
+        | null
+      const event = typeof body?.event === 'string' ? body.event : ''
+      if (!PUBLIC_FUNNEL_EVENTS.has(event)) return json({ ok: false }, 400)
+      const detail =
+        event === 'cli_proof_completed' && typeof body?.installationId === 'string'
+          ? body.installationId.slice(0, 64)
+          : ''
+      trackFunnel(env, event, detail)
+      return json({ ok: true }, 202)
+    }
 
     // ---- 0. public demo endpoints for the homepage "long session" race ----
     // A signup-free, short-TTL (8s) token source + a guarded resource. The site

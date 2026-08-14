@@ -37,6 +37,15 @@
   let running = false
   let runId = 0
 
+  function track(event) {
+    fetch('/agent/funnel', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event }),
+      keepalive: true,
+    }).catch(() => {})
+  }
+
   const worker = new Worker('/playground/runner.js', { type: 'module' })
 
   function setBusy(value) {
@@ -120,6 +129,7 @@
     }
 
     if (data.type === 'approval') {
+      track('playground_approval_requested')
       approvalCopy.textContent = `Refund $${data.amount.toLocaleString()} for ord_42?`
       approval.hidden = false
       setState('waiting for you', 'running')
@@ -134,6 +144,7 @@
     }
 
     if (data.type === 'blocked') {
+      track('playground_blocked')
       appendMessage('Nominee', data.text, 'blocked')
       if (data.receipts) renderReceipts(data.receipts, data.verified)
       finish('blocked before tool', 'blocked')
@@ -141,6 +152,7 @@
     }
 
     if (data.type === 'complete') {
+      track('playground_allowed')
       appendMessage('Agent', data.text, 'allowed')
       if (data.receipts) renderReceipts(data.receipts, data.verified)
       finish('tool executed', 'allowed')
@@ -181,6 +193,7 @@
   runButton.addEventListener('click', () => {
     if (!ready || running) return
     runId += 1
+    track('playground_run')
     approval.hidden = true
     setBusy(true)
     setState('running', 'running')
@@ -189,6 +202,7 @@
   })
 
   approveButton.addEventListener('click', () => {
+    track('playground_approved')
     approval.hidden = true
     setState('resuming', 'running')
     appendMessage('You', `Approved the $${amount.toLocaleString()} refund once.`, 'customer')
@@ -196,6 +210,7 @@
   })
 
   denyButton.addEventListener('click', () => {
+    track('playground_denied')
     approval.hidden = true
     setState('denying', 'running')
     appendMessage('You', `Denied the $${amount.toLocaleString()} refund.`, 'customer')
