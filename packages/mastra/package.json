@@ -1,6 +1,6 @@
 {
   "name": "nominee-mastra",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Decision-bound Mastra tools for governed AI agents",
   "type": "module",
   "main": "./dist/index.cjs",

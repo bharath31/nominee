@@ -1,5 +1,13 @@
 # ai-sdk-minimal
 
+## 1.0.4
+
+### Patch Changes
+
+- Updated dependencies [2d8a966]
+  - nominee@2.3.0
+  - nominee-ai@2.2.1
+
 ## 1.0.3
 
 ### Patch Changes
