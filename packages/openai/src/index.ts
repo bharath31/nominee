@@ -70,6 +70,7 @@ export function nomineeTool<
 ): FunctionTool<TContext, TParameters, TResult> {
   const action = config.action ?? config.name
   const approval: ApprovalFunction<TParameters> = async (context, input, callId) => {
+    if (config.nominee.mode === 'observe') return false
     const typedContext = context as RunContext<TContext>
     const call = { input, context: typedContext }
     const configured =

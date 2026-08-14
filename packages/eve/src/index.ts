@@ -96,7 +96,7 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
   const definition = {
     description: config.description,
     inputSchema: config.inputSchema,
-    approval: config.eveApproval ?? config.needsApproval,
+    approval: nominee.mode === 'observe' ? undefined : (config.eveApproval ?? config.needsApproval),
     async execute(input: z.infer<TSchema>, ctx: ToolContext): Promise<TOutput> {
       const user = await resolveUser(config.user, ctx)
 

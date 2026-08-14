@@ -29,7 +29,14 @@ Four design commitments matter most:
    authority, never widen it.
 4. **Fail closed, and say so.** A store, sink, or authorizer that errors must
    never degrade into `allow`. In-memory stores are conformance
-   implementations and deliberately refuse `production: true`.
+   implementations and deliberately refuse `production: true`. Observe mode
+   (`mode: 'observe'`) is the one deliberate exception: it does not enforce
+   policy decisions, so it must be asked for by name, announce itself on
+   startup, mark every receipt `enforcement: 'observe'`, preserve the original
+   policy verdict, count only callbacks that actually start, avoid retaining
+   raw string/boolean values or user IDs, bound numeric samples, and refuse
+   `production: true`. See
+   [docs/observe.md](docs/observe.md) and `security-contract/contract.test.ts`.
 
 ## Layout
 
@@ -60,7 +67,9 @@ site/
 ## Public API Shape
 
 ```ts
-import { Nominee, allow, deny, ask, tokens, formatReceipts, verifyReceipts } from 'nominee'
+import {
+  Nominee, allow, deny, ask, tokens, formatReceipts, formatObservations, verifyReceipts,
+} from 'nominee'
 
 const nominee = new Nominee({
   policy: {
@@ -79,6 +88,12 @@ const nominee = new Nominee({
   onAudit: (event) => auditDb.insert(event),
   agent: 'triage-bot',
 })
+
+// Observe mode (report-only: records policy decisions without enforcing them)
+const observing = new Nominee({ mode: 'observe' })  // refused with production: true
+const observed = observing.observe(rawTools)        // no policy needed
+observing.observations()                            // JSON; hashed cardinality + numeric ranges
+formatObservations(observing.observations())        // terminal report
 
 // Authorization
 await nominee.authorize({ tool, input, user }) // throws PolicyDeniedError / ApprovalDeniedError

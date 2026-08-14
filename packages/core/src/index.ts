@@ -9,10 +9,12 @@ export {
 } from './nominee.js'
 export type {
   NomineeOptions,
+  NomineeMode,
   TokenParams,
   AuthorizeParams,
   Authorization,
   GuardOptions,
+  ObserveOptions,
   PrepareActionParams,
   PreparedAction,
   ExecuteActionContext,
@@ -40,6 +42,15 @@ export type {
   ApplyActionDecisionResult,
   ResolveActionApproval,
 } from './action.js'
+
+export { classifyTool, formatObservations, ObservationCollector } from './observe.js'
+export type {
+  ArgumentObservation,
+  ObservationReport,
+  ObservedCall,
+  ToolKind,
+  ToolObservation,
+} from './observe.js'
 
 export { allow, deny, ask, matchTool, PolicyEngine } from './policy.js'
 export type { Policy, Rule, RuleOptions, Effect, ToolCall, PolicyDecision } from './policy.js'

@@ -69,9 +69,12 @@ export interface ActionRecord {
   resource?: string
   inputHash: string
   policyVersion: string
+  /** The policy's actual verdict, even when observe mode does not enforce it. */
   policyEffect?: 'allow' | 'ask' | 'deny'
   policyRule?: string
   policyReason?: string
+  /** Present when a non-allow verdict was recorded but deliberately not enforced. */
+  enforcement?: 'observe'
   externalAuthorization?: boolean
   connection?: string
   scopes?: string[]
@@ -90,6 +93,12 @@ export interface ApplyActionDecision {
   reason?: string
   externalAuthorization?: boolean
   approval?: ActionApproval
+  /**
+   * Apply the lifecycle as allowed while preserving {@link effect} as the
+   * policy verdict. Custom stores must honor this marker to support observe
+   * mode; ignoring it fails closed rather than issuing an observe capability.
+   */
+  enforcement?: 'observe'
 }
 
 export interface ApplyActionDecisionResult {
@@ -217,6 +226,7 @@ export class MemoryActionStore implements ActionStore {
 
     const now = Date.now()
     this.cleanupExpiredReservations(now)
+    const enforcedEffect = decision.enforcement === 'observe' ? 'allow' : decision.effect
     if (decision.effect === 'allow') {
       for (const budget of budgets) {
         const active = this.activeReservations(budget.key, now)
@@ -237,9 +247,9 @@ export class MemoryActionStore implements ActionStore {
           }))
         : []
     const status: ActionStatus =
-      decision.effect === 'allow'
+      enforcedEffect === 'allow'
         ? 'policy_checked'
-        : decision.effect === 'ask'
+        : enforcedEffect === 'ask'
           ? 'pending_approval'
           : 'denied'
     const next = this.update(action, {
@@ -247,8 +257,9 @@ export class MemoryActionStore implements ActionStore {
       policyEffect: decision.effect,
       policyRule: decision.rule,
       policyReason: decision.reason,
+      enforcement: decision.enforcement,
       externalAuthorization: decision.externalAuthorization,
-      approval: decision.approval,
+      approval: enforcedEffect === 'ask' ? decision.approval : undefined,
       budgets: reservations,
     })
     return { action: structuredClone(next) }

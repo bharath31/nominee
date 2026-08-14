@@ -55,6 +55,27 @@ describe('nominee-openai', () => {
     expect(nominee.receipts.map((receipt) => receipt.type)).toContain('approval.resolved')
   })
 
+  it('suppresses native approval gates in observe mode', async () => {
+    const execute = vi.fn(async () => 'sent')
+    const nominee = new Nominee({ mode: 'observe', policy: [ask('wire.send')] })
+    const tool = nomineeTool({
+      name: 'wire_send',
+      description: 'Send a wire',
+      parameters: z.object({ cents: z.number() }),
+      nominee,
+      action: 'wire.send',
+      user: 'user-1',
+      needsApproval: true,
+      execute,
+    })
+    const context = new RunContext({ user: 'user-1' })
+
+    expect(await tool.needsApproval(context, { cents: 500 }, 'call-1')).toBe(false)
+    await expect(tool.invoke(context, JSON.stringify({ cents: 500 }))).resolves.toBe('sent')
+    expect(execute).toHaveBeenCalledOnce()
+    expect(nominee.observations().totals).toMatchObject({ calls: 1, ask: 1 })
+  })
+
   it('never executes a denied tool', async () => {
     const execute = vi.fn()
     const tool = nomineeTool({

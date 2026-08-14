@@ -2,6 +2,13 @@
 
 Decision-bound MCP tool handlers for the official Model Context Protocol SDK.
 
+To inventory MCP tool callbacks before writing a policy, construct the same
+Nominee instance with `mode: 'observe'`. `registerNomineeTool` still routes
+through `run()`, but asks and denies are recorded rather than enforced.
+Observation reports do not retain raw string/boolean values or user IDs;
+numeric aggregates may be sensitive. Observe mode is not a security control
+and cannot be combined with `production: true`.
+
 ```ts
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { Nominee, allow, ask } from 'nominee'

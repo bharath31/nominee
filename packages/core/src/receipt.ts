@@ -37,6 +37,13 @@ export interface Receipt {
   policyVersion?: string
   /** Policy verdict, for `policy.decision` receipts. */
   effect?: Effect
+  /**
+   * Present only on receipts written in observe mode: the decision above was
+   * recorded but **not enforced**. This is not evidence that the callback ran
+   * or completed; normal runtime and integrity failures still apply. Absent
+   * means policy enforcement was on.
+   */
+  enforcement?: 'observe'
   /** Set when an allow-budget escalated the call to ask. */
   escalated?: 'budget'
   /** Compact label of the deciding rule, e.g. `"deny:email.forward"`. */
@@ -404,6 +411,7 @@ export function formatReceipts(receipts: readonly Receipt[]): string {
         r.type,
         r.tool,
         outcome === '' ? undefined : String(outcome),
+        r.enforcement === 'observe' ? '(not enforced)' : undefined,
         r.hash.slice(0, 12),
       ].filter(Boolean)
       return parts.join(' ')

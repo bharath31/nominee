@@ -25,6 +25,18 @@ Also works with **Cloudflare Agents** — they use the same AI SDK internals.
 
 ---
 
+## Observe Before Enforcing
+
+Pass `new Nominee({ mode: 'observe' })` to `guardTools`, `nomineeTool`, or
+`withNominee` to inventory the tool callbacks that actually run before writing
+a policy. The adapter still routes through `run()`, but denies, asks, budgets,
+and `approval: true` are recorded rather than enforced. Observation reports do
+not retain raw string/boolean values or user IDs; numeric aggregates may be
+sensitive. Observe mode is not a security control and cannot be combined with
+`production: true`.
+
+---
+
 ## How It Works
 
 ```mermaid

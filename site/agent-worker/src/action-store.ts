@@ -79,6 +79,7 @@ export class DurableObjectActionStore implements ActionStore {
 
     const now = Date.now()
     await this.cleanupExpiredReservations(now)
+    const enforcedEffect = decision.enforcement === 'observe' ? 'allow' : decision.effect
     if (decision.effect === 'allow') {
       for (const budget of budgets) {
         const active = await this.activeReservations(budget.key, now)
@@ -99,9 +100,9 @@ export class DurableObjectActionStore implements ActionStore {
           }))
         : []
     const status: ActionStatus =
-      decision.effect === 'allow'
+      enforcedEffect === 'allow'
         ? 'policy_checked'
-        : decision.effect === 'ask'
+        : enforcedEffect === 'ask'
           ? 'pending_approval'
           : 'denied'
     const next = await this.update(action, {
@@ -109,8 +110,9 @@ export class DurableObjectActionStore implements ActionStore {
       policyEffect: decision.effect,
       policyRule: decision.rule,
       policyReason: decision.reason,
+      enforcement: decision.enforcement,
       externalAuthorization: decision.externalAuthorization,
-      approval: decision.approval,
+      approval: enforcedEffect === 'ask' ? decision.approval : undefined,
       budgets: reservations,
     })
     return { action: next }

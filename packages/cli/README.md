@@ -7,6 +7,13 @@ the repository, configuring an API key, or writing code:
 npx nominee-cli
 ```
 
+Or, if you don't have any rules yet, start by looking at what your agent can
+already do — report only, with no policy decisions enforced:
+
+```
+npx nominee-cli observe
+```
+
 (the package is `nominee-cli`; it installs a `nominee` binary — `npx nominee`
 alone resolves the unrelated core `nominee` library instead, which has no
 CLI, so always invoke it as `npx nominee-cli`.)
@@ -72,6 +79,47 @@ version. Nothing is sent unless you answer yes. The choice is saved before the
 request, the request times out after three seconds, redirected or other
 non-interactive runs never prompt, and `DO_NOT_TRACK=1` disables even the
 prompt. No reporting code exists in the core `nominee` package.
+
+## `nominee observe`
+
+Runs the same sample agent with **no policy at all**, in observe mode, and
+prints what it turned out to be able to do. No policy decision is enforced;
+runtime and integrity failures still fail closed. Use it to see the shape of
+the report before wrapping your own tools.
+
+```
+$ npx nominee-cli observe
+
+nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
+
+  tool              calls  kind
+  refund.issue          5  mutate
+                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
+                      ↳ orderId: string, 1 distinct value(s) observed
+  orders.read           3  read
+  customers.export      1  unknown
+
+  Every one of those calls ran, including the $2,000 refund and the customer export.
+```
+
+Two lines put it around your own tools:
+
+```ts
+const nominee = new Nominee({ mode: 'observe' })
+const tools = nominee.observe(yourTools)
+```
+
+`--out <file>` also writes the machine-readable JSON report (tool callback
+attempts, argument types and ranges, bounded cardinalities, and which arguments
+are unbounded). Raw strings, booleans, and user IDs are not retained; bounded
+counts use SHA-256 fingerprints. Numeric ranges remain visible and should be
+treated as sensitive when the underlying numbers are sensitive.
+
+Observe mode is a discovery tool, not a security control: it announces on
+startup that enforcement is off, marks every receipt `enforcement: 'observe'`,
+and refuses to be constructed with `production: true`. See
+[docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observe.md).
 
 ## `nominee verify <file>`
 

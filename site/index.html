@@ -247,6 +247,38 @@
         </ul>
       </section>
 
+      <section class="section" id="observe">
+        <div class="section-head">
+          <p class="eyebrow">No rules yet?</p>
+          <h2>Watch what your agent already does.</h2>
+          <p>
+            Observe mode wraps your existing tools with no policy and records authorization
+            decisions without enforcing them. It reports callbacks that actually start, their
+            argument shapes and numeric ranges, and where nothing bounds the agent's authority.
+            Runtime and integrity failures still fail closed.
+          </p>
+        </div>
+        <div class="run" aria-label="Output of nominee observe mode">
+          <div class="run-top">
+            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
+            <span class="run-title">$ npx nominee-cli observe</span>
+          </div>
+          <div class="run-body">
+            <p class="tl bad"><span>!</span> ENFORCEMENT WAS OFF: callbacks reached the tools.</p>
+            <p class="tl"><span class="hl">refund.issue</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 calls · mutate</p>
+            <p class="tl dim">&nbsp;&nbsp;↳ amount: number, observed 5–2000&nbsp;&nbsp;[unbounded]</p>
+            <p class="tl"><span class="hl">orders.read</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3 calls · read</p>
+            <p class="tl"><span class="hl">customers.export</span>&nbsp;1 call&nbsp; · unknown</p>
+          </div>
+        </div>
+        <div class="proof-actions">
+          <button class="copy" data-copy="npx nominee-cli observe" aria-label="Copy observe command">
+            <span class="prompt">›</span><span class="cmd">npx nominee-cli observe</span><span class="copy-hint">copy</span>
+          </button>
+          <span>Discovery only · not a security control · <a href="/docs/#observe">read the guide</a></span>
+        </div>
+      </section>
+
       <section class="section" id="try">
         <div class="section-head">
           <p class="eyebrow">Try it in your terminal</p>

@@ -110,6 +110,7 @@ export class PostgresControlStore implements ActionStore, AtomicReceiptStore {
       expectStatus(action, ['planned'])
       const now = Date.now()
       const requirements = [...budgets].sort((left, right) => left.key.localeCompare(right.key))
+      const enforcedEffect = decision.enforcement === 'observe' ? 'allow' : decision.effect
 
       if (decision.effect === 'allow') {
         for (const budget of requirements) {
@@ -161,9 +162,9 @@ export class PostgresControlStore implements ActionStore, AtomicReceiptStore {
       }
 
       const status: ActionStatus =
-        decision.effect === 'allow'
+        enforcedEffect === 'allow'
           ? 'policy_checked'
-          : decision.effect === 'ask'
+          : enforcedEffect === 'ask'
             ? 'pending_approval'
             : 'denied'
       const next = updateRecord(action, {
@@ -171,8 +172,9 @@ export class PostgresControlStore implements ActionStore, AtomicReceiptStore {
         policyEffect: decision.effect,
         policyRule: decision.rule,
         policyReason: decision.reason,
+        enforcement: decision.enforcement,
         externalAuthorization: decision.externalAuthorization,
-        approval: decision.approval,
+        approval: enforcedEffect === 'ask' ? decision.approval : undefined,
         budgets: reservations,
       })
       await writeAction(client, next, 'apply_decision')

@@ -4,11 +4,13 @@ import {
   ActionPendingError,
   type ActionRecord,
   type ActionStore,
+  CapabilityInvalidError,
   MemoryActionStore,
 } from './action.js'
 import { ApprovalEngine, type ApprovalRequest } from './approval.js'
 import type { AuditEvent } from './audit.js'
 import { canonicalJson, sha256 } from './hash.js'
+import { ObservationCollector, type ObservationReport } from './observe.js'
 import {
   type Effect,
   type Policy,
@@ -37,6 +39,13 @@ import type {
   TokenResolver,
   TokenResult,
 } from './strategy.js'
+
+/**
+ * Whether nominee enforces its policy decisions (`'enforce'`, the default) or
+ * records them without applying deny/ask/budget gates (`'observe'`). Runtime,
+ * integrity, and persistence failures still fail closed in either mode.
+ */
+export type NomineeMode = 'enforce' | 'observe'
 
 export interface NomineeOptions {
   /**
@@ -88,6 +97,20 @@ export interface NomineeOptions {
    * and strict receipt delivery are configured.
    */
   production?: boolean
+  /**
+   * `'enforce'` (the default) is nominee: deny refuses, ask waits for a human.
+   *
+   * `'observe'` is report-only. Policy decisions are still made and sealed
+   * into receipts, but deny/ask/budget gates and false authorizer results are
+   * not enforced. Runtime, integrity, authorizer, and persistence errors still
+   * fail closed. Use it to find out what an agent actually does before writing a policy; see
+   * {@link Nominee.observe} and {@link Nominee.observations}.
+   *
+   * Observe mode announces itself loudly on startup and is refused outright
+   * under `production: true` — it cannot be silently active on a production
+   * path.
+   */
+  mode?: NomineeMode
   /** Measurement hook emitted once when a real governed action reaches a terminal state. */
   onGovernedAction?: (event: GovernedActionEvent) => void | Promise<void>
 }
@@ -138,6 +161,23 @@ export interface GuardOptions {
    * function of `{ tool, input }` (resolve it from your session/context).
    */
   user: string | ((call: { tool: string; input: unknown }) => string | Promise<string>)
+  /** Resolve the application resource protected by each call. */
+  resource?: string | ((call: { tool: string; input: unknown }) => string | Promise<string>)
+  /** Resolve the tenant boundary protected by each call. */
+  tenant?: string | ((call: { tool: string; input: unknown }) => string | Promise<string>)
+}
+
+/**
+ * Options for {@link Nominee.observe}. Everything is optional: observe mode's
+ * whole point is that wrapping your tools requires no configuration.
+ */
+export interface ObserveOptions {
+  /**
+   * The principal the wrapped tools act on behalf of. Defaults to
+   * `'observed-user'` — a report about your own agent's traffic does not
+   * need a real identity to be useful.
+   */
+  user?: string | ((call: { tool: string; input: unknown }) => string | Promise<string>)
   /** Resolve the application resource protected by each call. */
   resource?: string | ((call: { tool: string; input: unknown }) => string | Promise<string>)
   /** Resolve the tenant boundary protected by each call. */
@@ -291,6 +331,10 @@ export class Nominee {
   private readonly actionTtlMs: number
   private readonly capabilityTtlMs: number
   private production: boolean
+  /** `'enforce'` or `'observe'`. Never changes after construction. */
+  private modeValue: NomineeMode
+  /** Present only in observe mode; shared with delegated sub-agents. */
+  private observations_?: ObservationCollector
   private actionApprovalResolvers = new Map<string, (decision: ApprovalDecision) => void>()
   private cache = new Map<string, TokenResult>()
   /** In-flight refreshes — concurrent cache-misses share one fetch (single-flight). */
@@ -318,11 +362,26 @@ export class Nominee {
     this.actionTtlMs = options.actionTtlMs ?? 24 * 60 * 60 * 1000
     this.capabilityTtlMs = options.capabilityTtlMs ?? 5 * 60 * 1000
     this.production = options.production ?? false
+    this.modeValue = options.mode ?? 'enforce'
     this.expiryLeewayMs = options.expiryLeewayMs ?? 60_000
     this.agent = options.agent
     this.chainArr = options.agent ? [options.agent] : []
     if (options.onAudit) this.listeners.add(options.onAudit)
     this.approvals = new ApprovalEngine(options.onApprovalRequest, options.approvalTimeoutMs ?? 0)
+
+    if (this.production && this.modeValue === 'observe') {
+      throw new Error(
+        "nominee: mode: 'observe' cannot be combined with production: true — observe mode " +
+          'does not enforce policy decisions, so a production path would be unguarded. Remove one of them. ' +
+          'See https://nominee.dev/docs/#observe',
+      )
+    }
+
+    if (this.modeValue === 'observe') {
+      this.observations_ = new ObservationCollector()
+      if (this.engine.active) this.observations_.markPolicyConfigured()
+      announceObserveMode()
+    }
 
     if (this.production) {
       const problems = [
@@ -339,7 +398,7 @@ export class Nominee {
           `nominee: production mode requires ${problems.join(', ')}. Use fallback: 'deny', a durable actionStore, nominee-postgres for an atomic durable receipt store, and receipts.delivery: 'strict'. See https://nominee.dev/docs/production`,
         )
       }
-    } else {
+    } else if (this.modeValue === 'enforce') {
       this.warnApprovalDeadEnds(options)
     }
   }
@@ -350,6 +409,16 @@ export class Nominee {
     return () => {
       this.listeners.delete(listener)
     }
+  }
+
+  /**
+   * `'enforce'` (decisions are enforced) or `'observe'` (decisions are
+   * recorded only). Fixed at construction — nothing can flip a nominee into
+   * observe mode later, and a delegated sub-agent always inherits its
+   * parent's mode.
+   */
+  get mode(): NomineeMode {
+    return this.modeValue
   }
 
   /** The receipt chain: every decision, approval, and token grant so far. */
@@ -402,7 +471,7 @@ export class Nominee {
       tenant: params.tenant,
       inputHash,
     })
-    const decision: PolicyDecision =
+    let decision: PolicyDecision =
       externalAuthorization === false
         ? { effect: 'deny', reason: 'external application authorization denied the resource' }
         : await this.engine.evaluate({
@@ -417,8 +486,16 @@ export class Nominee {
     let effect: Effect = decision.effect
     if (effect === 'allow' && params.requireApproval) {
       effect = 'ask'
-      decision.reason ??= 'approval required by tool configuration'
+      decision = {
+        ...decision,
+        effect,
+        reason: decision.reason ?? 'approval required by tool configuration',
+      }
     }
+
+    // Preserve the policy decision exactly. Observe mode changes enforcement,
+    // not the verdict returned to the caller or sealed into the receipt.
+    const enforced: Effect = this.modeValue === 'observe' ? 'allow' : effect
 
     const receipt = this.record(
       {
@@ -427,7 +504,7 @@ export class Nominee {
         action: tool,
         effect,
         rule: decision.ruleId,
-        reason: decision.reason,
+        reason: observeReason(this.modeValue, decision, effect),
         chain,
         resource: params.resource,
         tenant: params.tenant,
@@ -436,7 +513,7 @@ export class Nominee {
     )
     await this.flushStrictReceipts()
 
-    if (effect === 'deny') {
+    if (enforced === 'deny') {
       if (externalAuthorization === false && params.resource) {
         throw new ExternalAuthorizationDeniedError(
           {
@@ -451,7 +528,7 @@ export class Nominee {
       throw new PolicyDeniedError({ tool, user }, decision, receipt)
     }
 
-    if (effect === 'ask') {
+    if (enforced === 'ask') {
       // Throws ApprovalDeniedError if the human denies / it expires.
       const approval = await this.approve({
         user,
@@ -599,8 +676,13 @@ export class Nominee {
       decision = { ...decision, effect: 'ask', reason: 'approval required by tool configuration' }
     }
 
+    // Observe mode changes only lifecycle enforcement. The original effect,
+    // rule, and reason stay on the action and receipt.
+    const observation = this.modeValue === 'observe' ? ('observe' as const) : undefined
     const approval =
-      decision.effect === 'ask' ? this.newActionApproval(actionId, params) : undefined
+      !observation && decision.effect === 'ask'
+        ? this.newActionApproval(actionId, params)
+        : undefined
     let applied = await this.actionStore.applyDecision(
       actionId,
       {
@@ -609,6 +691,7 @@ export class Nominee {
         reason: decision.reason,
         externalAuthorization,
         approval,
+        enforcement: observation,
       },
       decision.budgets ?? [],
     )
@@ -626,11 +709,15 @@ export class Nominee {
       applied = await this.actionStore.applyDecision(
         actionId,
         {
-          effect: 'ask',
+          effect: decision.effect,
           rule: decision.ruleId,
           reason: decision.reason,
           externalAuthorization,
-          approval: this.newActionApproval(actionId, params),
+          approval:
+            !observation && decision.effect === 'ask'
+              ? this.newActionApproval(actionId, params)
+              : undefined,
+          enforcement: observation,
         },
         [],
       )
@@ -640,11 +727,11 @@ export class Nominee {
       input: params.input,
       effect: decision.effect,
       rule: decision.ruleId,
-      reason: decision.reason,
+      reason: observeReason(this.modeValue, decision, decision.effect),
       escalated: decision.escalated,
     })
 
-    if (decision.effect === 'deny') {
+    if (decision.effect === 'deny' && !observation) {
       await this.emitGovernedAction(applied.action)
       if (externalAuthorization === false && params.resource) {
         throw new ExternalAuthorizationDeniedError({
@@ -761,6 +848,14 @@ export class Nominee {
     const actualInputHash = fingerprintInput(input)
     const hintedActionId = capabilityActionId(capability)
     const hintedAction = hintedActionId ? await this.actionStore.get(hintedActionId) : null
+    if (
+      hintedAction &&
+      (hintedAction.enforcement === 'observe') !== (this.modeValue === 'observe')
+    ) {
+      throw new CapabilityInvalidError(
+        'nominee: capability enforcement mode does not match this Nominee instance',
+      )
+    }
     if (hintedAction && hintedAction.inputHash !== actualInputHash) {
       const receipt = await this.recordAction('policy.decision', hintedAction, {
         input,
@@ -779,6 +874,7 @@ export class Nominee {
       inputHash: actualInputHash,
       now: Date.now(),
     })
+    let observedExecutionEffect: Effect = action.policyEffect ?? 'allow'
     try {
       await this.recordAction('capability.consumed', action, {
         capabilityId: action.capability?.id,
@@ -828,7 +924,9 @@ export class Nominee {
           decision: currentAuthorization,
           reason:
             currentAuthorization === false
-              ? 'external application authorization was revoked before execution'
+              ? this.modeValue === 'observe'
+                ? 'observe mode: external application authorization was revoked before execution; enforcement is off, so the call was allowed to run'
+                : 'external application authorization was revoked before execution'
               : undefined,
         })
       } catch (error) {
@@ -844,7 +942,10 @@ export class Nominee {
         throw new ActionOutcomePersistenceError(action.id, 'failed', error)
       }
 
-      if (currentAuthorization === false) {
+      // Observe mode never blocks: the revocation is on the receipt above,
+      // but the call still runs, exactly as it would without nominee.
+      if (currentAuthorization === false) observedExecutionEffect = 'deny'
+      if (currentAuthorization === false && this.modeValue === 'enforce') {
         const denial = new ExternalAuthorizationDeniedError(
           {
             tool: action.action,
@@ -906,6 +1007,15 @@ export class Nominee {
         })
       }
 
+      // A call belongs in the observation report only once its tool callback
+      // is actually about to run. Planning, pending approvals, and token
+      // failures therefore do not inflate execution counts.
+      this.observations_?.record({
+        tool: action.action,
+        input,
+        user: action.user,
+        effect: observedExecutionEffect,
+      })
       result = await execute({ action, input, token })
     } catch (error) {
       const outcome: ActionOutcome & { status: 'failed' } = {
@@ -1023,6 +1133,46 @@ export class Nominee {
       }
     }
     return out as T
+  }
+
+  /**
+   * Wrap a tools object in report-only mode: every call is recorded, **no
+   * call is blocked**. Requires `mode: 'observe'` and needs no policy at all —
+   * that is the entire point.
+   *
+   * ```ts
+   * const nominee = new Nominee({ mode: 'observe' })
+   * const tools = nominee.observe({ readOrder, issueRefund, exportCustomers })
+   * // …run your agent as usual, then:
+   * console.log(formatObservations(nominee.observations()))
+   * ```
+   *
+   * The receipts are the same hash-chained receipts enforcing mode writes,
+   * each one marked `enforcement: 'observe'` so the log can never be mistaken
+   * for a record of enforcement.
+   */
+  observe<T extends object>(tools: T, opts: ObserveOptions = {}): T {
+    if (this.modeValue !== 'observe') {
+      throw new Error(
+        "nominee: observe() requires mode: 'observe' — construct with new Nominee({ mode: " +
+          "'observe' }). Enforcing instances must use guard(), which blocks denied calls.",
+      )
+    }
+    return this.guard(tools, { ...opts, user: opts.user ?? 'observed-user' })
+  }
+
+  /**
+   * What observe mode has seen so far: which tools were called, how often,
+   * for how many users, which arguments are unbounded, and what the policy
+   * (if any) would have said. Empty outside observe mode.
+   *
+   * Pair with `formatObservations()` for a terminal report, or serialize it —
+   * it is plain JSON. Strings and booleans are represented by bounded hashed
+   * cardinality, while numeric inputs are summarized as ranges and a sampled
+   * median; treat those aggregates as sensitive when the numbers are sensitive.
+   */
+  observations(): ObservationReport {
+    return (this.observations_ ?? new ObservationCollector()).report()
   }
 
   private guardFn(tool: string, fn: AnyFn, opts: GuardOptions): AnyFn {
@@ -1245,12 +1395,19 @@ export class Nominee {
     child.actionApprovalResolvers = this.actionApprovalResolvers
     child.ledger = this.ledger
     child.production = this.production
+    // Mode is inherited, never chosen by the sub-agent: a delegated agent can
+    // no more turn enforcement off than it can widen its policy.
+    child.modeValue = this.modeValue
+    child.observations_ = this.observations_
     // A sub-agent policy is a set of restrictions on top of the chain, so its
     // fallback defaults to 'allow' (defer to the parent) — set one explicitly
     // to tighten unmatched calls too.
     child.engine = this.engine.narrow(
       opts.policy ? { fallback: 'allow', ...normalizePolicy(opts.policy) } : undefined,
     )
+    if (child.modeValue === 'observe' && child.engine.active) {
+      child.observations_?.markPolicyConfigured()
+    }
     child.chainArr = [...this.chainArr, actor]
     return child
   }
@@ -1498,6 +1655,7 @@ export class Nominee {
     extra: Partial<ReceiptEntry> = {},
   ): Promise<Receipt | undefined> {
     const event: AuditEvent = {
+      ...this.enforcementMark,
       type,
       user: action.user,
       agent: action.agent,
@@ -1516,6 +1674,7 @@ export class Nominee {
     }
     for (const listener of this.listeners) listener(event)
     return this.ledger?.appendAtomic({
+      ...this.enforcementMark,
       type,
       user: action.user,
       agent: action.agent,
@@ -1576,6 +1735,15 @@ export class Nominee {
     if (this.ledger?.delivery === 'strict') await this.ledger.flush()
   }
 
+  /**
+   * Stamped onto every receipt and audit event written in observe mode, so a
+   * log can never be mistaken for a record of enforcement. Empty (and absent
+   * from the hashed content) in enforcing mode.
+   */
+  private get enforcementMark(): { enforcement?: 'observe' } {
+    return this.modeValue === 'observe' ? { enforcement: 'observe' } : {}
+  }
+
   private warnApprovalDeadEnds(options: NomineeOptions): void {
     if (!this.shouldWarn()) return
     if (options.onApprovalRequest || this.strategy?.startApproval) return
@@ -1629,10 +1797,11 @@ export class Nominee {
   ): Receipt | undefined {
     // `agent` is the leaf of the chain — the identity that actually acted.
     const agent = this.chainArr.length ? this.chainArr[this.chainArr.length - 1] : undefined
-    const event: AuditEvent = { ...e, agent, at: Date.now() }
+    const event: AuditEvent = { ...this.enforcementMark, ...e, agent, at: Date.now() }
     for (const l of this.listeners) l(event)
 
     return this.ledger?.append({
+      ...this.enforcementMark,
       type: e.type,
       user: e.user,
       agent,
@@ -1656,6 +1825,47 @@ export class Nominee {
   private chain(): string[] | undefined {
     return this.chainArr.length ? this.chainArr : undefined
   }
+}
+
+/** Explain non-enforcement on receipts without mutating the policy decision itself. */
+function observeReason(
+  mode: NomineeMode,
+  decision: PolicyDecision,
+  effect: Effect,
+): string | undefined {
+  if (mode !== 'observe' || effect === 'allow') return decision.reason
+  const because = decision.reason ? ` (${decision.reason})` : ''
+  return `observe mode: policy said "${effect}"${because}; enforcement is off, so the call was allowed to run`
+}
+
+/**
+ * The startup notice. Observe mode is a deliberate exception to nominee's
+ * "fail closed, and say so" commitment, so it says so — every time, in every
+ * environment, including `NODE_ENV=production` where it matters most.
+ */
+function announceObserveMode(): void {
+  const lines = [
+    '',
+    '  ┌──────────────────────────────────────────────────────────────────────┐',
+    '  │  nominee: OBSERVE MODE — ENFORCEMENT IS OFF                          │',
+    '  ├──────────────────────────────────────────────────────────────────────┤',
+    '  │  Policy decisions are recorded, not enforced. Denies, asks, and      │',
+    '  │  budgets do not stop calls. Runtime and integrity failures still     │',
+    '  │  fail closed. Receipts are written as usual, marked                  │',
+    '  │  enforcement: "observe".                                             │',
+    '  │                                                                      │',
+    "  │  Remove mode: 'observe' to start enforcing.                          │",
+    '  │  https://nominee.dev/docs/#observe                                   │',
+    '  └──────────────────────────────────────────────────────────────────────┘',
+  ]
+  if (globalThis.process?.env?.NODE_ENV === 'production') {
+    lines.push(
+      '  NODE_ENV=production and nominee is NOT enforcing anything. This is a',
+      '  report-only run: policy decisions below are not enforced.',
+    )
+  }
+  lines.push('')
+  console.warn(lines.join('\n'))
 }
 
 function normalizePolicy(policy: Policy | Rule[]): Policy {

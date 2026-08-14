@@ -38,3 +38,13 @@ without that marker fails closed to Nominee's portable durable approval handle
 (`ActionPendingError`). Leave `nativeApprovals` off to use that portable flow
 everywhere. In both modes, denied calls never reach `execute`, and credentials
 are resolved only after capability consumption.
+
+## Observe before enforcing
+
+Use the same tool with `new Nominee({ mode: 'observe' })` to inventory the
+callbacks that actually run before writing a policy. The adapter's
+`requireApproval` hook returns `false` in this mode—including for an explicitly
+configured approval—while the original ask/deny verdict remains on the action
+and receipts. Observation reports do not retain raw string/boolean values or
+user IDs; numeric aggregates may be sensitive. Observe mode is not a security
+control and cannot be combined with `production: true`.
