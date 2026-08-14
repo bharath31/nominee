@@ -1,17 +1,16 @@
 # nominee-cli
 
-Try [nominee](https://nominee.dev) on a support-agent refund flow without cloning
+Find out what your agent can actually do — no policy, report only:
+
+```
+npx nominee-cli observe
+```
+
+Then enforce a policy on the same support-agent refund flow, without cloning
 the repository, configuring an API key, or writing code:
 
 ```
 npx nominee-cli
-```
-
-Or, if you don't have any rules yet, start by looking at what your agent can
-already do — report only, with no policy decisions enforced:
-
-```
-npx nominee-cli observe
 ```
 
 (the package is `nominee-cli`; it installs a `nominee` binary — `npx nominee`

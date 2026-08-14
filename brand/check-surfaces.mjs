@@ -34,6 +34,9 @@ if (llmsRoot && llmsSite && sha256(llmsRoot) !== sha256(llmsSite)) {
 }
 
 const landing = read('site/index.html')
+if (landing && !landing.includes('Find out what your agent')) {
+  errors.push('site/index.html should lead with the discovery headline')
+}
 if (
   landing &&
   !landing.includes(
@@ -52,8 +55,24 @@ const llmsRequired = [
   'nominee-mastra',
   'nominee-mcp',
   'nominee-postgres',
+  'Find out what your agent can actually do',
   'Your agent calls tools. Your rules decide what runs',
 ]
+
+const readme = read('README.md')
+if (readme && !readme.startsWith('<p align="center">')) {
+  errors.push('README.md should still open with the banner')
+}
+const discoveryIdx = readme.indexOf('Find out what your agent can actually do')
+const proofIdx = readme.indexOf('npx nominee-cli\n')
+const ifIdx = readme.indexOf('Why add it instead of an `if`')
+if (discoveryIdx < 0) errors.push('README.md missing discovery lead')
+if (discoveryIdx > 0 && proofIdx > 0 && discoveryIdx > proofIdx) {
+  errors.push('README.md should lead with observe/discovery before the refund proof')
+}
+if (ifIdx > 0 && proofIdx > 0 && ifIdx < proofIdx) {
+  errors.push('README.md should move "Why add it instead of an if" after the proof')
+}
 for (const needle of llmsRequired) {
   if (!llmsRoot.includes(needle)) {
     errors.push(`llms.txt missing required string: ${needle}`)

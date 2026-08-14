@@ -6,7 +6,8 @@
 </p>
 
 <p align="center">
-  <strong>Your agent calls tools. Your rules decide what runs.</strong><br />
+  <strong>Find out what your agent can actually do.</strong><br />
+  Then: Your agent calls tools. Your rules decide what runs.<br />
   Open-source TypeScript checks before every AI tool call.<br />
   Zero dependencies, framework-neutral, no SaaS.
 </p>

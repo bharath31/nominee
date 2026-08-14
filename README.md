@@ -4,9 +4,9 @@
 
 <p align="center">
   Building an AI agent that can change real data?<br />
-  <strong>Your agent calls tools. Your rules decide what runs.</strong><br />
-  nominee is an open-source TypeScript library that checks every AI tool call<br />
-  before your tool code executes.
+  <strong>Find out what your agent can actually do.</strong><br />
+  One command, no policy, no premise to accept.<br />
+  Then your rules decide what runs.
 </p>
 
 <p align="center">
@@ -29,35 +29,7 @@
 
 ---
 
-## Try it now
-
-[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
-
-Or run the same proof in your terminal:
-
-```bash
-npx nominee-cli
-```
-
-No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
-
-```text
-✓ $25 refund    allowed → refund.issue ran
-? $200 refund   agent paused → waiting for your approval
-✓ $200 refund   approved once → refund.issue ran
-✗ $2,000 refund blocked before refund.issue ran
-✗ customer export blocked before customers.export ran
-✓ receipt chain verifies
-```
-
-Your agent requests a tool call. Nominee checks your rules before the tool function runs.
-
-After your own policy has successfully governed one of your own tools,
-`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
-artifacts locally and offers a separate opt-in activation report. Neither
-artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
-
-## Don't have rules yet? Start by looking
+## 1. See what your agent does
 
 Observe mode wraps your existing tools and does not enforce deny, ask, or
 budget decisions. No policy is required: it records the tool callbacks that
@@ -107,7 +79,35 @@ enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
 to be constructed with `production: true`. It is not a security control — it is
 how you find out what you need one for. See [docs/observe.md](docs/observe.md).
 
-## Add it to your agent
+## 2. Then enforce a policy that matches
+
+[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
+
+Or run the same proof in your terminal:
+
+```bash
+npx nominee-cli
+```
+
+No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
+
+```text
+✓ $25 refund    allowed → refund.issue ran
+? $200 refund   agent paused → waiting for your approval
+✓ $200 refund   approved once → refund.issue ran
+✗ $2,000 refund blocked before refund.issue ran
+✗ customer export blocked before customers.export ran
+✓ receipt chain verifies
+```
+
+Your agent calls tools. Your rules decide what runs. Nominee checks each call before your tool code executes.
+
+After your own policy has successfully governed one of your own tools,
+`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
+artifacts locally and offers a separate opt-in activation report. Neither
+artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
+
+## 3. Add it to your agent
 
 ```bash
 npm i nominee
@@ -140,8 +140,6 @@ const tools = nominee.guard(
 )
 ```
 
-For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
-
 The result is literal:
 
 - `allow`: call the tool.
@@ -151,11 +149,9 @@ The result is literal:
 
 The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents, Mastra, Cloudflare Agents, and MCP tools.
 
-## Why add it instead of an `if`?
+## 4. Make it durable
 
-For one low-risk tool, use an `if`.
-
-Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
+For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
 
 > **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
 
@@ -388,6 +384,12 @@ nominee.invalidate(user, connection)
 // Audit stream (in-process listeners, alongside receipts)
 const unsub = nominee.on((event) => log(event))
 ```
+
+## Why add it instead of an `if`?
+
+For one low-risk tool, use an `if`. After an observe report has shown mutating calls you did not know about, the extra machinery earns its keep.
+
+Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
 
 ## Why not …?
 

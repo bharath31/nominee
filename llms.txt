@@ -1,6 +1,6 @@
 # nominee
 
-Your agent calls tools. Your rules decide what runs. nominee is an open-source TypeScript library that checks every AI tool call before your tool code executes. Framework-neutral, zero dependencies in the core.
+Find out what your agent can actually do. `npx nominee-cli observe` needs no policy and reports the tool callbacks that actually start. Then: Your agent calls tools. Your rules decide what runs. nominee is an open-source TypeScript library that checks every AI tool call before your tool code executes. Framework-neutral, zero dependencies in the core.
 
 Agent frameworks already provide useful approval, guardrail, and durable resume primitives. nominee complements them when a tool decision must incorporate application user/resource authorization, exact-input binding, call-time credentials, narrowing delegation, or one evidence stream across runtimes.
 

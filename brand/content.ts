@@ -17,7 +17,16 @@ export const brand = {
   name: 'nominee',
   version: '2.2.1',
 
-  /** Full hero one-liner (README, docs, OG image). */
+  /**
+   * First thing a reader meets. Discovery, not a category decision.
+   * Taglines below stay the second thing — they convert after the observe report.
+   */
+  discoveryLead: 'Find out what your agent can actually do.',
+  discoverySubhead:
+    'One command. No policy. No premise. Observe mode reports the tool callbacks that actually start.',
+  discoveryCommand: 'npx nominee-cli observe',
+
+  /** Full hero one-liner (README, docs, OG image) — second, after discovery. */
   taglineFull:
     'Your agent calls tools. Your rules decide what runs. nominee checks each call before your tool code executes.',
   /** Compressed hero for the big display headline on the landing page. */
