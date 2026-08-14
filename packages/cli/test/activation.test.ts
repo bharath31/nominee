@@ -26,7 +26,7 @@ async function terminal(answer: string) {
   return { input, output, text: () => text }
 }
 
-describe('CLI activation reporting', () => {
+describe('CLI trial reporting', () => {
   it('discloses the exact payload and sends only after opt-in', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nominee-activation-'))
     dirs.push(dir)
@@ -101,18 +101,16 @@ describe('CLI activation reporting', () => {
     const io = await terminal('yes')
     const send = vi.fn(async () => {
       const state = JSON.parse(await readFile(file, 'utf8')) as {
-        prompted: boolean
-        reported: boolean
+        events: { cli_proof_completed: { prompted: boolean; reported: boolean } }
       }
-      expect(state).toMatchObject({ prompted: true, reported: false })
+      expect(state.events.cli_proof_completed).toMatchObject({ prompted: true, reported: false })
     })
 
     await offerActivationReport({ env: {}, stateFile: file, send, ...io })
 
     expect(send).toHaveBeenCalledOnce()
     expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({
-      prompted: true,
-      reported: true,
+      events: { cli_proof_completed: { prompted: true, reported: true } },
     })
   })
 
@@ -162,6 +160,27 @@ describe('CLI activation reporting', () => {
     })
 
     expect(send).toHaveBeenCalledOnce()
-    expect(io.text()).toContain('Activation was not sent.')
+    expect(io.text()).toContain('Report was not sent.')
+  })
+
+  it('migrates the old shared choice as the CLI trial choice', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nominee-activation-'))
+    dirs.push(dir)
+    const file = join(dir, 'state.json')
+    await writeFile(
+      file,
+      JSON.stringify({
+        installationId: 'd9428888-122b-4f24-8f56-31f6c4c6d1aa',
+        prompted: true,
+        reported: false,
+      }),
+    )
+    const io = await terminal('yes')
+    const send = vi.fn(async (_payload: Record<string, string>) => undefined)
+
+    await offerActivationReport({ env: {}, stateFile: file, send, ...io })
+
+    expect(send).not.toHaveBeenCalled()
+    expect(io.text()).toBe('')
   })
 })

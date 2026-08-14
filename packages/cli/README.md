@@ -30,7 +30,7 @@ Runs a support-agent policy proof against the real `nominee` package:
 
 The proof itself makes no network calls and needs no environment variables or
 API keys. (`npx` may first download the package from npm.) After a successful
-interactive run, the CLI separately offers one optional activation report, as
+interactive run, the CLI separately offers one optional **trial** report, as
 described below. The proof exits `0` only when every policy and receipt
 invariant holds, and `1` if one regresses; reporting cannot change that result.
 
@@ -69,16 +69,42 @@ Your agent asked. Your rules decided what ran.
 Install: npm i nominee
 ```
 
-### Optional activation report
+### Optional trial report
 
 When both standard input and output are attached to an interactive terminal, a
-successful proof asks once whether to share an anonymous activation. It prints
+successful proof asks once whether to share an anonymous trial. It prints
 the exact three-field payload before asking:
 `event`, a random installation-scoped UUID, and the installed `nominee-cli`
 version. Nothing is sent unless you answer yes. The choice is saved before the
 request, the request times out after three seconds, redirected or other
 non-interactive runs never prompt, and `DO_NOT_TRACK=1` disables even the
-prompt. No reporting code exists in the core `nominee` package.
+prompt. This event is `cli_proof_completed`: it measures a trial of the bundled
+example, **not** an activated developer. No reporting code exists in the core
+`nominee` package.
+
+## `nominee activate <policy-file> <receipts.json>`
+
+An activated developer has written at least one policy rule and successfully
+run it against one of their own tools. This command proves those facts locally
+before offering a separate report:
+
+```bash
+npx nominee-cli activate ./nominee.policy.ts ./receipts.json
+```
+
+The policy must default-export a non-empty `Rule[]` or `Policy`. The receipt
+file must be the complete, intact JSON array from the governed application and
+must contain an enforced `policy.decision` plus `execution.succeeded` for a tool
+matched by at least one supplied rule. Observe-mode executions do not qualify.
+If the chain was HMAC-signed, set `NOMINEE_RECEIPT_KEY` just as for `verify`.
+
+Policy and receipt contents never leave the process. After the local proof, an
+interactive terminal shows the exact optional payload before asking: only
+`event: "developer_activated"`, the random installation-scoped UUID, and the
+installed CLI version. The trial and activation choices are stored separately;
+declining a trial report never suppresses a later real activation report.
+`DO_NOT_TRACK=1` disables the prompt, and reporting failure cannot change a
+successful local proof's exit code.
 
 ## `nominee observe`
 

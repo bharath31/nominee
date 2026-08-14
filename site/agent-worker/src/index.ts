@@ -184,8 +184,8 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/agent'
 
     // Explicitly allowlisted, anonymous product-funnel collector. It accepts no
-    // arbitrary properties: just an event name and, for CLI activations, a
-    // validated installation UUID and installed package version.
+    // arbitrary properties: just an event name and, for CLI trial/activation
+    // reports, a validated installation UUID and installed package version.
     if (path.endsWith('/funnel') && request.method === 'POST') {
       const event = parsePublicFunnelEvent(await request.json().catch(() => null))
       if (!event) return json({ ok: false }, 400)

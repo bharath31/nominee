@@ -88,13 +88,23 @@ Analytics Engine dataset when bound. The binding stays **commented out** in
 Analytics Engine is enabled on the account (error 10089). The code already
 guards `env.FUNNEL?`.
 
-The public `POST /agent/funnel` route accepts only the CLI activation event and
-the named playground outcomes. Arbitrary event names and properties are
-rejected. A CLI event must carry a version-4 installation UUID and the CLI's own
-semantic version. The CLI event is sent only after the CLI prints its exact
-payload, persists the one-time choice, and the developer opts in;
-`DO_NOT_TRACK=1` suppresses even the prompt. Analytics Engine stores
-`[event, installationId, cliVersion]` in its three blob fields.
+The public `POST /agent/funnel` route accepts only an explicit allowlist:
+
+- CLI trial `cli_proof_completed` and verified activation
+  `developer_activated`;
+- playground `viewed`, `edited_policy`, `ran_call`, `blocked`,
+  `approval_requested`, and `approved`; and
+- homepage `site_npm_click`, `site_github_click`, and `site_cli_copy`.
+
+Arbitrary event names are rejected. Both CLI events must carry a version-4
+installation UUID and the CLI's own semantic version. They are sent only after
+the CLI prints its exact payload, persists that event's one-time choice, and the
+developer opts in; `DO_NOT_TRACK=1` suppresses even the prompt. A proof of the
+bundled CLI example is a trial, not activation. `developer_activated` is offered
+only after the CLI locally verifies a non-empty policy and an intact receipt
+chain containing a matching enforced execution. Analytics Engine stores
+`[event, installationId, cliVersion]` in its three blob fields; browser events
+leave the last two fields empty.
 
 To enable:
 
@@ -104,7 +114,7 @@ To enable:
 3. Redeploy.
 
 Until all three steps are complete, `POST /agent/funnel` returns `503` and the
-CLI prints `Activation was not sent.`
+CLI prints `Report was not sent.`
 
 ## Routes
 
