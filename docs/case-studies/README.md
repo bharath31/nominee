@@ -24,16 +24,21 @@ template and the sign-off log. It does **not** invent named-company stories.
 | 2 | — | waiting | — | — |
 | 3 | — | waiting | — | — |
 
-Until a row has numbers and sign-off, the public page at
-https://nominee.dev/case-studies/ says so. Repository proofs (CLI refund,
-injection containment, token refresh) are **not** case studies; they live in
-`examples/` and may be linked as runnable evidence.
+Until a row has **at least one partner-supplied number** and written sign-off,
+the public page at https://nominee.dev/case-studies/ says so. Repository proofs
+(CLI refund, injection containment, token refresh) are **not** case studies;
+they live in `examples/` and may be linked as runnable evidence. “Not measured”
+is allowed only for *additional* metrics after that first real number exists.
 
 ## When a partner is ready
 
 1. Copy [TEMPLATE.md](TEMPLATE.md) to `docs/case-studies/<slug>.md`.
-2. Fill every required section. If a number is missing, write “not measured”
-   rather than an estimate.
+2. Fill every required section. Record at least one quantitative result from
+   the partner. Additional missing metrics may say “not measured”; do not
+   publish a study whose every measurement is “not measured.”
 3. File written sign-off (email or letter) path in the status table.
-4. Publish the HTML page under `site/case-studies/<slug>/` and link it from
-   README, the landing page, and every live Phase 2 placement.
+4. Publish the HTML page under `site/case-studies/<slug>/`.
+5. Update `site/case-studies/index.html`: replace the empty-state copy, add
+   the study link, and keep “None published” only while the index is empty.
+6. Link the study from README, the landing page, `site/sitemap.xml`, and every
+   live Phase 2 placement.
