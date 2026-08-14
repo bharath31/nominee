@@ -78,7 +78,9 @@
           </ol>
           <hr class="post-rule" />
           <h2>The naive approach (and when it is sufficient)</h2>
-          <pre><code><span class="k">const</span> engine = <span class="k">new</span> <span class="fn">PolicyEngine</span>([{ rules, fallback: <span class="s">'deny'</span> }])
+          <pre><code><span class="k">import</span> { PolicyEngine, matchTool } <span class="k">from</span> <span class="s">'nominee'</span>
+
+<span class="k">const</span> engine = <span class="k">new</span> <span class="fn">PolicyEngine</span>([{ rules, fallback: <span class="s">'deny'</span> }])
 <span class="k">const</span> cases = [
   { tool: <span class="s">'refund.issue'</span>, input: { amount: 25 }, user: <span class="s">'alice'</span>, want: <span class="s">'allow'</span> },
   { tool: <span class="s">'refund.issue'</span>, input: { amount: 200 }, user: <span class="s">'alice'</span>, want: <span class="s">'ask'</span> },
@@ -98,7 +100,7 @@
           <pre><code><span class="k">const</span> tools = Object.<span class="fn">keys</span>(rawTools)
 <span class="k">for</span> (<span class="k">const</span> rule <span class="k">of</span> rules) {
   <span class="k">for</span> (<span class="k">const</span> pattern <span class="k">of</span> rule.tools) {
-    <span class="k">const</span> hit = tools.<span class="fn">some</span>((t) => <span class="fn">match</span>(pattern, t))
+    <span class="k">const</span> hit = tools.<span class="fn">some</span>((t) => <span class="fn">matchTool</span>(pattern, t))
     <span class="k">if</span> (!hit) throw <span class="k">new</span> <span class="fn">Error</span>(<span class="s">`unreachable: ${pattern}`</span>)
   }
 }</code></pre>
@@ -115,7 +117,7 @@
           <h2>When nominee is a fit (and when it is not)</h2>
           <p><code>nominee.check({ tool, input, user })</code> is the dry run: same engine, <code>commit: false</code>, no receipts, no budgets consumed. Official adapters still execute through <code>run()</code>; tests should call <code>check()</code> or <code>PolicyEngine.evaluate</code> directly.</p>
           <p><code>npx nominee-cli check policy.mjs</code> lints default-exported rules against a <em>built-in</em> sample list (<code>email.read</code>, <code>github.merge_pr</code>, …). A perfectly good <code>allow('refund.issue')</code> is reported unreachable against that list — that is a limitation of the CLI samples, not of your policy. Prefer the Object.keys lint above for product tool names.</p>
-          <p>Skip nominee when a native framework permission callback already is the whole policy and you are happy testing that callback. Skip it for a read-only agent. Skip it if you wanted OPA/FGA as the decision point — test those engines with their own fixtures, and keep nominee (if you use it) as the enforcement seam. Deeper split: <a href="/blog/fga-opa-decide-nominee-executes/">FGA and OPA decide. nominee executes.</a></p>
+          <p>Skip nominee when a native framework permission callback already is the whole policy and you are happy testing that callback. Skip it when the agent only reads public, non-sensitive data through already-quota-protected APIs. Skip it if you wanted OPA/FGA as the decision point — test those engines with their own fixtures, and keep nominee (if you use it) as the enforcement seam. Deeper split: <a href="/blog/fga-opa-decide-nominee-executes/">FGA and OPA decide. nominee executes.</a></p>
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
             <p class="cta-head">Four refunds. One policy. CI-shaped.</p>
