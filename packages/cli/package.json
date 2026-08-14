@@ -1,6 +1,6 @@
 {
   "name": "nominee-cli",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Try nominee policies, verify receipts, check and generate policy files, report developer activation, and run the local console for live reports and approvals",
   "type": "module",
   "main": "./dist/cli.js",
