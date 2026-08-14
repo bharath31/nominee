@@ -65,7 +65,14 @@ const tools = nominee.observe(yourTools)   // …then run your agent as usual
 console.log(formatObservations(nominee.observations()))
 ```
 
-Turn the report into an editable, default-deny starter policy:
+Open the local report, approval, and receipt surface:
+
+```bash
+npx nominee-cli console --report nominee.observations.json
+```
+
+The console binds to loopback, needs no account, and can write the editable
+starter policy for you. The same generation step is available directly:
 
 ```bash
 npx nominee-cli generate nominee.observations.json --out nominee.policy.ts

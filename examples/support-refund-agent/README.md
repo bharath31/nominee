@@ -94,3 +94,9 @@ Write the inventory to JSON and run `npx nominee-cli generate` to draft a
 default-deny policy before adapting it to this production setup. Every generated
 rule cites observed evidence, and every threshold must be reviewed: traffic
 history describes what happened, not what should be authorized.
+
+For local development, `npx nominee-cli console` can also display receipts and
+settle `ask` calls through the explicit `createConsoleBridge()` hooks exported
+by `nominee-cli/console`. Keep the durable application approval endpoints in
+production: console state is process-local, and the server intentionally
+refuses non-loopback binds.

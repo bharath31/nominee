@@ -149,6 +149,22 @@ authority is widest: a numeric `amount` with no ceiling accepts `5` and
 `5_000_000` alike, and observing a week of `$5`–`$180` refunds tells you what
 happened, not what is possible.
 
+## Explore the report locally
+
+Open the saved report in the loopback-only console:
+
+```bash
+npx nominee-cli console --report nominee.observations.json
+```
+
+The local UI shows headline counts and per-tool argument shapes, writes a
+starter policy without overwriting an existing file, live-tails receipt
+decisions, and explains the limits of receipt-chain verification. A running
+agent can opt in through `createConsoleBridge()` from `nominee-cli/console` to
+publish observation snapshots and receipts or settle `ask` decisions in the
+browser. Nothing is sent by the core package, and a lost console connection
+denies or expires a pending bridged approval rather than running the tool.
+
 ## Generate a policy to review
 
 Write the report and ask the CLI for an editable starter policy:
