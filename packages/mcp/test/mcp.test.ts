@@ -96,9 +96,7 @@ describe('nominee-mcp', () => {
 
   it('turns ActionPendingError into a structured MCP result on McpServer', async () => {
     const execute = vi.fn()
-    let captured:
-      | ((input: { issue: number }, extra: McpToolExtra) => Promise<unknown>)
-      | undefined
+    let captured: ((input: { issue: number }, extra: McpToolExtra) => Promise<unknown>) | undefined
     const server = {
       registerTool: (
         _name: string,

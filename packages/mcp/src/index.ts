@@ -122,7 +122,8 @@ export function registerNomineeTool<TInput, TResult extends CallToolResult = Cal
 export function mcpEndUser(extra: McpToolExtra, fallback?: string): string {
   const authInfo = extra.authInfo as { extra?: unknown } | undefined
   const claims = authInfo?.extra
-  const record = claims && typeof claims === 'object' ? (claims as Record<string, unknown>) : undefined
+  const record =
+    claims && typeof claims === 'object' ? (claims as Record<string, unknown>) : undefined
   const subject = record?.sub ?? record?.userId
   if (typeof subject === 'string' && subject) return subject
   if (fallback !== undefined && extra.authInfo === undefined) return fallback
