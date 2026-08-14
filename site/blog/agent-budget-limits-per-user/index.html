@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Agent budget limits per user — nominee</title>
-    <meta name="description" content="A per-user agent budget is a counter in your process: after N successful tool calls, further matches pause for a human instead of running. Rate limits on the LLM API are not that. How to implement the counter, when a max-tokens cap is enough, and when to escalate rather than hard-fail." />
+    <meta name="description" content="A per-user agent budget is a counter in your process: after N allowed execution attempts, further matches pause for a human instead of running. Rate limits on the LLM API are not that. How to implement the counter, when an output-token cap helps, and when to escalate rather than hard-fail." />
     <link rel="canonical" href="https://nominee.dev/blog/agent-budget-limits-per-user/" />
     <meta property="og:title" content="Agent budget limits per user" />
     <meta property="og:description" content="Count tool calls per user in your process. After N, ask a human — do not keep spending." />
@@ -67,7 +67,7 @@
           <p class="post-disclosure">I work at Auth0. You can ship this counter with a Map and a mutex. nominee's <code>allow(..., { max })</code> is one implementation that escalates to a human instead of hard-failing.</p>
         </div>
         <div class="post-body">
-          <p>If the search was “agent budget limits per user,” you want this: <strong>after this principal has been allowed to run a class of tools N times, the next match does not run until a human says so</strong> (or you deny it). Count in <em>your</em> process, keyed by <code>user</code> (and tenant, if you have one), incremented only when the call actually ran. Provider rate limits, <code>maxTokens</code>, and “please only search twice” in the prompt are not that counter.</p>
+          <p>If the search was “agent budget limits per user,” you want this: <strong>after this principal has been allowed to attempt a class of tools N times, the next match does not run until a human says so</strong> (or you deny it). Count in <em>your</em> process, keyed by <code>user</code> (and tenant, if you have one), and reserve the slot atomically before execution. An allowed call whose tool later throws still consumed an attempt; that fail-closed accounting prevents concurrent calls from both spending the last slot. Provider rate limits, output-token caps, and “please only search twice” in the prompt are not that counter.</p>
           <hr class="post-rule" />
           <h2>The naive approach (and when it is sufficient)</h2>
           <pre><code><span class="k">const</span> used = <span class="k">new</span> <span class="fn">Map</span>() <span class="c">// `${user}:${toolClass}` → number</span>
@@ -76,19 +76,18 @@
   <span class="k">const</span> key = <span class="s">`${user}:search`</span>
   <span class="k">const</span> n = used.<span class="fn">get</span>(key) ?? 0
   <span class="k">if</span> (n >= 20) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">'search budget exhausted'</span>)
-  <span class="k">const</span> result = <span class="k">await</span> index.<span class="fn">query</span>(query)
   used.<span class="fn">set</span>(key, n + 1)
-  <span class="k">return</span> result
+  <span class="k">return</span> index.<span class="fn">query</span>(query)
 }</code></pre>
           <p>That Map is enough when you have one Node process, one tool class, you are fine hard-failing at N, and a restart that zeros the counter is acceptable (dev, single replica, budget as a courtesy). Pair it with the provider's RPM cap if you are protecting the bill, not the data.</p>
-          <p>A <code>maxTokens</code> cap is enough when the risk is “this chat costs too much,” not “this user-agent pair can search our corpus 10,000 times or refund in a loop.” Those are different budgets. Keep both if you need both; do not pretend they substitute.</p>
+          <p>A per-request output-token cap is one useful component when generated-output cost is the risk. It does not cap input tokens, repeated model requests, or tool/API spend, so an aggregate cost limit still needs cumulative usage accounting or a provider spend quota. That is separate again from “this user-agent pair can search our corpus 10,000 times or refund in a loop.” Keep the controls you need; do not pretend they substitute.</p>
           <hr class="post-rule" />
           <h2>Where the Map lies</h2>
           <ul>
             <li><strong>Concurrency.</strong> Two in-flight calls both read <code>n = 19</code> and both run. You need an atomic increment (in-process mutex, Redis <code>INCR</code>, or a durable store).</li>
             <li><strong>Replicas.</strong> Each instance has its own Map. Production needs a shared counter keyed by tenant+user+rule.</li>
             <li><strong>Hard fail vs escalate.</strong> Throwing looks like an error to the model, which retries. Asking a human breaks the loop without teaching the model to probe.</li>
-            <li><strong>Count denies?</strong> Usually no. A denied export should not eat the search budget. Increment on allow-and-execute.</li>
+            <li><strong>Count denies and failures?</strong> A policy denial should not eat the budget. Reserve a slot atomically once the call is allowed and execution is about to be attempted; nominee deliberately does not release that reservation if the tool later throws or a post-consumption authorization recheck fails.</li>
           </ul>
           <hr class="post-rule" />
           <h2>When nominee is a fit (and when it is not)</h2>
@@ -97,7 +96,7 @@
 allow(<span class="s">'search.*'</span>, { max: 20 })
 ask(<span class="s">'refund.issue'</span>, { when: ({ input }) => input.amount &lt;= 500 })
 deny(<span class="s">'refund.issue'</span>)</code></pre>
-          <p>Skip nominee when a platform quota already stops the dangerous calls, when the agent is read-only, or when you only needed to cap LLM spend — use the provider dashboard. Skip it if you wanted OpenFGA to encode “how many” as a relationship tuple; you can still call FGA from a <code>when</code> predicate and keep a local <code>max</code> for loop containment. Deeper: <a href="/blog/native-approval-vs-action-authorization/">Native approval vs action authorization.</a></p>
+          <p>Skip nominee when a platform quota already stops the dangerous calls, or when the agent only reads public, non-sensitive data through APIs that already enforce suitable quotas. “Read-only” alone is not safe: private-data reads can still exfiltrate information and costly reads can still exhaust a budget. If you only need to cap aggregate LLM spend, use cumulative usage accounting or a provider spend quota. OpenFGA should answer live resource entitlement through nominee's <code>authorizer</code> while the action names a <code>resource</code>; that path is rechecked after an approval pause. Keep <code>when</code> predicates for argument matching and a local <code>max</code> for loop containment. Deeper: <a href="/blog/native-approval-vs-action-authorization/">Native approval vs action authorization.</a></p>
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
             <p class="cta-head">Allow, ask, deny — then the chain verifies.</p>
