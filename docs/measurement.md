@@ -72,9 +72,15 @@ deployment, so analytics markup and tokens do not need to be copied into every
 HTML file.
 
 The `CLOUDFLARE_API_TOKEN` repository secret needs **Pages Write**. Its first
-analytics run also needs **Account Settings Read and Write** to list or create
-the Web Analytics site; subsequent runs return immediately once the Pages
-project is configured.
+analytics run also needs the account-level **Account Analytics** permission
+(Read to reuse an existing site, Edit to create one) to list or create the Web
+Analytics site; subsequent runs return immediately once the Pages project is
+configured.
+
+Analytics is advisory, so a token without that permission logs a warning and
+the deployment continues — the site publishes with or without the beacon.
+Anything else (an unreadable Pages project, a half-applied build config) still
+fails the run.
 
 Web Analytics measures acquisition and page performance, not product
 activation. It does not support custom events. Keep playground outcomes such as
