@@ -39,7 +39,7 @@ Or run the same proof in your terminal:
 npx nominee-cli
 ```
 
-No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional activation report; `DO_NOT_TRACK=1` disables even that prompt.
+No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
 
 ```text
 ✓ $25 refund    allowed → refund.issue ran
@@ -51,6 +51,11 @@ No signup, API key, or clone. The command runs a support agent against the real 
 ```
 
 Your agent requests a tool call. Nominee checks your rules before the tool function runs.
+
+After your own policy has successfully governed one of your own tools,
+`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
+artifacts locally and offers a separate opt-in activation report. Neither
+artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
 
 ## Don't have rules yet? Start by looking
 

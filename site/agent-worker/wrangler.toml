@@ -35,7 +35,7 @@ class_name = "AgentSession"
 tag = "v1"
 new_sqlite_classes = ["AgentSession"]
 
-# Demo funnel events (session_start/blocked/approved/denied/published/error).
+# Demo, playground, site-acquisition, and opt-in CLI funnel events.
 # DISABLED until Analytics Engine is enabled on the account (dashboard →
 # Workers → Analytics Engine); a worker with this binding fails to deploy
 # otherwise (error 10089). Internal demo events no-op when the binding is absent;

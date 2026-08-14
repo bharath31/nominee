@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Reproducible acquisition baseline. npm's per-day minimum across every
+// Reproducible weekly funnel report. npm's per-day minimum across every
 // nominee package is treated as automated monorepo traffic and subtracted
-// before totals are printed. This is an estimate, never an activation count.
+// from the core `nominee` package. Analytics counts are accepted only as an
+// explicit aggregate export; absent data stays unavailable rather than zero.
 import { readFile, readdir } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
@@ -52,8 +53,12 @@ export function summarizeDownloadSeries(series, start, end) {
     return { name, byDay }
   })
 
-  let rawDownloads = 0
-  let estimatedHumanDownloads = 0
+  const core = indexed.find(({ name }) => name === 'nominee')
+  if (!core) throw new Error('npm series does not include the core nominee package')
+
+  let rawCoreDownloads = 0
+  let estimatedAutomatedFloor = 0
+  let mirrorAdjustedInstalls = 0
   for (const day of days) {
     const counts = indexed.map(({ name, byDay }) => {
       const count = byDay.get(day)
@@ -61,17 +66,78 @@ export function summarizeDownloadSeries(series, start, end) {
       return count
     })
     const floor = Math.min(...counts)
-    rawDownloads += counts.reduce((sum, count) => sum + count, 0)
-    estimatedHumanDownloads += counts.reduce((sum, count) => sum + Math.max(0, count - floor), 0)
+    const coreDownloads = core.byDay.get(day)
+    if (coreDownloads === undefined)
+      throw new Error(`npm omitted ${day} from the series for nominee`)
+    rawCoreDownloads += coreDownloads
+    estimatedAutomatedFloor += floor
+    mirrorAdjustedInstalls += Math.max(0, coreDownloads - floor)
   }
 
   return {
     period: { start, end },
     packages: indexed.map(({ name }) => name),
-    rawDownloads,
-    estimatedAutomatedFloor: rawDownloads - estimatedHumanDownloads,
-    estimatedHumanDownloads,
-    warning: 'Download figures are an acquisition estimate, not activated developers.',
+    mirrorAdjustedInstalls,
+    diagnostics: { rawCoreDownloads, estimatedAutomatedFloor },
+    warning:
+      'Mirror-adjusted installs are an acquisition estimate, not activated developers. Raw downloads are diagnostic only.',
+  }
+}
+
+function nonNegativeInteger(value, field) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`analytics ${field} must be a non-negative integer`)
+  }
+  return value
+}
+
+/** Validate an aggregate export. It must not contain identifiers or raw events. */
+export function parseAnalyticsCounts(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('analytics export must be a JSON object')
+  }
+  const allowed = new Set(['trials', 'activatedDevelopers', 'previousActivatedDevelopers'])
+  const unknown = Object.keys(input).filter((key) => !allowed.has(key))
+  if (unknown.length) {
+    throw new Error(`analytics export contains unsupported field(s): ${unknown.join(', ')}`)
+  }
+  return {
+    trials: nonNegativeInteger(input.trials, 'trials'),
+    activatedDevelopers: nonNegativeInteger(input.activatedDevelopers, 'activatedDevelopers'),
+    previousActivatedDevelopers: nonNegativeInteger(
+      input.previousActivatedDevelopers,
+      'previousActivatedDevelopers',
+    ),
+  }
+}
+
+function percent(numerator, denominator) {
+  if (denominator === 0) return null
+  return Math.round((numerator / denominator) * 10_000) / 100
+}
+
+/** Combine acquisition and aggregate funnel counts into the five-number dashboard. */
+export function buildWeeklyActivationReport(downloads, analytics) {
+  const activated = analytics?.activatedDevelopers ?? null
+  const previous = analytics?.previousActivatedDevelopers ?? null
+  return {
+    period: downloads.period,
+    metrics: {
+      trials: analytics?.trials ?? null,
+      mirrorAdjustedInstalls: downloads.mirrorAdjustedInstalls,
+      activatedDevelopersThisWeek: activated,
+      activationRatePercent:
+        activated === null ? null : percent(activated, downloads.mirrorAdjustedInstalls),
+      activatedWeekOverWeekPercent:
+        activated === null || previous === null ? null : percent(activated - previous, previous),
+    },
+    analyticsStatus: analytics
+      ? previous === 0
+        ? 'measured; week-over-week is unavailable when the previous count is zero'
+        : 'measured from an explicit aggregate export'
+      : 'unavailable; pass --analytics <aggregate-counts.json> after FUNNEL is enabled',
+    diagnostics: downloads.diagnostics,
+    warning: downloads.warning,
   }
 }
 
@@ -81,10 +147,20 @@ export function previousCompletedUtcDay(now = Date.now()) {
 }
 
 async function main() {
-  const end = process.argv[3] ?? previousCompletedUtcDay()
+  const args = process.argv.slice(2)
+  const analyticsIndex = args.indexOf('--analytics')
+  const analyticsFile = analyticsIndex === -1 ? undefined : args[analyticsIndex + 1]
+  if (analyticsIndex !== -1 && !analyticsFile) {
+    throw new Error('usage: weekly-activation-report.mjs [start] [end] [--analytics file.json]')
+  }
+  const dates = [...args]
+  if (analyticsIndex !== -1) dates.splice(analyticsIndex, 2)
+  if (dates.length > 2) {
+    throw new Error('usage: weekly-activation-report.mjs [start] [end] [--analytics file.json]')
+  }
+  const end = dates[1] ?? previousCompletedUtcDay()
   const start =
-    process.argv[2] ??
-    new Date(Date.parse(`${end}T00:00:00Z`) - 6 * 864e5).toISOString().slice(0, 10)
+    dates[0] ?? new Date(Date.parse(`${end}T00:00:00Z`) - 6 * 864e5).toISOString().slice(0, 10)
   const packageDirs = await readdir(new URL('../packages/', import.meta.url), {
     withFileTypes: true,
   })
@@ -115,7 +191,11 @@ async function main() {
     }),
   )
 
-  console.log(JSON.stringify(summarizeDownloadSeries(series, start, end), null, 2))
+  const downloads = summarizeDownloadSeries(series, start, end)
+  const analytics = analyticsFile
+    ? parseAnalyticsCounts(JSON.parse(await readFile(analyticsFile, 'utf8')))
+    : undefined
+  console.log(JSON.stringify(buildWeeklyActivationReport(downloads, analytics), null, 2))
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main()

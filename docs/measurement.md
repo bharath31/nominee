@@ -83,34 +83,50 @@ Anything else (an unreadable Pages project, a half-applied build config) still
 fails the run.
 
 Web Analytics measures acquisition and page performance, not product
-activation. It does not support custom events. Keep playground outcomes such as
-`blocked`, `approval_requested`, and `approved` in the agent Worker's optional
-Analytics Engine `FUNNEL` binding described in `site/agent-worker/README.md`.
+activation. It does not support custom events. Outbound npm/GitHub clicks, CLI
+copy actions, playground outcomes, and explicitly opted-in CLI reports go to the
+agent Worker's optional Analytics Engine `FUNNEL` binding described in
+`site/agent-worker/README.md`.
 
 ## Activated developer (phase 0)
 
-An **activated developer** is an anonymous CLI installation that successfully
-finishes the offline proof and then explicitly opts in to reporting
-`cli_proof_completed`. This is intentionally narrower than downloads, page
-views, or playground runs. The CLI shows the exact payload before asking,
-persists the choice locally **before** attempting the request so it asks only
-once, reads `cliVersion` from its own installed package, and does nothing when
-`DO_NOT_TRACK=1` is set. The optional request is capped at three seconds and
-cannot change the successful proof's exit code. No reporting code exists in the
-core library. The prompt appears only when both standard input and output are
-attached to a terminal, so redirected proof runs never wait on an invisible
-question.
+An **activated developer** has installed nominee, written at least one policy
+rule, and completed an enforced execution of one of their own tools through
+that policy. Downloads, page views, playground runs, and the bundled CLI proof
+are not activation.
 
-The Worker accepts a CLI event only when it carries the expected version-4
-installation UUID and a valid CLI version. It returns `503` instead of claiming
-success when the Analytics Engine `FUNNEL` binding is unavailable; in that case
-the CLI says the activation was not sent. Enable the binding before treating
-opt-ins as an activation source.
+The CLI keeps those stages separate:
 
-The playground records the anonymous path from `playground_run` through allow,
-block, approval request, approve, or deny in the Worker's optional `FUNNEL`
-dataset. These events diagnose the acquisition funnel; they do not count as an
-activated developer.
+- `cli_proof_completed` is an explicitly opted-in **trial** of nominee's bundled
+  support-agent example.
+- `developer_activated` is offered by `nominee activate` only after local
+  verification of a non-empty policy, an intact full receipt chain, and a
+  matching enforced `policy.decision` / `execution.succeeded` pair.
+
+```bash
+npx nominee-cli activate ./nominee.policy.ts ./receipts.json
+```
+
+The policy and receipt contents stay local. The CLI shows the exact three-field
+payload before asking: event name, a random installation-scoped version-4 UUID,
+and the installed CLI version. It persists each event's choice locally before
+attempting its request, does nothing when `DO_NOT_TRACK=1` is set, and prompts
+only when both standard input and output are terminals. The optional request is
+capped at three seconds and cannot change a successful local proof's exit code.
+No reporting code exists in the core library.
+
+The Worker validates both CLI events' UUID and semantic version. It returns
+`503` instead of claiming success when the `FUNNEL` binding is unavailable. Do
+not count an event the Worker did not accept, and never relabel
+`cli_proof_completed` as activation.
+
+The playground records the exact anonymous path `viewed` → `edited_policy` →
+`ran_call`, with the possible outcomes `blocked`, `approval_requested`, and
+`approved`. The homepage separately records `site_npm_click`,
+`site_github_click`, and `site_cli_copy`. These events diagnose acquisition;
+none count as an activated developer.
+
+## Weekly activation dashboard
 
 For a weekly acquisition baseline, run:
 
@@ -122,9 +138,43 @@ With no dates, the script ends on the previous completed UTC day and covers the
 seven-day window ending there; it never includes the still-in-progress current
 day by default.
 
-The report subtracts, for each day and each published package, the minimum
-download count observed across all packages. That common floor is labeled as
-estimated automated monorepo traffic. The remainder is still only an
-**estimated human download** and must never be presented as observed activation.
-Series are joined by their explicit `day` field; missing date coverage fails the
-report instead of silently substituting zero.
+The report subtracts, for each day, the minimum download count across all ten
+published packages from that day's core `nominee` downloads. The remainder is
+the **mirror-adjusted installs** estimate. Raw core downloads and the estimated
+automated floor remain diagnostic fields, never headline adoption numbers.
+Series are joined by their explicit `day` field; missing coverage fails instead
+of silently substituting zero.
+
+Analytics Engine access is deliberately not built into this repository script.
+Export only these aggregate counts from the `FUNNEL` dataset—never installation
+IDs or raw event rows:
+
+```json
+{
+  "trials": 24,
+  "activatedDevelopers": 8,
+  "previousActivatedDevelopers": 5
+}
+```
+
+`trials` is the week's playground `viewed` count plus distinct installations
+that opted in to `cli_proof_completed`. Activated counts are distinct
+installation IDs for `developer_activated`. Generate the five-number dashboard
+with:
+
+```bash
+node scripts/weekly-activation-report.mjs 2026-08-03 2026-08-09 \
+  --analytics ./aggregate-funnel-counts.json
+```
+
+The five fields are trials, mirror-adjusted installs, activated developers this
+week, activation rate (`activated / adjusted installs`), and activated-developer
+week-over-week change. A zero denominator is reported as `null`, not `0%`.
+Without an aggregate export all analytics-derived values are `null` and the
+report explains why; it never manufactures a baseline.
+
+There is intentionally no starting baseline written into this repository yet:
+the Worker binding is disabled until Analytics Engine is enabled for the
+account. Record the first baseline only after a complete seven-day window of
+accepted events. The planning expectation of 10–40 humans is not a measurement
+and must not be copied into the dashboard.

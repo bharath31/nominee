@@ -40,6 +40,12 @@ describe('cli dispatch', () => {
     expect(logs.join('\n')).toContain('Usage: nominee check <policy-file>')
   })
 
+  it('prints usage and exits 1 for "activate" without both artifacts', async () => {
+    const code = await main(['activate', 'policy.mjs'])
+    expect(code).toBe(1)
+    expect(logs.join('\n')).toContain('Usage: nominee activate <policy-file> <receipts.json>')
+  })
+
   it('shows help and exits 0 for --help', async () => {
     const code = await main(['--help'])
     expect(code).toBe(0)

@@ -12,13 +12,19 @@ interface FunnelEnv {
 
 const PUBLIC_FUNNEL_EVENTS = new Set([
   'cli_proof_completed',
-  'playground_run',
-  'playground_allowed',
-  'playground_blocked',
-  'playground_approval_requested',
-  'playground_approved',
-  'playground_denied',
+  'developer_activated',
+  'viewed',
+  'edited_policy',
+  'ran_call',
+  'blocked',
+  'approval_requested',
+  'approved',
+  'site_npm_click',
+  'site_github_click',
+  'site_cli_copy',
 ])
+
+const INSTALLATION_EVENTS = new Set(['cli_proof_completed', 'developer_activated'])
 
 const INSTALLATION_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -40,7 +46,7 @@ export function parsePublicFunnelEvent(body: unknown): PublicFunnelEvent | null 
   }
   if (typeof payload.event !== 'string' || !PUBLIC_FUNNEL_EVENTS.has(payload.event)) return null
 
-  if (payload.event !== 'cli_proof_completed') {
+  if (!INSTALLATION_EVENTS.has(payload.event)) {
     return { event: payload.event, detail: '', cliVersion: '' }
   }
   if (typeof payload.installationId !== 'string' || !INSTALLATION_ID.test(payload.installationId)) {

@@ -721,9 +721,35 @@
       }
       for (const btn of document.querySelectorAll('.copy')) {
         btn.addEventListener('click', async () => {
-          try { await navigator.clipboard.writeText(btn.dataset.copy); flash(btn, '.copy-hint') } catch {}
+          try {
+            await navigator.clipboard.writeText(btn.dataset.copy)
+            flash(btn, '.copy-hint')
+            if (btn.dataset.copy?.startsWith('npx nominee-cli')) trackFunnel('site_cli_copy')
+          } catch {}
         })
       }
+      // Cloudflare Web Analytics has no custom events. Keep acquisition actions
+      // in the Worker's tiny allowlisted Analytics Engine collector instead.
+      function trackFunnel(event) {
+        fetch('/agent/funnel', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event }),
+          keepalive: true,
+        }).catch(() => {})
+      }
+      document.addEventListener('click', (event) => {
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null
+        if (!link) return
+        try {
+          const target = new URL(link.getAttribute('href'), location.href)
+          if (target.hostname === 'www.npmjs.com' || target.hostname === 'npmjs.com') {
+            trackFunnel('site_npm_click')
+          } else if (target.hostname === 'github.com') {
+            trackFunnel('site_github_click')
+          }
+        } catch {}
+      })
       // code tabs + per-card copy
       for (const card of document.querySelectorAll('[data-tabs]')) {
         const tabs = card.querySelectorAll('.tab')

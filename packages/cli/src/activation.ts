@@ -12,9 +12,15 @@ const STATE_FILE = join(STATE_DIR, 'telemetry.json')
 
 interface ActivationState {
   installationId: string
+  events: Partial<Record<ReportingEvent, EventState>>
+}
+
+interface EventState {
   prompted: boolean
   reported: boolean
 }
+
+export type ReportingEvent = 'cli_proof_completed' | 'developer_activated'
 
 export interface ActivationOptions {
   env?: NodeJS.ProcessEnv
@@ -40,17 +46,37 @@ function validInstallationId(value: unknown): value is string {
 
 async function loadState(file: string): Promise<ActivationState> {
   try {
-    const stored = JSON.parse(await readFile(file, 'utf8')) as Partial<ActivationState>
+    const stored = JSON.parse(await readFile(file, 'utf8')) as Partial<ActivationState> & {
+      // Version 2.3.0 stored one shared choice for the CLI proof. Preserve it
+      // as the trial choice without suppressing the later, real activation.
+      prompted?: boolean
+      reported?: boolean
+    }
+    const storedEvents = stored.events && typeof stored.events === 'object' ? stored.events : {}
     return {
       installationId: validInstallationId(stored.installationId)
         ? stored.installationId
         : randomUUID(),
-      prompted: stored.prompted === true,
-      reported: stored.reported === true,
+      events: {
+        cli_proof_completed: normalizeEventState(
+          storedEvents.cli_proof_completed ?? {
+            prompted: stored.prompted === true,
+            reported: stored.reported === true,
+          },
+        ),
+        ...(storedEvents.developer_activated
+          ? { developer_activated: normalizeEventState(storedEvents.developer_activated) }
+          : {}),
+      },
     }
   } catch {
-    return { installationId: randomUUID(), prompted: false, reported: false }
+    return { installationId: randomUUID(), events: {} }
   }
+}
+
+function normalizeEventState(value: unknown): EventState {
+  const state = value && typeof value === 'object' ? (value as Partial<EventState>) : {}
+  return { prompted: state.prompted === true, reported: state.reported === true }
 }
 
 async function saveState(file: string, state: ActivationState): Promise<void> {
@@ -72,8 +98,11 @@ async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise
   }
 }
 
-/** Offers a one-time, disclosed activation report after the local proof succeeds. */
-export async function offerActivationReport(options: ActivationOptions = {}): Promise<void> {
+async function offerReport(
+  event: ReportingEvent,
+  label: 'CLI trial' | 'verified developer activation',
+  options: ActivationOptions,
+): Promise<void> {
   const env = options.env ?? process.env
   const input = options.input ?? process.stdin
   const output = options.output ?? process.stdout
@@ -90,14 +119,15 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
   const file = options.stateFile ?? STATE_FILE
   const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS
   const state = await loadState(file)
-  if (state.prompted || state.reported) return
+  const eventState = normalizeEventState(state.events[event])
+  if (eventState.prompted || eventState.reported) return
 
   const payload = {
-    event: 'cli_proof_completed',
+    event,
     installationId: state.installationId,
     cliVersion: packageMetadata.version,
   }
-  output.write('\nShare this activation with nominee? (optional)\n')
+  output.write(`\nShare this ${label} with nominee? (optional)\n`)
   output.write(`This sends exactly: ${JSON.stringify(payload)}\n`)
   output.write('Set DO_NOT_TRACK=1 to disable this prompt.\n')
 
@@ -108,14 +138,15 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
   } finally {
     prompt.close()
   }
-  state.prompted = true
+  eventState.prompted = true
+  state.events[event] = eventState
 
   try {
     // Persist the one-time choice before any network request. If local state
     // is unwritable, sending would risk reporting the same install repeatedly.
     await saveState(file, state)
   } catch {
-    output.write('Activation was not sent because the local choice could not be saved.\n')
+    output.write('Report was not sent because the local choice could not be saved.\n')
     return
   }
 
@@ -133,13 +164,25 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
       })
     try {
       await withTimeout(send(payload), timeoutMs)
-      state.reported = true
-      output.write('Activation shared. Thank you.\n')
+      eventState.reported = true
+      output.write(`${label === 'CLI trial' ? 'Trial' : 'Activation'} shared. Thank you.\n`)
     } catch {
-      output.write('Activation was not sent.\n')
+      output.write('Report was not sent.\n')
     }
   }
   // `prompted: true` is already durable, so a failed acknowledgement write
   // cannot cause a duplicate report on the next run.
-  if (state.reported) await saveState(file, state).catch(() => undefined)
+  if (eventState.reported) await saveState(file, state).catch(() => undefined)
+}
+
+/** Offers a one-time, disclosed trial report after the bundled CLI proof succeeds. */
+export async function offerActivationReport(options: ActivationOptions = {}): Promise<void> {
+  await offerReport('cli_proof_completed', 'CLI trial', options)
+}
+
+/** Offers a separate report only after local artifacts prove a real governed execution. */
+export async function offerDeveloperActivationReport(
+  options: ActivationOptions = {},
+): Promise<void> {
+  await offerReport('developer_activated', 'verified developer activation', options)
 }
