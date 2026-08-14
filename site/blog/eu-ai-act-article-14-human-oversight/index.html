@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>How teams are implementing Article 14 human oversight and record-keeping for agent actions — nominee</title>
-    <meta name="description" content="EU AI Act Article 14 and its record-keeping obligations became applicable 2 August 2026. A practitioner walkthrough of what the text actually requires, a worked ask-rule-plus-receipt-chain example, and an honest section on what tamper-evident receipts do not give you." />
+    <title>An engineering pattern for Article 14 human oversight and record-keeping for agent actions — nominee</title>
+    <meta name="description" content="EU AI Act Article 14 and related high-risk-system obligations now apply from December 2027 or August 2028, depending on classification. A practitioner walkthrough of the text, a worked approval-and-receipt example, and the limits of tamper-evident receipts." />
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://nominee.dev/blog/eu-ai-act-article-14-human-oversight/" />
-    <meta property="og:title" content="How teams are implementing Article 14 human oversight and record-keeping for agent actions" />
-    <meta property="og:description" content="Article 14 and its record-keeping obligations became applicable 2 August 2026. What the text actually requires, a worked ask-rule-plus-receipt-chain example, and what tamper-evident receipts do not give you." />
+    <meta property="og:title" content="An engineering pattern for Article 14 human oversight and record-keeping for agent actions" />
+    <meta property="og:description" content="Article 14 and related high-risk obligations apply from December 2027 or August 2028. What the text requires, a worked approval-and-receipt example, and what tamper-evident receipts do not prove." />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://nominee.dev/blog/eu-ai-act-article-14-human-oversight/" />
     <meta property="og:image" content="https://nominee.dev/assets/og.png" />
@@ -17,8 +17,8 @@
     <meta property="article:published_time" content="2026-08-14" />
     <meta property="article:author" content="Bharath" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="How teams are implementing Article 14 human oversight and record-keeping for agent actions" />
-    <meta name="twitter:description" content="Article 14 and its record-keeping obligations became applicable 2 August 2026. What the text requires, a worked ask-rule-plus-receipt-chain example, and what receipts do not give you." />
+    <meta name="twitter:title" content="An engineering pattern for Article 14 human oversight and record-keeping for agent actions" />
+    <meta name="twitter:description" content="Article 14 and related high-risk obligations apply from December 2027 or August 2028. What the text requires, a worked approval-and-receipt example, and what receipts do not prove." />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
@@ -30,8 +30,8 @@
     {
       "@context": "https://schema.org",
       "@type": "BlogPosting",
-      "headline": "How teams are implementing Article 14 human oversight and record-keeping for agent actions",
-      "description": "EU AI Act Article 14 and its record-keeping obligations became applicable 2 August 2026. A practitioner walkthrough of what the text requires, a worked ask-rule-plus-receipt-chain example, and what tamper-evident receipts do not give you.",
+      "headline": "An engineering pattern for Article 14 human oversight and record-keeping for agent actions",
+      "description": "EU AI Act Article 14 and related high-risk-system obligations now apply from December 2027 or August 2028, depending on classification. A practitioner walkthrough of the text, a worked approval-and-receipt example, and the limits of tamper-evident receipts.",
       "datePublished": "2026-08-14",
       "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
       "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
@@ -71,14 +71,16 @@
             <span class="post-date">August 14, 2026</span>
             <span class="post-tag">Engineering</span>
           </div>
-          <h1>How teams are implementing Article 14 human oversight<br>and record-keeping for agent actions.</h1>
+          <h1>An engineering pattern for Article 14 human oversight<br>and record-keeping for agent actions.</h1>
           <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 13 min read</p>
           <p class="post-disclosure">This is not a compliance page, and we are not lawyers — we're engineers describing an implementation. Nothing below is legal advice or a claim that any software makes you Article 14 compliant. Receipts are <strong>evidence primitives</strong>, not a compliance product: real use still needs your own key management and external log anchoring. "Tamper-evident" is the accurate word for the hash-chained receipt log below; "tamper-proof" is not, and we won't use it. There's a full section on what receipts do <strong>not</strong> give you — read it before you read the code.</p>
         </div>
 
         <div class="post-body">
 
-          <p>EU AI Act Article 14 — human oversight for high-risk AI systems — and the record-keeping obligations around it became applicable on 2 August 2026. If you're reading this, you probably already know that; you're here because you have an agent making write calls somewhere in a high-risk system and a legal or compliance team asking, in some form, "how do we prove a human is actually in the loop, and that we can show what happened afterward." This post is an answer to the engineering half of that question, not the legal half.</p>
+          <p>EU AI Act Article 14 covers human oversight for high-risk AI systems. Its date matters: although 2 August 2026 was the Act's general application date, <a href="https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:32026R1744">Regulation (EU) 2026/1744</a> moved Sections 1–3 of Chapter III — including Articles 12, 14, and 26 — to <strong>2 December 2027</strong> for Annex III high-risk use cases and <strong>2 August 2028</strong> for high-risk systems tied to Annex I products. This is therefore an engineering preparation pattern, not a claim that those provisions already apply to your system.</p>
+
+          <p>If you're reading this, you may have an agent making consequential tool calls and a legal or compliance team asking, in some form, “how could a human be put in the loop, and what evidence would remain afterward?” This post answers the engineering half of that question, not the legal half.</p>
 
           <p>We're going to do something most vendor content about this regulation skips: read the actual text of Article 14, plus the record-keeping provisions it leans on, and be precise about which specific clauses a policy-plus-receipts implementation like nominee's actually maps to — and which it doesn't touch at all.</p>
 
@@ -92,7 +94,7 @@
 
           <p>Article 14(2) says what that oversight is <em>for</em>:</p>
 
-          <p>"Human oversight shall aim to prevent or minimise the risks to health, safety or fundamental rights that may emerge when a high-risk AI system is used in accordance with its intended purpose or under conditions of reasonably foreseeable misuse." <em>— Article 14(2)</em></p>
+          <p>"Human oversight shall aim to prevent or minimise the risks to health, safety or fundamental rights that may emerge when a high-risk AI system is used in accordance with its intended purpose or under conditions of reasonably foreseeable misuse, in particular where such risks persist despite the application of other requirements set out in this Section." <em>— Article 14(2)</em></p>
 
           <p>Neither paragraph mandates a specific mechanism. That's on purpose — the Act is a systems-level regulation, not an API spec — and it's the first thing worth being honest about: there is no single library, "human oversight" checkbox, or SDK flag that discharges Article 14 on its own. What the text does is set a shape. The rest of the article fills that shape in.</p>
 
@@ -106,7 +108,7 @@
 
           <p>"(b) measures identified by the provider before placing the high-risk AI system on the market or putting it into service and that are appropriate to be implemented by the deployer." <em>— Article 14(3)(b)</em></p>
 
-          <p>This is the clause worth sitting with if you're a deployer rather than a provider — i.e. you're not the one who built the underlying model, you're the team wiring an agent into a workflow that calls write-capable tools. An <code>ask</code> rule that pauses a specific tool call for a specific human is a 3(b) measure: it's a deployer-side control you add on top of a system, not something baked into the model by whoever trained it. That's the honest scope of what a policy engine contributes to Article 14 — it's one legitimate way to implement 3(b) for the tool-call layer of your stack. It says nothing about the model's own design, its technical documentation, or the other Chapter III obligations that sit next to Article 14 (risk management, data governance, transparency, accuracy/robustness/cybersecurity) and that a policy library has no bearing on at all.</p>
+          <p>This is the clause worth sitting with if you're a deployer rather than a provider — i.e. you're the team wiring an agent into a workflow that calls write-capable tools. An <code>ask</code> rule can be part of implementing a measure that the provider identified under 3(b): it is a deployer-side control at the tool-call layer, not something baked into the model. If a deployer invents the rule independently, it may still be a sensible control, but the rule alone is not evidence that Article 14(3)(b)'s provider-identification requirement was met. A policy library also says nothing about model design, technical documentation, risk management, data governance, transparency, or accuracy, robustness, and cybersecurity.</p>
 
           <hr class="post-rule" />
 
@@ -114,23 +116,23 @@
 
           <p>Article 14(4) is the part that translates most directly into engineering requirements, because it's written as a list of things the overseeing human must be <em>enabled</em> to do:</p>
 
-          <p>"(a) properly understand the relevant capacities and limitations of the high-risk AI system and be able to duly monitor its operation" <em>— Article 14(4)(a)</em></p>
+          <p>"(a) to properly understand the relevant capacities and limitations of the high-risk AI system and be able to duly monitor its operation, including in view of detecting and addressing anomalies, dysfunctions and unexpected performance" <em>— Article 14(4)(a)</em></p>
 
-          <p>"(b) remain aware of the possible tendency of automatically relying or over-relying on the output produced by a high-risk AI system (automation bias)" <em>— Article 14(4)(b)</em></p>
+          <p>"(b) to remain aware of the possible tendency of automatically relying or over-relying on the output produced by a high-risk AI system (automation bias), in particular for high-risk AI systems used to provide information or recommendations for decisions to be taken by natural persons" <em>— Article 14(4)(b)</em></p>
 
-          <p>"(c) correctly interpret the high-risk AI system's output" <em>— Article 14(4)(c)</em></p>
+          <p>"(c) to correctly interpret the high-risk AI system's output, taking into account, for example, the interpretation tools and methods available" <em>— Article 14(4)(c)</em></p>
 
-          <p>"(d) decide, in any particular situation, not to use the high-risk AI system or to otherwise disregard, override or reverse the output of the high-risk AI system" <em>— Article 14(4)(d)</em></p>
+          <p>"(d) to decide, in any particular situation, not to use the high-risk AI system or to otherwise disregard, override or reverse the output of the high-risk AI system" <em>— Article 14(4)(d)</em></p>
 
-          <p>"(e) intervene in the operation of the high-risk AI system or interrupt the system through a 'stop' button or a similar procedure" <em>— Article 14(4)(e)</em></p>
+          <p>"(e) to intervene in the operation of the high-risk AI system or interrupt the system through a 'stop' button or a similar procedure that allows the system to come to a halt in a safe state" <em>— Article 14(4)(e)</em></p>
 
           <p>Mapped onto a policy-and-approval engine, honestly and without stretching:</p>
 
           <ul>
-            <li><strong>(d), the override, is the direct hit.</strong> An <code>ask</code> rule that pauses a tool call and lets a named person approve or deny it — where "deny" is a first-class, receipted outcome, not a UI dead end — is a literal implementation of "decide not to use... or to otherwise disregard, override or reverse the output."</li>
-            <li><strong>(e), the stop button, maps to policy fallback.</strong> A default-deny fallback, or flipping a rule from <code>ask</code> to <code>deny</code> for a tool, is the software equivalent of a kill switch for that action class — it stops the agent from taking the action at all, not just from taking it unsupervised.</li>
-            <li><strong>(a) and (c), understanding and interpreting output, are partially addressed and partially not.</strong> A receipt records which rule fired and why (<code>rule: "ask:invoice.issue_credit"</code>, a human-written <code>reason</code> string) — so the approver isn't staring at a bare "approve?" prompt, they see what triggered the pause. That's a real, if partial, contribution to (a)/(c). What it does not do is teach anyone to understand the AI system's actual capabilities and limitations, or guarantee the approval UI surfaces the input in an interpretable way — that's your application's job, and no policy library can discharge it for you.</li>
-            <li><strong>(b), automation bias, is the one code can't fix.</strong> Recording who approved something and forcing an explicit decision doesn't stop that person from clicking "approve" reflexively every time. That's a training, staffing, and UX problem. The most a receipt can do here is make the fact of a decision — and who made it, and when — impossible to lose track of after the fact, which is a precondition for noticing a pattern of rubber-stamping, not a defense against it.</li>
+            <li><strong>(d), the override, is the closest mapping.</strong> An <code>ask</code> rule can pause a tool call and let an authenticated person approve or deny it, making “do not execute this action” a real path rather than a UI dead end. Whether that is an appropriate and proportionate Article 14 measure still depends on the system and its intended use.</li>
+            <li><strong>(e), the stop procedure, can be supported at one layer.</strong> A default-deny fallback or an emergency <code>deny</code> rule can stop a class of tool actions. It does not necessarily halt the wider AI system or establish that it reaches a safe state, so it is not a complete system-level stop mechanism by itself.</li>
+            <li><strong>(a) and (c), understanding and interpreting output, are not supplied by receipts.</strong> A receipt's human-written policy reason explains why a rule paused; it does not explain the AI system's output, teach its capabilities and limitations, or guarantee that an approval UI presents enough context. Those are application, provider-documentation, training, and UX responsibilities.</li>
+            <li><strong>(b), automation bias, is not fixed by a click.</strong> Recording a decision does not stop someone from approving reflexively. If stored durably, the record can support later analysis of approval latency and approve/deny patterns, but training, staffing, procedure, and interface design carry the actual control.</li>
           </ul>
 
           <hr class="post-rule" />
@@ -145,9 +147,9 @@
 
           <p>"Deployers shall assign human oversight to natural persons who have the necessary competence, training and authority, as well as the necessary support." <em>— Article 26(2)</em></p>
 
-          <p>"[Deployers shall] keep the logs automatically generated by that high-risk AI system... for a period appropriate to the intended purpose of the high-risk AI system, of at least six months, unless provided otherwise in applicable Union or national law." <em>— Article 26(6)</em></p>
+          <p>"Deployers of high-risk AI systems shall keep the logs automatically generated by that high-risk AI system to the extent such logs are under their control, for a period appropriate to the intended purpose of the high-risk AI system, of at least six months, unless provided otherwise in applicable Union or national law, in particular in Union law on the protection of personal data." <em>— Article 26(6)</em></p>
 
-          <p>Two concrete requirements fall out of this: the oversight has to be assigned to an identifiable, competent person (not "the on-call agent" or "whoever's online"), and the log has to survive for a minimum retention window measured in months, not the lifetime of one process. A hash-chained receipt chain speaks directly to the first — <code>approver</code> is a named field on every <code>approval.resolved</code> receipt — but says nothing about the second by default. nominee's in-memory receipt window retains 1,000 entries unless you configure a durable store; that's a development convenience, not a six-month retention plan. Getting to Article 26(6) means wiring a durable receipt store (<code>nominee-postgres</code>, or your own <code>AtomicReceiptStore</code>) and an export/anchoring policy, not just turning receipts on.</p>
+          <p>These clauses require more than a username and a database row. Article 26(2) calls for competence, training, authority, and support; an <code>approver</code> field can identify who acted but cannot prove any of those qualities. Article 26(6) also makes retention conditional on control of the logs and other applicable law, including data-protection law. nominee's in-memory receipt window retains 1,000 entries by default, which is a development convenience, not a six-month retention plan. A durable receipt store (<code>nominee-postgres</code>, or your own <code>AtomicReceiptStore</code>) can be one implementation component, alongside retention, access, deletion, key-management, and external-checkpoint policies designed for the actual legal context.</p>
 
           <hr class="post-rule" />
 
@@ -161,15 +163,19 @@
   policy: {
     rules: [
       <span class="fn">allow</span>(<span class="s">'invoice.read'</span>),
+      <span class="fn">deny</span>(<span class="s">'invoice.issue_credit'</span>, {
+        when: ({ input }) =&gt; input.amountCents &gt; <span class="n">1_000_000</span>,
+        reason: <span class="s">'credit over EUR 10,000 is outside delegated authority'</span>,
+      }),
       <span class="fn">ask</span>(<span class="s">'invoice.issue_credit'</span>, {
         when: ({ input }) =&gt; input.amountCents &gt; <span class="n">100_000</span>,
         reason: <span class="s">'credit over EUR 1,000 requires human oversight under Art. 14(3)(b)'</span>,
       }),
-      <span class="fn">deny</span>(<span class="s">'invoice.issue_credit'</span>, { reason: <span class="s">'credit over EUR 10,000 is outside delegated authority'</span> }),
+      <span class="fn">allow</span>(<span class="s">'invoice.issue_credit'</span>),
     ],
     fallback: <span class="s">'deny'</span>,
   },
-  receipts: { key: process.env.RECEIPT_KEY },
+  receipts: { key: process.env.NOMINEE_RECEIPT_KEY },
   agent: <span class="s">'billing-agent'</span>,
 })</code></pre>
 
@@ -236,7 +242,7 @@
           <pre><code><span class="k">const</span> tampered = <span class="fn">deepClone</span>(nominee.receipts)
 tampered[<span class="n">1</span>].effect = <span class="s">'allow'</span> <span class="c">// quietly rewrite history</span>
 
-<span class="fn">verifyReceipts</span>(tampered, { key: process.env.RECEIPT_KEY })
+<span class="fn">verifyReceipts</span>(tampered, { key: process.env.NOMINEE_RECEIPT_KEY })
 <span class="c">// { ok: false, checked: 1, brokenAt: 1, reason: 'content does not match hash' }</span></code></pre>
 
           <p>The edit doesn't just fail silently — <code>verifyReceipts()</code> stops at the very first receipt whose content no longer matches its own sealed hash, and every receipt after it in the chain is now unverifiable too, because each one's hash covers the previous one's hash. That's what "hash-chained" buys you: an edit anywhere breaks verification of everything downstream of it, not just the edited record.</p>
@@ -249,10 +255,10 @@ tampered[<span class="n">1</span>].effect = <span class="s">'allow'</span> <span
 
           <ul>
             <li>That a specific rule (<code>ask:invoice.issue_credit</code>) evaluated a specific input fingerprint and produced an <code>ask</code> decision, with a human-readable reason citing why.</li>
-            <li>That a named individual (<code>grace@acme-finance.example</code>) resolved that specific pending approval as <code>approved</code>, through a specific channel (<code>slack:#billing-approvals</code>), at a specific timestamp.</li>
+            <li>That a named individual (<code>grace@acme-finance.example</code>) resolved that specific pending approval as <code>approved</code> at a specific timestamp. The application supplied <code>via: 'slack:#billing-approvals'</code> while resolving it, but the current receipt schema does not seal that channel, so the chain alone cannot prove where the approval happened.</li>
             <li>That the tool did not execute before that approval was resolved — the lifecycle order (<code>policy.decision</code> → <code>approval.requested</code> → <code>approval.resolved</code> → <code>capability.issued</code> → <code>execution.started</code>) is enforced by the chain's sequencing, not just asserted in prose.</li>
             <li>That the input the tool actually executed against was the same input the policy evaluated and the approver's decision was bound to — <code>executeCapability()</code> throws before running the tool if the input's fingerprint changed after approval, and that failure is itself receipted.</li>
-            <li>That nobody has silently edited or deleted a record in this range since it was sealed, provided they re-run <code>verifyReceipts()</code> themselves rather than trusting a rendered summary.</li>
+            <li>That nobody has silently edited, removed from the middle, or reordered a record in the supplied range since it was sealed, provided they re-run <code>verifyReceipts()</code> themselves rather than trusting a rendered summary. Detecting deletion from the tail also requires comparing the chain with a previously trusted external tail checkpoint; a shortened prefix can remain internally valid.</li>
           </ul>
 
           <p>That's a genuinely useful evidence bundle — see <a href="https://github.com/bharath31/nominee/blob/main/docs/observability.md">docs/observability.md</a> for the fuller export checklist (sequence range, stream checkpoints, policy version, verification output). It is also a narrower claim than "audit-ready," which is why we're not making that claim.</p>
@@ -276,7 +282,7 @@ tampered[<span class="n">1</span>].effect = <span class="s">'allow'</span> <span
 
           <h2>When this is overkill</h2>
 
-          <p>If your agent's tools are read-only, if the "high-risk" classification doesn't apply to what you're building, or if a plain application log with a timestamp and a username already satisfies whatever your legal team actually asked for — you don't need a hash-chained receipt engine. Add this when the tool calls are consequential enough that "we think someone approved that" isn't going to be a good enough answer when someone asks, and when the answer needs to survive the person who approved it leaving the company, the ticket being closed, and the Slack channel being archived.</p>
+          <p>If the "high-risk" classification does not apply, if the agent only reads public non-sensitive data, or if a plain application log already satisfies the evidence need your legal team identified, you may not need a hash-chained receipt engine. Add this when tool calls are consequential enough that “we think someone approved that” is not a sufficient engineering record, and when the record must survive process restarts and short-lived approval channels.</p>
 
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
