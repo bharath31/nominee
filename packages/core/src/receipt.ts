@@ -400,8 +400,26 @@ export class ReceiptLedger {
   }
 }
 
+export interface FormatReceiptsOptions {
+  /**
+   * Append `rule` and `reason` when present. Default compact output stays
+   * `#seq type tool outcome hash[:12]` so existing snapshots remain stable.
+   */
+  verbose?: boolean
+}
+
+const VERBOSE_REASON_WIDTH = 48
+
+function truncateReason(reason: string, width: number): string {
+  if (reason.length <= width) return reason
+  return `${reason.slice(0, Math.max(0, width - 1))}…`
+}
+
 /** Format a compact, human-readable receipt chain summary. */
-export function formatReceipts(receipts: readonly Receipt[]): string {
+export function formatReceipts(
+  receipts: readonly Receipt[],
+  opts: FormatReceiptsOptions = {},
+): string {
   if (receipts.length === 0) return 'receipts: none'
   return receipts
     .map((r) => {
@@ -413,10 +431,73 @@ export function formatReceipts(receipts: readonly Receipt[]): string {
         outcome === '' ? undefined : String(outcome),
         r.enforcement === 'observe' ? '(not enforced)' : undefined,
         r.hash.slice(0, 12),
-      ].filter(Boolean)
-      return parts.join(' ')
+      ]
+      if (opts.verbose) {
+        if (r.rule) parts.push(r.rule)
+        if (r.reason) parts.push(truncateReason(r.reason, VERBOSE_REASON_WIDTH))
+      }
+      return parts.filter(Boolean).join(' ')
     })
     .join('\n')
+}
+
+const CSV_COLUMNS = [
+  'seq',
+  'at',
+  'type',
+  'user',
+  'tool',
+  'effect',
+  'enforcement',
+  'decision',
+  'rule',
+  'reason',
+  'inputHash',
+  'prev',
+  'hash',
+] as const
+
+/** Prefix formula-like cells so Excel/LibreOffice do not evaluate them. */
+function neutralizeCsvFormula(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) return `'${value}`
+  return value
+}
+
+function csvEscape(value: string): string {
+  const safe = neutralizeCsvFormula(value)
+  if (/[",\r\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`
+  return safe
+}
+
+/**
+ * CSV projection of a receipt chain for spreadsheet / SIEM paste.
+ * Omits raw `input` and tokens even when the ledger used `input: 'raw'`.
+ * This is not a substitute for JSON: verify the original array with
+ * {@link verifyReceipts} — the chain is tamper-evident, not tamper-proof.
+ */
+export function formatReceiptsCsv(receipts: readonly Receipt[]): string {
+  const header = CSV_COLUMNS.join(',')
+  if (receipts.length === 0) return header
+  const rows = receipts.map((r) =>
+    [
+      String(r.seq),
+      String(r.at),
+      r.type,
+      r.user,
+      r.tool ?? '',
+      r.effect ?? '',
+      r.enforcement ?? '',
+      r.decision === undefined ? '' : String(r.decision),
+      r.rule ?? '',
+      r.reason ?? '',
+      r.inputHash ?? '',
+      r.prev,
+      r.hash,
+    ]
+      .map(csvEscape)
+      .join(','),
+  )
+  return [header, ...rows].join('\n')
 }
 
 /** Atomic in-process receipt-store conformance implementation. */

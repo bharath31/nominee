@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { PolicyEngine, allow, ask, deny, matchTool } from '../src/index.js'
+import {
+  PolicyEngine,
+  allow,
+  and,
+  ask,
+  deny,
+  inList,
+  lte,
+  matchTool,
+  not,
+  or,
+} from '../src/index.js'
 
 describe('matchTool', () => {
   it('matches exact names', () => {
@@ -229,5 +240,93 @@ describe('when predicate typing', () => {
       user: 'a',
     })
     expect(d.effect).toBe('allow')
+  })
+})
+
+describe('when helpers', () => {
+  const call = (tool: string, input?: unknown) => ({ tool, input, user: 'alice' })
+
+  it('and/or/not compose sync and async predicates', async () => {
+    const allTrue = and(
+      () => true,
+      async () => true,
+    )
+    const oneFalse = and(
+      () => true,
+      () => false,
+    )
+    const anyTrue = or(
+      () => false,
+      async () => true,
+    )
+    const noneTrue = or(
+      () => false,
+      () => false,
+    )
+    expect(await allTrue(call('t'))).toBe(true)
+    expect(await oneFalse(call('t'))).toBe(false)
+    expect(await anyTrue(call('t'))).toBe(true)
+    expect(await noneTrue(call('t'))).toBe(false)
+    expect(await not(() => true)(call('t'))).toBe(false)
+    expect(await not(async () => false)(call('t'))).toBe(true)
+  })
+
+  it('non-matching when still falls through to the next rule', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow('email.forward', {
+            when: and(
+              ({ input }) =>
+                String((input as { to?: string } | undefined)?.to ?? '').endsWith('@acme.com'),
+              not(({ input }) => Boolean((input as { bcc?: unknown } | undefined)?.bcc)),
+            ),
+          }),
+          deny('email.forward', { reason: 'external or bcc' }),
+        ],
+        fallback: 'deny',
+      },
+    ])
+    expect((await engine.evaluate(call('email.forward', { to: 'a@acme.com' }))).effect).toBe(
+      'allow',
+    )
+    expect(
+      (await engine.evaluate(call('email.forward', { to: 'a@acme.com', bcc: 'x@x.com' }))).effect,
+    ).toBe('deny')
+    expect((await engine.evaluate(call('email.forward', { to: 'a@evil.top' }))).effect).toBe('deny')
+  })
+
+  it('lte allows then denies through PolicyEngine.evaluate', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [allow('refund.issue', { when: lte('amount', 50) }), deny('refund.issue')],
+        fallback: 'deny',
+      },
+    ])
+    expect((await engine.evaluate(call('refund.issue', { amount: 25 }))).effect).toBe('allow')
+    expect((await engine.evaluate(call('refund.issue', { amount: 51 }))).effect).toBe('deny')
+    expect((await engine.evaluate(call('refund.issue', {}))).effect).toBe('deny')
+    expect((await engine.evaluate(call('refund.issue', { amount: '25' }))).effect).toBe('deny')
+    expect((await engine.evaluate(call('refund.issue', { amount: Number.NaN }))).effect).toBe(
+      'deny',
+    )
+  })
+
+  it('inList matches string fields and rejects missing or wrong types', async () => {
+    const engine = new PolicyEngine([
+      {
+        rules: [
+          allow('email.forward', { when: inList('to', ['finance@acme.com']) }),
+          deny('email.forward'),
+        ],
+        fallback: 'deny',
+      },
+    ])
+    expect((await engine.evaluate(call('email.forward', { to: 'finance@acme.com' }))).effect).toBe(
+      'allow',
+    )
+    expect((await engine.evaluate(call('email.forward', { to: 'x@evil.top' }))).effect).toBe('deny')
+    expect((await engine.evaluate(call('email.forward'))).effect).toBe('deny')
+    expect((await engine.evaluate(call('email.forward', { to: 1 }))).effect).toBe('deny')
   })
 })
