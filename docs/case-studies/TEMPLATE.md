@@ -15,7 +15,9 @@ nothing at all. Quote real code if they allow it.
 
 Prefer a number from observe mode (mutating calls, unbounded arguments, tools
 nobody knew were reachable). Status mix: allow / ask / deny / fail. An
-integration that denies everything is not a success story.
+integration that denies everything is not a success story. At least one of
+these measurements must be a real partner-supplied number; “not measured” is
+only for the rest.
 
 ## What adoption cost
 
