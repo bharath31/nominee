@@ -49,6 +49,14 @@ const result = await generateText({
 console.log(result.text)
 ```
 
+AI SDK tools use `inputSchema` (`ai@5+` / `ai@7`). The older `parameters` field
+does not type-check against the peer range in `packages/ai/package.json`.
+`guardTools` routes each `execute` through `nominee.run()` — do not call
+`authorize()` as the execution path.
+
+The OpenAI Agents SDK adapter still uses `parameters` on `nomineeTool` (that
+SDK has not renamed the field). See [`openai-agents.md`](openai-agents.md).
+
 Set `OPENAI_API_KEY` before running the example. An `allow` decision executes immediately, a
 `deny` decision never calls the underlying tool, and an `ask` decision uses the approval handler
 configured on the `Nominee` instance. Use `nomineeTool` instead when a tool also needs a fresh

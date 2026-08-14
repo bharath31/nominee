@@ -24,6 +24,10 @@ pnpm demo   # alice (owner) allowed, bob (viewer) denied, receipts carry the FGA
 pnpm test   # asserts both paths
 ```
 
+**Runnable?** [`examples/fga-recipe`](../../examples/fga-recipe) —
+`pnpm --filter fga-recipe test`. The WorkOS/OpenFGA SDK snippet below is the
+documented swap, not a live store in this repo.
+
 The one-line swap to a live store (from the recipe's README):
 
 ```ts

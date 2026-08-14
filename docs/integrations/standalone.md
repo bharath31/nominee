@@ -8,37 +8,49 @@ Nominee is designed to work out-of-the-box in any Node.js/TypeScript environment
 npm install nominee
 ```
 
-## Usage
+## Decision-bound `run()` (copy-paste)
 
-Use `nominee.authorize` or `nominee.guard` to secure standalone application logic.
+Wrap a plain function — not an SDK `tool()` — with `nominee.run()`. Policy is
+evaluated, an approval (if any) is bound to the exact arguments, and the
+callback runs only after a capability is consumed. `production: true` also
+requires durable action/receipt stores (`nominee-postgres`); this snippet is
+the in-memory default.
 
-```typescript
-import { Nominee, allow, ask, deny } from 'nominee';
+```ts
+import { Nominee, allow, ask, deny } from 'nominee'
 
 const nominee = new Nominee({
   policy: {
-    rules: [allow('billing.view'), ask('billing.update')],
-    fallback: 'deny'
-  }
-});
+    rules: [
+      allow('orders.read'),
+      ask('refund.issue', { reason: 'a person approves every refund' }),
+    ],
+    fallback: 'deny',
+  },
+})
 
-// Guarding an individual execution
-async function updateBilling(user: string, plan: string) {
-  // Throws PolicyDeniedError or ApprovalDeniedError if not permitted
-  await nominee.authorize({
-    tool: 'billing.update',
-    input: { plan },
-    user
-  });
-  
-  console.log('Billing updated');
+async function issueRefund(user: string, amount: number, orderId: string) {
+  return nominee.run(
+    { tool: 'refund.issue', input: { amount, orderId }, user },
+    async ({ input }) => {
+      // Fake side effect. Denied calls never reach here.
+      return `refunded $${input.amount} for ${input.orderId}`
+    },
+  )
 }
 
-// Guarding a collection of functions
-const services = {
-  viewBilling: (plan) => `Viewing ${plan}`,
-  updateBilling: (plan) => `Updated to ${plan}`
-};
-
-const guardedServices = nominee.guard(services, { user: 'user-123' });
+// Express-shaped handler (no Express dependency):
+export async function postRefund(req: { user: string; body: { amount: number; orderId: string } }) {
+  return issueRefund(req.user, req.body.amount, req.body.orderId)
+}
 ```
+
+An `ask` rule pauses until `onApprovalRequest` / `resolveActionApproval`.
+Official adapters and this standalone path share the same contract: bind
+authorization to the argument fingerprint; resolve credentials inside the
+`run()` callback; surface `ActionPendingError` when approval outlives the
+request. See [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md).
+
+`nominee.guard()` still wraps a map of functions for convenience. Prefer
+`run()` (or an official adapter) whenever the call must stay decision-bound.
+`authorize()` then a bare call is not the execution path under `production: true`.

@@ -23,6 +23,10 @@ pnpm demo   # alice (billing-admin) allowed a $500 refund, bob (support-agent, c
 pnpm test   # asserts both paths
 ```
 
+**Runnable?** [`examples/opa-recipe`](../../examples/opa-recipe) —
+`pnpm --filter opa-recipe test`. The live OPA `curl` below is the documented
+swap, not a server in this repo.
+
 The one-line swap to a live OPA server (from the recipe's README):
 
 ```bash

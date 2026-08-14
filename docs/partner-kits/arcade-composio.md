@@ -19,6 +19,9 @@ integration. It follows the same `nominee.guard()` shape used throughout
 [`packages/core/README.md`](../../packages/core/README.md#quickstart), which
 wraps plain functions or any framework's `{ execute }`-shaped tool as-is:
 
+**Runnable?** Illustrative only — neither Arcade nor Composio is a dependency
+of this repo, and there is no `examples/` recipe to `pnpm --filter` test.
+
 ```ts
 import { Nominee, allow, deny, ask } from 'nominee'
 // import { ArcadeClient } from '@arcadeai/arcadejs' // or Composio's client

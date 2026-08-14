@@ -2,6 +2,17 @@
 
 This document outlines the market landscape for AI agent authorization and how Nominee fits within it. Nominee is positioned as the independent policy enforcement point (PEP) at the tool-execution boundary.
 
+## Comparison essays
+
+| Axis | Live essay | Status |
+| --- | --- | --- |
+| Framework-native approval vs action authorization | [native-approval-vs-action-authorization](https://nominee.dev/blog/native-approval-vs-action-authorization/) | Published |
+| OAuth scopes vs action authorization | [oauth-scopes-vs-action-authorization](https://nominee.dev/blog/oauth-scopes-vs-action-authorization/) | Published |
+| FGA / OPA decide; nominee executes | [fga-opa-decide-nominee-executes](https://nominee.dev/blog/fga-opa-decide-nominee-executes/) | Published |
+| LangChain adapter | — | **Gap** — no comparison essay yet. Adapter notes: [`docs/integrations/langchain.md`](integrations/langchain.md) |
+
+Bottom-of-funnel how-tos (approval, deny-before-delete, budgets, audit trails) live under [`site/blog/`](../site/blog/) and are tracked separately.
+
 ## Layer-by-Layer Comparison
 
 | Solution | App-Resource Auth | Exact Input Binding | Post-Pause Recheck | Capability Issuance | Credentials | Multi-Framework | Durable Evidence |

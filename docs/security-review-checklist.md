@@ -125,6 +125,22 @@ concrete guarantee statements (not architectural descriptions, install instructi
 or purely operational runbook steps like "rotate the key" or "alert on X", which are
 not testable assertions about nominee's own behavior).
 
+## Non-goals / prohibited claims
+
+Marketing copy must not claim more than the tests prove. Each phrase below is
+forbidden as an affirmative product claim. The linked test or doc is what
+forbids it — not a test that the phrase is true.
+
+| Prohibited phrase | Why it is false as a product claim | Where that is enforced |
+| --- | --- | --- |
+| "stops prompt injection" | Nominee bounds the *blast radius* of a hijacked agent (policy on tool calls). It does not detect or strip injected instructions. | [`docs/positioning.md`](positioning.md) (Prohibited Claims); supporting proof [`examples/prompt-injection-blocked`](../examples/prompt-injection-blocked) |
+| "tamper-proof" | Receipts are **tamper-evident**: edits break verification of a chain whose earlier hashes you already trust. A leaked HMAC key plus write access can re-seal a replacement chain. | [`packages/core/test/receipt.test.ts`](../packages/core/test/receipt.test.ts) (`detects content tampering`); [`docs/positioning.md`](positioning.md) |
+| "compliance-ready" | Receipts are evidence primitives. Compliance still needs key management, external log anchoring, and your own legal review. | [`docs/positioning.md`](positioning.md); `brand/check-surfaces.mjs` greps `site/blog` and READMEs for these phrases used as claims |
+
+CI: `brand/check-surfaces.mjs` fails the build if `site/blog/` or a `README.md`
+uses `tamper-proof`, `compliance-ready`, or `stops prompt injection` as a claim
+(negated mentions that explain the prohibition are allowed).
+
 ## Non-goal additions
 
 Three adjacent "what this does NOT protect against" notes were added to

@@ -56,6 +56,11 @@ Token Vault and CIBA reference, and
 [`examples/github-agent`](../../examples/github-agent) for a complete
 PR review-and-merge agent built on it.
 
+**Runnable?** Illustrative kit snippet (needs Auth0 env). The in-repo Auth0-backed
+agent is [`examples/github-agent`](../../examples/github-agent) —
+`pnpm --filter github-agent typecheck`. There is no `pnpm --filter` test for
+the snippet above.
+
 ## Not a replacement for
 
 Auth0 Token Vault and CIBA. `nominee-auth0` is a thin strategy adapter, not a
