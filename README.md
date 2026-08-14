@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://nominee.dev">Website</a> ·
   <a href="https://nominee.dev/docs/">Docs</a> ·
+  <a href="https://nominee.dev/case-studies/">Case studies</a> ·
   <a href="https://nominee.dev/playground/">Playground</a> ·
   <a href="https://nominee.dev/agent">Security demo</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
@@ -404,6 +405,9 @@ Nominee becomes useful when an approval lasts longer than one request, two worke
 Partner-specific integration kits: [Auth0](docs/partner-kits/auth0.md) ·
 [WorkOS FGA](docs/partner-kits/workos-fga.md) · [OPA](docs/partner-kits/opa.md) ·
 [Arcade / Composio](docs/partner-kits/arcade-composio.md).
+
+Partner case studies (none published until numbers and written sign-off exist):
+[nominee.dev/case-studies](https://nominee.dev/case-studies/).
 
 ### When you *don't* need nominee
 

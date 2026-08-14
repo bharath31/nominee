@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Case studies — nominee</title>
+    <meta
+      name="description"
+      content="Partner case studies for nominee. None are published yet: a study without the partner's numbers and written sign-off is worse than none."
+    />
+    <link rel="canonical" href="https://nominee.dev/case-studies/" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Case studies — nominee" />
+    <meta
+      property="og:description"
+      content="No published partner case studies yet. Repository proofs are linked separately and are not customer stories."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nominee.dev/case-studies/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/docs/">Docs</a>
+        <a href="/case-studies/" aria-current="page">Case studies</a>
+        <a href="/blog/">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <p class="eyebrow">Proof</p>
+          <h1>Case studies</h1>
+          <p class="lede">
+            None published. A vague customer story is worse than none — we will
+            not ship a named (or anonymised) study without the partner's numbers
+            and written sign-off.
+          </p>
+        </div>
+        <div class="post-body">
+          <p>
+            Three slots are reserved. Each will include what they did before,
+            what nominee caught (preferably from observe mode), how much
+            adoption actually cost, and one thing that was harder than expected.
+          </p>
+          <p>
+            Status board and template:
+            <a href="https://github.com/bharath31/nominee/blob/main/docs/case-studies/README.md">docs/case-studies</a>.
+          </p>
+          <h2>Runnable evidence (not case studies)</h2>
+          <p>
+            These numbers come from this repository. They are not a named team's
+            production metrics.
+          </p>
+          <ul>
+            <li>
+              <a href="https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked">prompt-injection-blocked</a>
+              — the model obeys the injected forward; <code>email.forward</code>
+              is denied before the mailer runs.
+            </li>
+            <li>
+              <a href="https://github.com/bharath31/nominee/tree/main/packages/cli">npx nominee-cli</a>
+              — $25 runs, $200 waits, $2,000 never reaches <code>refund.issue</code>.
+            </li>
+            <li>
+              <a href="https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness">token-refresh-correctness</a>
+              — naive rotating refresh fails 7/8 under concurrency; nominee 8/8.
+            </li>
+          </ul>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>
