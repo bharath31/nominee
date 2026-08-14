@@ -3,11 +3,12 @@
 Six framework-adjacent listings. Each is permanent, compounding, and cheaper
 than a launch spike. None of them are live yet. This file is the owner-and-status
 board; listing copy lives next to it so a PR can be opened without rewriting
-the pitch.
+the pitch. Exact upstream URLs and contribution rules:
+[follow-through.md](follow-through.md).
 
 Referral links use `https://nominee.dev/?utm_source=<target>&utm_medium=placement`
 (`vercel-ai-sdk`, `mcp-registry`, `openai-agents`, `mastra`, `langchain-js`,
-`awesome-mcp-servers`, `awesome-ai-agents`, `awesome-llm-security`). Cloudflare
+`awesome-mcp-servers`, `awesome-ai-sdks`, `awesome-llm-security`). Cloudflare
 Web Analytics does not support custom events — source shows up as the query
 string on landing pageviews, not as a named conversion. Playground funnel events
 stay in the Worker `FUNNEL` binding and are not these referrals.
@@ -26,3 +27,7 @@ Do not mark a row live until the inbound link exists.
 Success measure from NOM-7 (not yet measurable): 2,000+ qualified visits/month
 from these sources combined, converting above a 10% trial rate. Until a row is
 live, that number is unknown, not zero.
+
+Weekly check-in lives in [follow-through.md](follow-through.md). This issue
+cannot be closed from this repository: listings merge on other people's
+timelines.
