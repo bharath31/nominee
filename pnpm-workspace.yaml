@@ -1,6 +1,9 @@
 packages:
   - "packages/*"
   - "examples/*"
+  # The enforcement guarantees every release must keep. In the workspace so
+  # `pnpm -r test` (and therefore CI) actually runs them.
+  - "security-contract"
   # The deployed nominee.dev/agent worker lives here so it ships with the site.
   - "site/agent-worker"
 

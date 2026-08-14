@@ -59,6 +59,7 @@
         <span class="grp">Start</span>
         <a href="#what">What nominee is</a>
         <a href="#when-not">When you don't need it</a>
+        <a href="#observe">Observe mode</a>
         <a href="#quickstart">Quickstart</a>
         <span class="grp">Core</span>
         <a href="#policy">Policy</a>
@@ -134,6 +135,49 @@
           <p>
             Reach for nominee when an agent can change data, spend money, send messages, or
             act across several workers and frameworks.
+          </p>
+        </section>
+
+        <section id="observe" class="doc-section">
+          <h2>Observe mode</h2>
+          <p>
+            Before you write a rule, find out what your agent already does. Observe mode
+            wraps your existing tools, needs no policy, and <strong>blocks nothing</strong>:
+            every call is recorded into the same hash-chained receipt log and then runs.
+          </p>
+          <pre><code>npx nominee-cli observe</code></pre>
+          <pre><code>import { Nominee, formatObservations } from 'nominee'
+
+const nominee = new Nominee({ mode: 'observe' })
+const tools = nominee.observe({ readOrder, issueRefund, exportCustomers })
+
+// …run your agent as usual, then:
+console.log(formatObservations(nominee.observations()))</code></pre>
+          <pre><code>nominee observe — 9 call(s) across 3 tool(s)
+ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+
+  tool              calls  kind
+  refund.issue          5  mutate
+                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
+  orders.read           3  read
+  customers.export      1  unknown</code></pre>
+          <p>
+            <code>nominee.observations()</code> returns the same data as JSON — argument
+            shapes and ranges, not raw user data — so you can inspect it or feed it to a
+            generator.
+          </p>
+          <div class="callout">
+            <strong>Observe mode is not a security control.</strong> While it is on, a
+            <code>deny</code> rule records a denial and the call still runs. It says so:
+            enforcement is the default and must be turned off by name, startup prints an
+            unmissable notice, every receipt carries
+            <code>enforcement: "observe"</code> alongside the verdict the policy actually
+            reached, sub-agents inherit the mode, and
+            <code>production: true</code> refuses to construct with it at all.
+          </div>
+          <p>
+            Full detail:
+            <a href="https://github.com/bharath31/nominee/blob/main/docs/observe.md">docs/observe.md</a>.
           </p>
         </section>
 

@@ -52,6 +52,40 @@ No signup, API key, or clone. The command runs a support agent against the real 
 
 Your agent requests a tool call. Nominee checks your rules before the tool function runs.
 
+## Don't have rules yet? Start by looking
+
+Observe mode wraps your existing tools and **blocks nothing**. No policy, no
+decisions to make — it records what your agent already does and reports back.
+
+```bash
+npx nominee-cli observe
+```
+
+```text
+nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
+ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+
+  tool              calls  kind
+  refund.issue          5  mutate
+                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
+  orders.read           3  read
+  customers.export      1  unknown
+```
+
+Two lines put it around your own tools:
+
+```ts
+const nominee = new Nominee({ mode: 'observe' })
+const tools = nominee.observe(yourTools)   // …then run your agent as usual
+
+console.log(formatObservations(nominee.observations()))
+```
+
+Observe mode is report-only and says so: it announces on startup that
+enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
+to be constructed with `production: true`. It is not a security control — it is
+how you find out what you need one for. See [docs/observe.md](docs/observe.md).
+
 ## Add it to your agent
 
 ```bash
@@ -292,6 +326,12 @@ await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, 
 const resumed = await nominee.resumeAction(actionId)
 await nominee.executeCapability(resumed.capability, input, execute)
 // execute receives { action, input, token? }
+
+// Observe mode (report-only: records decisions, enforces nothing)
+const nominee = new Nominee({ mode: 'observe' })
+nominee.observe(tools)                           // wrap without blocking anything
+nominee.observations()                           // what it saw, as JSON
+formatObservations(nominee.observations())       // …and as a terminal report
 
 // Authorization
 const authorization = await nominee.authorize({ tool, input, user }) // allow | throws on refusal

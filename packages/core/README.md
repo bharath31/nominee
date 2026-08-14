@@ -35,6 +35,40 @@ nominee sits between the model and your tools, in-process, and gives every tool 
 
 ---
 
+## Don't have rules yet? Start by looking
+
+Observe mode wraps your existing tools and **blocks nothing** — no policy
+required. It records what your agent already does, into the same hash-chained
+receipts, and reports back.
+
+```ts
+import { Nominee, formatObservations } from 'nominee'
+
+const nominee = new Nominee({ mode: 'observe' })
+const tools = nominee.observe({ readOrder, issueRefund, exportCustomers })
+
+// …run your agent as usual, then:
+console.log(formatObservations(nominee.observations()))
+```
+
+```text
+nominee observe — 9 call(s) across 3 tool(s)
+ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+
+  tool              calls  kind
+  refund.issue          5  mutate
+                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
+  orders.read           3  read
+  customers.export      1  unknown
+```
+
+It is a discovery tool, not a security control, and it says so: startup prints
+an unmissable notice that enforcement is off, every receipt carries
+`enforcement: 'observe'`, and `production: true` refuses to construct with it.
+See [docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observe.md).
+
+---
+
 ## Quickstart
 
 ```ts
