@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  previousCompletedUtcDay,
-  summarizeDownloadSeries,
-} from './weekly-activation-report.mjs'
+import { previousCompletedUtcDay, summarizeDownloadSeries } from './weekly-activation-report.mjs'
 
 test('defaults to the previous completed UTC day', () => {
   assert.equal(previousCompletedUtcDay(Date.UTC(2026, 7, 14, 23, 59)), '2026-08-13')
