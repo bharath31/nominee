@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify an agent action audit trail — nominee</title>
+    <meta name="description" content="To verify an agent action audit trail, recompute each record's hash over its body plus the previous hash. With trusted start and tip checkpoints, a gap or edit fails. Tail deletion needs that external tip. How to do it with a 20-line function, and when a signed chain helps." />
+    <link rel="canonical" href="https://nominee.dev/blog/verify-agent-action-audit-trail/" />
+    <meta property="og:title" content="Verify an agent action audit trail" />
+    <meta property="og:description" content="Recompute the hash chain between trusted checkpoints. Edits and internal gaps fail; detecting tail deletion needs an external tip. Tamper-evident, not a certification." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/verify-agent-action-audit-trail/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "Verify an agent action audit trail",
+      "description": "Recompute the hash chain between trusted checkpoints. Edits and internal gaps fail; tail deletion needs an external tip.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/verify-agent-action-audit-trail/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">How-to</span>
+          </div>
+          <h1>To verify an agent audit trail, recompute the hash chain. Grep is not verification.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 6 min read</p>
+          <p class="post-disclosure">I work at Auth0. A hash chain is tamper-evident: an edit shows up. A privileged operator with the key can still write a replacement chain. This page will not call that a certification.</p>
+        </div>
+        <div class="post-body">
+          <p>Verification means: given an export plus a trusted starting checkpoint and expected latest tip, you can show that <strong>no row between those checkpoints was dropped, inserted, or rewritten</strong>. Without the expected tip, deleting records from the tail remains undetectable. The algorithm is old:</p>
+          <ol>
+            <li>Sort by sequence number. The first row's <code>prev</code> is a genesis sentinel.</li>
+            <li>For each row, hash the canonical body (including <code>prev</code>) with SHA-256, or HMAC-SHA256 if you have a key.</li>
+            <li>Compare to the stored <code>hash</code>. Then the next row's <code>prev</code> must equal that hash.</li>
+            <li>On the first mismatch, fail and report the sequence number. Do not keep scanning as if the rest were fine.</li>
+          </ol>
+          <p>Opening the JSON in an editor and reading it is review. It is not verification. A chat transcript is neither.</p>
+          <hr class="post-rule" />
+          <h2>The naive approach (and when it is sufficient)</h2>
+          <p>Append-only Postgres with no <code>UPDATE</code>/<code>DELETE</code> grants for the app role, plus object-lock on the export bucket, is enough when:</p>
+          <ul>
+            <li>you trust the database administrators as much as you trust the investigation;</li>
+            <li>you only need “we have a row,” not “this row is the same bits we wrote at 14:03”;</li>
+            <li>the agent cannot reach the log table.</li>
+          </ul>
+          <p>A 20-line verifier on top of that is still worth writing — it catches the silent <code>UPDATE</code> that someone ran from a laptop. Start <code>prev</code> at <code>genesis</code> only when the first row's <code>seq</code> is <code>0</code>. If you were handed a suffix (in-memory retention dropped the prefix), start at that suffix's <code>prev</code> and expected <code>seq</code>, or concatenate the durable full chain first:</p>
+          <pre><code><span class="k">function</span> <span class="fn">verify</span>(rows, resume = { seq: 0, prev: <span class="s">'genesis'</span> }) {
+  <span class="k">let</span> prev = resume.prev
+  <span class="k">for</span> (<span class="k">let</span> i = 0; i &lt; rows.length; i++) {
+    <span class="k">const</span> row = rows[i]
+    <span class="k">if</span> (row.seq !== resume.seq + i) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'seq'</span> }
+    <span class="k">if</span> (row.prev !== prev) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'link'</span> }
+    <span class="k">const</span> hash = <span class="fn">sha256</span>(<span class="fn">canonical</span>({ ...row, hash: undefined }))
+    <span class="k">if</span> (hash !== row.hash) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'content'</span> }
+    prev = row.hash
+  }
+  <span class="k">return</span> { ok: <span class="k">true</span>, checked: rows.length }
+}</code></pre>
+          <p>Canonical JSON matters. If one exporter reorders keys, honest rows fail. Pick a key order and never change it. Hash inputs; do not put raw refund destinations in the export you email around.</p>
+          <p>Without a key, anyone can recompute a new chain from scratch after editing history. The break is visible only if you kept an earlier copy (or the chain tip in a second place). HMAC with a key held outside the log store raises the bar: forging a row needs the key. Losing the key means you cannot verify either. Copy the tip off-box if the investigation is real.</p>
+          <hr class="post-rule" />
+          <h2>When nominee is a fit (and when it is not)</h2>
+          <p><code>nominee.verifyReceipts()</code> is that loop <em>with the ledger's checkpoint</em>: if in-memory retention dropped the prefix, it still verifies the visible window instead of demanding genesis. The standalone <code>verifyReceipts(array)</code> starts at genesis unless code passes an explicit <code>resume: { seq, prev }</code>. The CLI has no resume-checkpoint option: <code>npx nominee-cli verify receipts.json</code> always starts at genesis and therefore needs the <strong>full</strong> durable export. Dumping <code>JSON.stringify(nominee.receipts)</code> after the window has trimmed will look broken at the first retained row. Signed chains need <code>NOMINEE_RECEIPT_KEY</code>. The CLI proof also shows a doctored copy failing. That is the property: <strong>tamper-evident</strong>.</p>
+          <pre><code>nominee.<span class="fn">verifyReceipts</span>()              <span class="c">// in-process window, including retained suffixes</span>
+<span class="k">await</span> nominee.<span class="fn">verifyDurableReceipts</span>()  <span class="c">// full atomic stream, when a durable store is configured</span>
+
+<span class="c">// Use the exact same constant passed as receipts.stream at construction.</span>
+<span class="k">const</span> receiptStream = <span class="s">'support-agent-v1'</span>
+<span class="k">const</span> receipts = <span class="k">await</span> store.<span class="fn">list</span>(receiptStream)
+<span class="k">if</span> (receipts.length === 0) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">`no receipts in ${receiptStream}`</span>)
+writeFileSync(<span class="s">'receipts.json'</span>, JSON.<span class="fn">stringify</span>(receipts))
+<span class="c">// npx nominee-cli verify receipts.json</span>
+<span class="c">// ✓ 7 receipts intact</span></code></pre>
+          <p>Skip nominee when your warehouse already verifies its own hash chain, when the agent only reads public non-sensitive data and you do not need an action trail, or when you wanted a GRC product to map controls to SOC reports. Receipts are primitives. Production mode wants a durable atomic store and <code>delivery: 'strict'</code>; that still is not a certification.</p>
+          <p>How to <em>produce</em> the trail (including denials) is a separate question: <a href="/blog/your-agent-logs-in-as-you/">Your agent logs in as you. It shouldn't get to be you.</a></p>
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">A chain that verifies. A doctored copy that does not.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">no signup</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="https://github.com/bharath31/nominee/blob/main/packages/cli/README.md">nominee-cli verify →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
