@@ -1,4 +1,4 @@
-import { Nominee, allow, ask } from 'nominee'
+import { Nominee, allow, ask, deny } from 'nominee'
 import { describe, expect, it } from 'vitest'
 import { DurableObjectActionStore, type ActionRecordStorage } from '../src/action-store.js'
 
@@ -82,6 +82,38 @@ describe('DurableObjectActionStore', () => {
     const record = await store.get(prepared.action.id)
     expect(record?.status).toBe('denied')
     expect(record?.capability).toBeUndefined()
+  })
+
+  it.each([
+    ['ask', ask('gist.publish')],
+    ['deny', deny('gist.publish')],
+  ])('lets an observed %s decision execute while preserving its verdict', async (effect, rule) => {
+    const store = new DurableObjectActionStore(fakeStorage())
+    const nominee = new Nominee({
+      mode: 'observe',
+      policy: { rules: [rule], fallback: 'deny' },
+      policyVersion: 'v1',
+      actionStore: store,
+    })
+    const input = { description: 'session' }
+
+    const prepared = await nominee.prepareAction({
+      tool: 'gist.publish',
+      input,
+      user: 'user-1',
+    })
+    expect(prepared.status).toBe('ready')
+    if (prepared.status !== 'ready') throw new Error('unreachable')
+    expect(prepared.action).toMatchObject({
+      status: 'capability_issued',
+      policyEffect: effect,
+      enforcement: 'observe',
+    })
+    expect(prepared.action.approval).toBeUndefined()
+
+    const result = await nominee.executeCapability(prepared.capability, input, async () => 'ran')
+    expect(result).toBe('ran')
+    expect((await store.get(prepared.action.id))?.status).toBe('succeeded')
   })
 
   it('survives being reconstructed from the same storage, like a DO waking from hibernation', async () => {
