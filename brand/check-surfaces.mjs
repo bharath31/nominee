@@ -6,8 +6,8 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -98,6 +98,77 @@ if (siteDocs?.includes('Migrating from 2.0')) {
 const githubAgentReadme = read('examples/github-agent/README.md')
 if (githubAgentReadme && /authorize\(\)/.test(githubAgentReadme)) {
   errors.push('examples/github-agent/README.md still references authorize() — use run() narrative')
+}
+
+// 7. Prohibited overclaims (docs/positioning.md). Allowed only when the same
+// sentence negates the phrase — site/blog is included because that is where
+// overclaims hurt most.
+const PROHIBITED_CLAIMS = [/tamper-proof/gi, /compliance-ready/gi, /stops prompt injection/gi]
+function claimNegationGoverns(sentence, phrase) {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const gap = String.raw`[\s"'“”‘’:,-]{0,12}`
+  const before = new RegExp(
+    String.raw`\b(?:not|never|won't|will not|do not|don't|isn't|is not|aren't|are not|cannot|can't|without)\b${gap}${escaped}`,
+    'i',
+  )
+  const after = new RegExp(
+    String.raw`${escaped}${gap}(?:is not|isn't|are not|aren't|cannot|can't|won't)\b`,
+    'i',
+  )
+  const wontUse = new RegExp(String.raw`we won't use (?:it|${escaped})`, 'i')
+  return before.test(sentence) || after.test(sentence) || wontUse.test(sentence)
+}
+
+function walkFiles(dir, acc = []) {
+  if (!existsSync(dir)) return acc
+  for (const ent of readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name === 'node_modules' || ent.name === 'dist' || ent.name === '.git') continue
+    const p = join(dir, ent.name)
+    if (ent.isDirectory()) walkFiles(p, acc)
+    else acc.push(p)
+  }
+  return acc
+}
+
+function sentenceAround(text, index) {
+  const before = [
+    text.lastIndexOf('.', index),
+    text.lastIndexOf('!', index),
+    text.lastIndexOf('?', index),
+    text.lastIndexOf('\n', index),
+  ].filter((i) => i >= 0)
+  const start = before.length === 0 ? 0 : Math.max(...before) + 1
+  const rest = text.slice(index)
+  const relEnds = [
+    rest.indexOf('.'),
+    rest.indexOf('!'),
+    rest.indexOf('?'),
+    rest.indexOf('\n'),
+  ].filter((n) => n !== -1)
+  const end = relEnds.length === 0 ? text.length : index + Math.min(...relEnds) + 1
+  return text.slice(start, end)
+}
+
+const claimFiles = [
+  ...walkFiles(join(root, 'site', 'blog')).filter((p) => p.endsWith('.html') || p.endsWith('.md')),
+  ...walkFiles(root).filter((p) => p.endsWith('README.md')),
+]
+for (const abs of claimFiles) {
+  const content = readFileSync(abs, 'utf8')
+  const rel = relative(root, abs)
+  for (const pattern of PROHIBITED_CLAIMS) {
+    pattern.lastIndex = 0
+    let match = pattern.exec(content)
+    while (match) {
+      const sentence = sentenceAround(content, match.index)
+      if (!claimNegationGoverns(sentence, match[0])) {
+        errors.push(
+          `${rel} uses prohibited claim "${match[0]}" without negation: ${sentence.trim().slice(0, 120)}`,
+        )
+      }
+      match = pattern.exec(content)
+    }
+  }
 }
 
 if (errors.length > 0) {

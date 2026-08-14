@@ -201,6 +201,23 @@ const tool = nomineeTool({
 
 ---
 
+## CommonJS + `ai@7` (Node version floor)
+
+`nominee-ai` ships both ESM (`dist/index.js`) and CJS (`dist/index.cjs`).
+The peer range is `ai: ^5 || ^6 || ^7`. From `ai@7` the AI SDK is ESM-only:
+there is no `require` export. `dist/index.cjs`'s `require('ai')` works only
+because **Node ≥ 22.12** added synchronous `require()` of ESM. A CJS consumer
+on older Node, or a bundler that resolves `exports` strictly at build time
+(webpack, `ts-jest` in CJS mode), will fail to load the `.cjs` entry once
+`ai@7` is the resolved peer. `ai@5` and `ai@6` still ship a real `require`
+condition.
+
+Prefer the ESM entry (`import` from `nominee-ai`). If you must `require()`,
+use Node ≥ 22.12, or stay on `ai@5`/`ai@6`. This is a packaging trap, not a
+policy-behavior change. Full notes: [`docs/adapter-compatibility.md`](../../docs/adapter-compatibility.md).
+
+---
+
 <p align="center">
   <a href="https://github.com/bharath31/nominee">GitHub</a> ·
   <a href="https://www.npmjs.com/package/nominee">nominee core</a> ·

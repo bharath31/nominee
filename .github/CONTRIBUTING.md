@@ -73,6 +73,9 @@ new adapter or strategy:
 - Under `production: true`, unbound `authorize()` and `token()` are disabled — use
   `run()` / `prepareAction()` / `resumeAction()` instead.
 
+A copy-pasteable non-framework snippet lives in
+[`docs/integrations/standalone.md`](../docs/integrations/standalone.md).
+
 Production mode requires a default-deny policy, durable `ActionStore` (e.g.
 `nominee-postgres`), atomic durable receipt store with `delivery: 'strict'`, and
 durable provider approval state. See [docs/production.md](../docs/production.md).
