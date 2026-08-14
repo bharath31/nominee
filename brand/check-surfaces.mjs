@@ -34,8 +34,12 @@ if (llmsRoot && llmsSite && sha256(llmsRoot) !== sha256(llmsSite)) {
 }
 
 const landing = read('site/index.html')
-if (landing && !landing.includes('Find out what your agent')) {
-  errors.push('site/index.html should lead with the discovery headline')
+const landingHero = landing.match(/<h1>[\s\S]*?<\/h1>/)
+if (
+  !landingHero ||
+  !/Find out what your agent\s*<br\s*\/?>\s*can actually do\./.test(landingHero[0])
+) {
+  errors.push('site/index.html <h1> should lead with the discovery headline')
 }
 if (
   landing &&

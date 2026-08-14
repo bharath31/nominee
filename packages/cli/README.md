@@ -1,6 +1,8 @@
 # nominee-cli
 
-Find out what your agent can actually do — no policy, report only:
+Preview a sample observe report — no policy, report only. This command runs
+a hard-coded support-agent tool set; wrapping *your* tools takes `observe()`
+in code.
 
 ```
 npx nominee-cli observe

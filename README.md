@@ -41,6 +41,9 @@ still fail closed.
 npx nominee-cli observe --out nominee.observations.json
 ```
 
+That command prints a **sample** report from a hard-coded support agent.
+Observing your own agent means wrapping its tools with `nominee.observe()`.
+
 ```text
 nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
 ENFORCEMENT WAS OFF: every observed call reached its tool callback.
