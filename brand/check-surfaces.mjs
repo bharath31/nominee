@@ -123,6 +123,7 @@ if (githubAgentReadme && /authorize\(\)/.test(githubAgentReadme)) {
   errors.push('examples/github-agent/README.md still references authorize() — use run() narrative')
 }
 
+<<<<<<< HEAD
 // 7. Prohibited overclaims (docs/positioning.md). Allowed only when the same
 // sentence negates the phrase — site/blog is included because that is where
 // overclaims hurt most.
@@ -192,6 +193,17 @@ for (const abs of claimFiles) {
       match = pattern.exec(content)
     }
   }
+}
+
+if (!existsSync(join(root, 'site/docs/mcp/index.html'))) {
+  errors.push('missing site/docs/mcp/index.html — MCP quickstart must be a public page')
+}
+const mcpPage = read('site/docs/mcp/index.html')
+if (mcpPage && !mcpPage.includes('MCP OAuth authorizes the connection')) {
+  errors.push('site/docs/mcp/index.html should contrast MCP OAuth with action authorization')
+}
+if (mcpPage && /stops prompt injection/i.test(mcpPage)) {
+  errors.push('site/docs/mcp/index.html must not claim nominee stops prompt injection')
 }
 
 if (errors.length > 0) {

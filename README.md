@@ -77,6 +77,10 @@ review them before switching enforcement on. The report also inventories
 callable tools that were available but never used, so the starter policy can
 deny that unused authority explicitly.
 
+The same deny boundary is how you govern an MCP server: OAuth lets the client
+connect; nominee decides which tool call may execute. Ten-minute quickstart:
+[nominee.dev/docs/mcp](https://nominee.dev/docs/mcp/).
+
 Observe mode is report-only and says so: it announces on startup that
 enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
 to be constructed with `production: true`. It is not a security control — it is
@@ -158,13 +162,9 @@ For durable production wiring, see [`examples/support-refund-agent`](examples/su
 
 > **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
 
-## Security proof: untrusted content cannot change the rules
+## Receipt transcript of the lead proof
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-injection.gif?v=1" alt="A prompt-injected agent tries to forward the whole inbox to an attacker; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a tamper-evident receipt of every decision." width="100%" />
-</p>
-
-[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is a second, security-focused example. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
+[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is the same run as the GIF above. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
 
 ```
 2. The model obeys the injection and tries to exfiltrate
@@ -200,7 +200,7 @@ For durable production wiring, see [`examples/support-refund-agent`](examples/su
   doctored log (deny receipts removed): ✓ detected — broken at #7
 ```
 
-The support-agent example explains the product. This example tests the same boundary against untrusted model input.
+The support-agent refund CLI explains the product. The injection example is the hook — blast-radius containment, not a detector.
 
 ## Policy semantics
 
@@ -298,7 +298,7 @@ useful conformance implementations, but deliberately fail `production: true`.
 | **Cloudflare Agents** | via `nominee-ai` |
 | **OpenAI Agents SDK** | `nomineeTool` from [`nominee-openai`](packages/openai) — Nominee `ask` maps to native resumable approval |
 | **Mastra** | `nomineeTool` from [`nominee-mastra`](packages/mastra) — native or portable durable approval |
-| **MCP servers** | `registerNomineeTool` from [`nominee-mcp`](packages/mcp) |
+| **MCP servers** | [`nominee-mcp`](packages/mcp) — first-class: [governed MCP quickstart](https://nominee.dev/docs/mcp/) |
 | **Standalone** | `nominee.run({ tool, input, user, resource }, execute)` around any side effect |
 
 ```ts

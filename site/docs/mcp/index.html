@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Governed MCP server — nominee</title>
+    <meta
+      name="description"
+      content="MCP OAuth authorizes the connection. nominee authorizes the action. A ten-minute quickstart for wrapping MCP tools with allow, ask, and deny."
+    />
+    <link rel="canonical" href="https://nominee.dev/docs/mcp/" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Governed MCP server — nominee" />
+    <meta
+      property="og:description"
+      content="OAuth decides who may connect. nominee decides which tool call may run."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/docs/mcp/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .callout { border-left: 2px solid var(--seal); background: var(--seal-tint); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; color: var(--paper-soft); }
+      .api-table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 14px; }
+      .api-table th, .api-table td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+      .api-table th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    </style>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/docs/">Docs</a>
+        <a href="/docs/mcp/" aria-current="page">MCP</a>
+        <a href="/blog/">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <div class="docs-wrap">
+      <aside class="docs-side" aria-label="MCP guide">
+        <span class="grp">MCP</span>
+        <a href="#why">OAuth vs the action</a>
+        <a href="#proof">Injection proof</a>
+        <a href="#quickstart">Ten-minute server</a>
+        <a href="#approvals">Approvals</a>
+        <a href="#package">nominee-mcp</a>
+      </aside>
+      <article class="docs-main">
+        <h1>Governed MCP server</h1>
+        <p class="lede">
+          <strong>MCP OAuth authorizes the connection. nominee authorizes the action.</strong>
+          Wrap the tools you already expose so a hijacked model still cannot run the
+          dangerous call.
+        </p>
+
+        <section id="why" class="doc-section">
+          <h2>OAuth vs action authorization</h2>
+          <p>
+            MCP OAuth and Enterprise-Managed Authorization answer “may this client talk to
+            this server?” They do not answer “may <em>this</em> tool run with <em>these</em>
+            arguments for <em>this</em> user, right now?” A connected server with a broad
+            mail scope can still forward the inbox if the model asks.
+          </p>
+          <table class="api-table">
+            <thead>
+              <tr><th></th><th>MCP OAuth / EMA</th><th>nominee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>What it grants</td><td>A connection</td><td>One exact-input capability</td></tr>
+              <tr><td>When it is checked</td><td>At connect / consent</td><td>On every tool call, before execute</td></tr>
+              <tr><td>Human approval</td><td>Out of band</td><td><code>ask</code> bound to the arguments reviewed</td></tr>
+              <tr><td>Evidence</td><td>Token issuance</td><td>Hash-chained receipts, including denials</td></tr>
+            </tbody>
+          </table>
+          <p>
+            Use both. Keep OAuth for transport identity. Put nominee around the handlers
+            that change data. Longer treatment:
+            <a href="/blog/oauth-scopes-vs-action-authorization/">A scope is a promise made once</a>.
+          </p>
+        </section>
+
+        <section id="proof" class="doc-section">
+          <h2>The model can be hijacked. The tool still does not run.</h2>
+          <p>
+            nominee does not detect prompt injection. In
+            <a href="https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked">examples/prompt-injection-blocked</a>
+            an email tells the agent to forward the inbox. The model follows the instruction.
+            The <code>deny('email.forward')</code> rule throws before the mailer runs, and the
+            receipt records the attempt. That is blast-radius containment.
+          </p>
+          <figure>
+            <video
+              src="/assets/nominee-blocked.mp4"
+              poster="/assets/nominee-blocked-poster.png"
+              controls
+              muted
+              playsinline
+              preload="metadata"
+              style="width:100%;border-radius:12px;border:1px solid var(--hairline)"
+            ></video>
+          </figure>
+        </section>
+
+        <section id="quickstart" class="doc-section">
+          <h2>Ten-minute server</h2>
+          <pre><code>npm i nominee nominee-mcp @modelcontextprotocol/sdk zod</code></pre>
+          <pre><code>import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { Nominee, allow, ask, deny } from 'nominee'
+import { registerNomineeTool } from 'nominee-mcp'
+import { z } from 'zod'
+
+const nominee = new Nominee({
+  policy: {
+    rules: [
+      allow('email.read'),
+      deny('email.forward', { reason: 'external forwarding is exfiltration' }),
+      ask('email.delete'),
+    ],
+    fallback: 'deny',
+  },
+})
+
+const server = new McpServer({ name: 'inbox-tools', version: '1.0.0' })
+
+registerNomineeTool(server, {
+  name: 'forward_email',
+  action: 'email.forward',
+  inputSchema: z.object({ to: z.string(), id: z.string() }),
+  nominee,
+  user: ({ extra }) => extra.authInfo?.clientId ?? 'anonymous',
+  execute: async ({ to, id }) => {
+    await forward(id, to)
+    return { content: [{ type: 'text', text: `Forwarded ${id}` }] }
+  },
+})</code></pre>
+          <p>
+            Full notes, including <code>connection</code> tokens and observe mode:
+            <a href="https://github.com/bharath31/nominee/blob/main/docs/integrations/mcp.md">docs/integrations/mcp.md</a>.
+            Durable Postgres wiring:
+            <a href="https://github.com/bharath31/nominee/tree/main/examples/mcp-action-server">examples/mcp-action-server</a>.
+          </p>
+        </section>
+
+        <section id="approvals" class="doc-section">
+          <h2>Approvals</h2>
+          <p>
+            MCP does not define a universal human-approval resume protocol. A nominee
+            <code>ask</code> throws <code>ActionPendingError</code>. Persist the action id,
+            resolve it in your UI, then <code>resumeAction()</code> and
+            <code>executeCapability()</code>. Denied calls never reach
+            <code>execute</code>.
+          </p>
+        </section>
+
+        <section id="package" class="doc-section">
+          <h2>nominee-mcp</h2>
+          <p>
+            <code>npm i nominee-mcp</code> — decision-bound handlers for the official MCP
+            TypeScript SDK. A draft MCP registry <code>server.json</code> for the reference
+            server is in the repo; the listing is not live until that package is published
+            and submitted.
+          </p>
+          <div class="callout">
+            <strong>Security boundary.</strong> In-process wrapping only enforces actions
+            that actually route through nominee. Keep raw tools and credentials outside
+            model-controlled code.
+          </div>
+        </section>
+      </article>
+    </div>
+  </body>
+</html>

@@ -2,6 +2,13 @@
 
 Decision-bound MCP tool handlers for the official Model Context Protocol SDK.
 
+**MCP OAuth authorizes the connection. nominee authorizes the action.** A
+connected server can still exfiltrate if the model asks; `registerNomineeTool`
+checks `allow` / `ask` / `deny` before the handler runs. That contains blast
+radius. It does not detect prompt injection.
+
+Quickstart: https://nominee.dev/docs/mcp/
+
 To inventory MCP tool callbacks before writing a policy, construct the same
 Nominee instance with `mode: 'observe'`. `registerNomineeTool` still routes
 through `run()`, but asks and denies are recorded rather than enforced.
