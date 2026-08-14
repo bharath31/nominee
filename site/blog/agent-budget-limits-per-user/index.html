@@ -70,10 +70,10 @@
           <p>If the search was “agent budget limits per user,” you want this: <strong>after this principal has been allowed to attempt a class of tools N times, the next match does not run until a human says so</strong> (or you deny it). Count in <em>your</em> process, keyed by <code>user</code> (and tenant, if you have one), and reserve the slot atomically before execution. An allowed call whose tool later throws still consumed an attempt; that fail-closed accounting prevents concurrent calls from both spending the last slot. Provider rate limits, output-token caps, and “please only search twice” in the prompt are not that counter.</p>
           <hr class="post-rule" />
           <h2>The naive approach (and when it is sufficient)</h2>
-          <pre><code><span class="k">const</span> used = <span class="k">new</span> <span class="fn">Map</span>() <span class="c">// `${tenant}:${user}:${toolClass}` → number</span>
+          <pre><code><span class="k">const</span> used = <span class="k">new</span> <span class="fn">Map</span>() <span class="c">// JSON tuple key → number</span>
 
 <span class="k">async function</span> <span class="fn">search</span>(tenant, user, query) {
-  <span class="k">const</span> key = <span class="s">`${tenant}:${user}:search`</span>
+  <span class="k">const</span> key = <span class="fn">JSON.stringify</span>([tenant, user, <span class="s">'search'</span>])
   <span class="k">const</span> n = used.<span class="fn">get</span>(key) ?? 0
   <span class="k">if</span> (n >= 20) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">'search budget exhausted'</span>)
   used.<span class="fn">set</span>(key, n + 1)
