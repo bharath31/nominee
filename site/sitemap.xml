@@ -26,6 +26,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://nominee.dev/blog/audit-log-for-ai-agent-actions/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://nominee.dev/blog/agent-token-freshness/</loc>
     <lastmod>2026-06-26</lastmod>
     <changefreq>monthly</changefreq>
