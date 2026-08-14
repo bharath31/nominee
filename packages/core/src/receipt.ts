@@ -39,8 +39,9 @@ export interface Receipt {
   effect?: Effect
   /**
    * Present only on receipts written in observe mode: the decision above was
-   * recorded but **not enforced**, and the call ran regardless of `effect`.
-   * Absent means the decision was enforced.
+   * recorded but **not enforced**. This is not evidence that the callback ran
+   * or completed; normal runtime and integrity failures still apply. Absent
+   * means policy enforcement was on.
    */
   enforcement?: 'observe'
   /** Set when an allow-budget escalated the call to ask. */

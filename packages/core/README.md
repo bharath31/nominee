@@ -37,9 +37,11 @@ nominee sits between the model and your tools, in-process, and gives every tool 
 
 ## Don't have rules yet? Start by looking
 
-Observe mode wraps your existing tools and **blocks nothing** — no policy
-required. It records what your agent already does, into the same hash-chained
-receipts, and reports back.
+Observe mode wraps your existing tools with no policy required and records
+deny, ask, and budget decisions without enforcing them. It records which tool
+callbacks actually start, into the same hash-chained receipts, and reports
+argument shapes, numeric ranges, and hashed cardinalities without enumerating
+string values. Runtime and integrity failures still fail closed.
 
 ```ts
 import { Nominee, formatObservations } from 'nominee'
@@ -53,7 +55,7 @@ console.log(formatObservations(nominee.observations()))
 
 ```text
 nominee observe — 9 call(s) across 3 tool(s)
-ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
 
   tool              calls  kind
   refund.issue          5  mutate

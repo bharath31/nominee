@@ -38,3 +38,13 @@ Nominee `ask` rules are evaluated by the SDK's `needsApproval` hook. OpenAI
 pauses the run, and on resume the adapter verifies the approved tool-call id
 from `RunContext` before recording approval evidence and executing. Denials
 remain exceptions and never call the underlying tool.
+
+## Observe before enforcing
+
+Use the same tool with `new Nominee({ mode: 'observe' })` to inventory the
+callbacks that actually run before writing a policy. The adapter's
+`needsApproval` hook returns `false` in this mode—including for an explicitly
+configured approval—while the original ask/deny verdict remains on the action
+and receipts. Observation reports do not retain raw string/boolean values or
+user IDs; numeric aggregates may be sensitive. Observe mode is not a security
+control and cannot be combined with `production: true`.

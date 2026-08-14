@@ -1,4 +1,4 @@
-import { Nominee, allow } from 'nominee'
+import { Nominee, allow, deny } from 'nominee'
 import { newDb } from 'pg-mem'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -89,6 +89,30 @@ describe('PostgresControlStore', () => {
 
     expect(second.status).toBe('pending_approval')
     expect(second.action.policyReason).toContain('budget of 1 calls exhausted')
+  })
+
+  it('preserves an observed denial while allowing the durable action to execute', async () => {
+    const { store } = await setup()
+    const nominee = new Nominee({
+      mode: 'observe',
+      policy: { rules: [deny('issue.close')], fallback: 'deny' },
+      actionStore: store,
+      receipts: { store, stream: 'observed-denial', delivery: 'strict' },
+    })
+
+    await expect(
+      nominee.run(
+        { tool: 'issue.close', user: 'user-1', input: { issue: 42 } },
+        async () => 'closed',
+      ),
+    ).resolves.toBe('closed')
+
+    const actions = await store.listRecent()
+    expect(actions[0]).toMatchObject({
+      status: 'succeeded',
+      policyEffect: 'deny',
+      enforcement: 'observe',
+    })
   })
 
   it('invalidates a capability after one successful consumption', async () => {

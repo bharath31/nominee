@@ -142,8 +142,9 @@
           <h2>Observe mode</h2>
           <p>
             Before you write a rule, find out what your agent already does. Observe mode
-            wraps your existing tools, needs no policy, and <strong>blocks nothing</strong>:
-            every call is recorded into the same hash-chained receipt log and then runs.
+            wraps your existing tools, needs no policy, and records deny, ask, and budget
+            decisions without enforcing them. Runtime and integrity failures still fail
+            closed.
           </p>
           <pre><code>npx nominee-cli observe</code></pre>
           <pre><code>import { Nominee, formatObservations } from 'nominee'
@@ -154,7 +155,7 @@ const tools = nominee.observe({ readOrder, issueRefund, exportCustomers })
 // …run your agent as usual, then:
 console.log(formatObservations(nominee.observations()))</code></pre>
           <pre><code>nominee observe — 9 call(s) across 3 tool(s)
-ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
 
   tool              calls  kind
   refund.issue          5  mutate
@@ -162,9 +163,12 @@ ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
   orders.read           3  read
   customers.export      1  unknown</code></pre>
           <p>
-            <code>nominee.observations()</code> returns the same data as JSON — argument
-            shapes and ranges, not raw user data — so you can inspect it or feed it to a
-            generator.
+            <code>nominee.observations()</code> returns the same data as JSON. It counts
+            callbacks that actually started, not merely prepared actions. It retains
+            argument shapes and numeric ranges but no raw strings, booleans, or user IDs;
+            bounded cardinalities use capped SHA-256 fingerprints. Long strings are not
+            retained even as fingerprints, and truncation flags disclose every cap. Treat
+            numeric aggregates as sensitive when the numbers themselves are sensitive.
           </p>
           <div class="callout">
             <strong>Observe mode is not a security control.</strong> While it is on, a
@@ -174,10 +178,14 @@ ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
             <code>enforcement: "observe"</code> alongside the verdict the policy actually
             reached, sub-agents inherit the mode, and
             <code>production: true</code> refuses to construct with it at all.
+            Authorizer errors, changed inputs, invalid capabilities, and persistence
+            failures still stop execution.
           </div>
           <p>
             Full detail:
             <a href="https://github.com/bharath31/nominee/blob/main/docs/observe.md">docs/observe.md</a>.
+            For the corresponding human-oversight and record-keeping pattern, see
+            <a href="/blog/eu-ai-act-article-14-human-oversight/">Article 14 human oversight for AI agents</a>.
           </p>
         </section>
 

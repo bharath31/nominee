@@ -63,6 +63,34 @@ describe('nominee-mastra', () => {
     expect(nominee.receipts.map((receipt) => receipt.type)).toContain('approval.resolved')
   })
 
+  it('suppresses native approval gates in observe mode', async () => {
+    const execute = vi.fn(async () => ({ sent: true }))
+    const nominee = new Nominee({ mode: 'observe', policy: [ask('wire.send')] })
+    const tool = nomineeTool({
+      id: 'wire-send',
+      description: 'Send a wire',
+      inputSchema: z.object({ cents: z.number() }),
+      outputSchema: z.object({ sent: z.boolean() }),
+      nominee,
+      action: 'wire.send',
+      user: 'user-1',
+      nativeApprovals: true,
+      requireApproval: true,
+      execute,
+    })
+
+    const needsApproval =
+      typeof tool.requireApproval === 'function'
+        ? await tool.requireApproval({ cents: 500 })
+        : tool.requireApproval
+    expect(needsApproval).toBe(false)
+    await expect(tool.execute?.({ cents: 500 }, executionContext())).resolves.toEqual({
+      sent: true,
+    })
+    expect(execute).toHaveBeenCalledOnce()
+    expect(nominee.observations().totals).toMatchObject({ calls: 1, ask: 1 })
+  })
+
   it('does not infer native approval without a Mastra agent tool-call id', async () => {
     const execute = vi.fn(async () => ({ sent: true }))
     const tool = nomineeTool({

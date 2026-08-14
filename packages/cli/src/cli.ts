@@ -10,7 +10,7 @@ import { runVerify } from './verify.js'
 const HELP = `nominee — the authorization layer for AI agents
 
 Usage:
-  nominee observe            see what a sample agent can do — report only, nothing blocked
+  nominee observe            see what a sample agent can do — policy gates off
   nominee                    run the support-agent policy proof (offline, no keys)
   nominee verify <file>      verify a JSON receipt export's hash chain
   nominee check <policy>     report which rules in a policy file are reachable

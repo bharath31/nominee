@@ -8,7 +8,7 @@ npx nominee-cli
 ```
 
 Or, if you don't have any rules yet, start by looking at what your agent can
-already do — report only, nothing blocked:
+already do — report only, with no policy decisions enforced:
 
 ```
 npx nominee-cli observe
@@ -83,19 +83,20 @@ prompt. No reporting code exists in the core `nominee` package.
 ## `nominee observe`
 
 Runs the same sample agent with **no policy at all**, in observe mode, and
-prints what it turned out to be able to do. Nothing is blocked — that is the
-point. Use it to see the shape of the report before wrapping your own tools.
+prints what it turned out to be able to do. No policy decision is enforced;
+runtime and integrity failures still fail closed. Use it to see the shape of
+the report before wrapping your own tools.
 
 ```
 $ npx nominee-cli observe
 
 nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
-ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
 
   tool              calls  kind
   refund.issue          5  mutate
                       ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
-                      ↳ orderId: string, values: "ord_42"
+                      ↳ orderId: string, 1 distinct value(s) observed
   orders.read           3  read
   customers.export      1  unknown
 
@@ -109,8 +110,11 @@ const nominee = new Nominee({ mode: 'observe' })
 const tools = nominee.observe(yourTools)
 ```
 
-`--out <file>` also writes the machine-readable JSON report (tools, call
-counts, argument types and ranges, which arguments are unbounded).
+`--out <file>` also writes the machine-readable JSON report (tool callback
+attempts, argument types and ranges, bounded cardinalities, and which arguments
+are unbounded). Raw strings, booleans, and user IDs are not retained; bounded
+counts use SHA-256 fingerprints. Numeric ranges remain visible and should be
+treated as sensitive when the underlying numbers are sensitive.
 
 Observe mode is a discovery tool, not a security control: it announces on
 startup that enforcement is off, marks every receipt `enforcement: 'observe'`,

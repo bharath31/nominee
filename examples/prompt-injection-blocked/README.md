@@ -49,3 +49,13 @@ None required. Optional:
 ```
 The model was fully compromised. Your policy didn't care.
 ```
+
+## Before enforcing an existing agent
+
+This proof intentionally enforces its policy. To inventory existing tools
+first, construct the same Nominee with `mode: 'observe'`: policy denies and
+approval gates are recorded rather than enforced, while `observations()`
+reports execution attempts and argument shapes. It retains no raw
+string/boolean values or user IDs; numeric aggregates may be sensitive. Remove
+the mode to enforce; observe mode is not a security control and would not block
+this injection.

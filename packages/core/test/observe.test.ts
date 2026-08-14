@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  CapabilityInvalidError,
+  MemoryActionStore,
   Nominee,
+  ObservationCollector,
   allow,
   ask,
   classifyTool,
@@ -62,6 +65,40 @@ describe('observe mode', () => {
     expect(n.observations().totals.deny).toBe(1)
   })
 
+  it('preserves the real policy verdict on authorizations and action records', async () => {
+    const n = new Nominee({ mode: 'observe', policy: [deny('customers.export')] })
+
+    const authorization = await n.authorize({
+      tool: 'customers.export',
+      input: { all: true },
+      user: 'alice',
+    })
+    expect(authorization.effect).toBe('allow')
+    expect(authorization.decision.effect).toBe('deny')
+    expect(n.observations().totals.calls).toBe(0)
+
+    let executedAction: { policyEffect?: string; enforcement?: string } | undefined
+    await n.run({ tool: 'customers.export', input: { all: true }, user: 'alice' }, ({ action }) => {
+      executedAction = action
+    })
+
+    expect(executedAction).toMatchObject({ policyEffect: 'deny', enforcement: 'observe' })
+    expect(n.observations().totals).toMatchObject({ calls: 1, deny: 1 })
+  })
+
+  it('counts execution, not planning', async () => {
+    const n = new Nominee({ mode: 'observe', policy: [ask('refund.issue')] })
+    const input = { amount: 25 }
+
+    const prepared = await n.prepareAction({ tool: 'refund.issue', input, user: 'alice' })
+    expect(prepared.status).toBe('ready')
+    expect(n.observations().totals.calls).toBe(0)
+
+    if (prepared.status !== 'ready') throw new Error('expected a ready action')
+    await n.executeCapability(prepared.capability, input, () => 'done')
+    expect(n.observations().totals.calls).toBe(1)
+  })
+
   it('never pauses on ask rules', async () => {
     const n = new Nominee({ mode: 'observe', policy: [ask('refund.issue')] })
     // No onApprovalRequest is configured: in enforcing mode this call would
@@ -70,6 +107,27 @@ describe('observe mode', () => {
 
     await expect(tools['refund.issue']({ amount: 20 })).resolves.toBe('refunded')
     expect(n.observations().totals.ask).toBe(1)
+    expect(warnings()).not.toContain('approvals will wait forever')
+  })
+
+  it('rejects capabilities presented to an instance in the other enforcement mode', async () => {
+    const store = new MemoryActionStore()
+    const observing = new Nominee({
+      mode: 'observe',
+      policy: [deny('customers.export')],
+      actionStore: store,
+    })
+    const prepared = await observing.prepareAction({
+      tool: 'customers.export',
+      input: { all: true },
+      user: 'alice',
+    })
+    if (prepared.status !== 'ready') throw new Error('expected a ready action')
+
+    const enforcing = new Nominee({ policy: [allow('customers.export')], actionStore: store })
+    await expect(
+      enforcing.executeCapability(prepared.capability, { all: true }, () => 'ran'),
+    ).rejects.toThrow(CapabilityInvalidError)
   })
 
   it('produces receipts in the same hash chain format as enforcing mode', async () => {
@@ -136,6 +194,7 @@ describe('observe mode', () => {
 
     expect(ran).toBe(true)
     expect(n.observations().totals.calls).toBe(1)
+    expect(n.observations().policyConfigured).toBe(true)
   })
 
   it('an enforcing parent produces enforcing sub-agents', async () => {
@@ -186,7 +245,8 @@ describe('observation report', () => {
 
     // A repeated short string is an enumerable set, not an unbounded argument.
     const currency = refund?.arguments.find((arg) => arg.name === 'currency')
-    expect(currency).toMatchObject({ unbounded: false, values: ['usd'] })
+    expect(currency).toMatchObject({ unbounded: false, distinctValues: 1 })
+    expect(currency).not.toHaveProperty('values')
 
     const orders = report.tools.find((tool) => tool.tool === 'orders.read')
     expect(orders).toMatchObject({ kind: 'read', baseline: 'allow' })
@@ -216,5 +276,128 @@ describe('observation report', () => {
     expect(text).toContain('customers.export')
     expect(text).toContain('1 denied')
     expect(text).toContain('not a judgement about what it')
+  })
+
+  it('never exposes raw strings or user IDs in reports or formatted output', () => {
+    const collector = new ObservationCollector()
+    const shortSecret = 'sk-live-short-secret'
+    const longSecret = `sk-live-${'x'.repeat(100)}`
+
+    collector.record({
+      tool: 'credentials.send',
+      input: { shortSecret, longSecret },
+      user: 'alice@example.com',
+      effect: 'ask',
+    })
+
+    const report = collector.report()
+    const serialized = JSON.stringify(report)
+    const formatted = formatObservations(report)
+    expect(serialized).not.toContain(shortSecret)
+    expect(serialized).not.toContain(longSecret)
+    expect(serialized).not.toContain('alice@example.com')
+    expect(formatted).not.toContain(shortSecret)
+    expect(formatted).not.toContain(longSecret)
+    expect(report.tools[0]?.arguments.find((arg) => arg.name === 'shortSecret')).toMatchObject({
+      distinctValues: 1,
+      unbounded: false,
+    })
+    expect(report.tools[0]?.arguments.find((arg) => arg.name === 'longSecret')).toMatchObject({
+      unbounded: true,
+    })
+  })
+
+  it('keeps exact numeric extrema after the median sample cap', () => {
+    const collector = new ObservationCollector()
+    for (let amount = 0; amount < 1000; amount++) {
+      collector.record({ tool: 'refund.issue', input: { amount }, user: 'alice', effect: 'allow' })
+    }
+    collector.record({
+      tool: 'refund.issue',
+      input: { amount: 1_000_000 },
+      user: 'alice',
+      effect: 'allow',
+    })
+    collector.record({
+      tool: 'refund.issue',
+      input: { amount: -10 },
+      user: 'alice',
+      effect: 'allow',
+    })
+
+    const amount = collector.report().tools[0]?.arguments[0]
+    expect(amount?.range).toEqual({ min: -10, max: 1_000_000, median: 499.5 })
+  })
+
+  it('treats mixed numeric inputs and root inputs as unbounded', () => {
+    const collector = new ObservationCollector()
+    collector.record({
+      tool: 'refund.issue',
+      input: { amount: 'small' },
+      user: 'alice',
+      effect: 'allow',
+    })
+    collector.record({
+      tool: 'refund.issue',
+      input: { amount: 5 },
+      user: 'alice',
+      effect: 'allow',
+    })
+    collector.record({ tool: 'search.run', input: ['one'], user: 'alice', effect: 'allow' })
+    collector.record({ tool: 'lookup.run', input: 'needle', user: 'alice', effect: 'allow' })
+
+    const report = collector.report()
+    const amount = report.tools
+      .find((tool) => tool.tool === 'refund.issue')
+      ?.arguments.find((arg) => arg.name === 'amount')
+    expect(amount).toMatchObject({ types: ['number', 'string'], unbounded: true })
+    expect(report.tools.find((tool) => tool.tool === 'search.run')?.arguments[0]).toMatchObject({
+      name: '$input',
+      types: ['array'],
+      unbounded: true,
+    })
+    expect(report.tools.find((tool) => tool.tool === 'lookup.run')?.arguments[0]).toMatchObject({
+      name: '$input',
+      types: ['string'],
+      distinctValues: 1,
+    })
+  })
+
+  it('reports bounded tool and user truncation honestly', () => {
+    const collector = new ObservationCollector()
+    for (let tool = 0; tool < 405; tool++) {
+      collector.record({ tool: `tool.${tool}`, user: 'alice', effect: 'allow' })
+    }
+    for (let user = 0; user < 1001; user++) {
+      collector.record({ tool: 'tool.0', user: `user-${user}`, effect: 'allow' })
+    }
+
+    const report = collector.report()
+    expect(report.totals.tools).toBe(400)
+    expect(report.tools).toHaveLength(200)
+    expect(report.untrackedTools).toBe(200)
+    expect(report.toolsTruncated).toBe(true)
+    expect(formatObservations(report)).toContain('at least 400 tool(s)')
+    expect(report.tools.find((tool) => tool.tool === 'tool.0')).toMatchObject({
+      users: 1000,
+      usersTruncated: true,
+    })
+  })
+
+  it('never lets hostile input inspection break execution reporting', () => {
+    const collector = new ObservationCollector()
+    const hostile = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error('do not inspect me')
+        },
+      },
+    )
+
+    expect(() =>
+      collector.record({ tool: 'search.run', input: hostile, user: 'alice', effect: 'allow' }),
+    ).not.toThrow()
+    expect(collector.report().totals.calls).toBe(1)
   })
 })

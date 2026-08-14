@@ -23,8 +23,8 @@ interface RefundInput {
 
 /**
  * Run the sample agent in observe mode and print the report. With `out`, the
- * machine-readable report is written there too — the input `nominee policy`
- * turns into a starter policy file.
+ * machine-readable report is written there too for inspection or as input to
+ * the caller's own policy-generation workflow.
  */
 export async function runObserve(out?: string): Promise<ObserveCommandResult> {
   const nominee = new Nominee({ mode: 'observe', agent: 'support-agent' })

@@ -76,3 +76,12 @@ framework-neutral, no-SaaS, bring-your-own-store tail.
 - `oauth-server.mjs` — the honest mock provider (short TTL + rotation + latency).
 - `store.mjs` — a file-backed durable store standing in for a DB row / DO storage.
 - `run.mjs` — the four scenarios above.
+
+## When inventorying the tools that use these tokens
+
+This proof focuses on credential freshness, not tool-policy discovery. For an
+existing token-backed agent, construct Nominee with `mode: 'observe'` to record
+policy decisions without enforcing them while `observations()` reports
+execution attempts and argument shapes. It retains no raw string/boolean values
+or user IDs; numeric aggregates may be sensitive. Remove the mode to enforce;
+observe mode is not a security control.

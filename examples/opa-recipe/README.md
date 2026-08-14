@@ -122,3 +122,12 @@ instructions, no core API was added or changed): let `when` (and
 `authorizer`) optionally return `{ matched: boolean; reason?: string }` in
 addition to a plain boolean, and have `PolicyEngine.evaluateOne` prefer that
 per-call reason over the rule's static one when computing `PolicyDecision.reason`.
+
+## Before enforcing an existing agent
+
+This recipe intentionally enforces its authorization decision. To inventory
+existing tools first, construct Nominee with `mode: 'observe'`: policy denies
+and approval gates are recorded rather than enforced, while `observations()`
+reports execution attempts and argument shapes. It retains no raw
+string/boolean values or user IDs; numeric aggregates may be sensitive. Remove
+the mode to enforce; observe mode is not a security control.

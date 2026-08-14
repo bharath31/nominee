@@ -76,3 +76,12 @@ the token strategy — nominee adds the policy, approvals, and receipts they don
 ## Demo recording
 
 See [`record-gif.md`](./record-gif.md) for the steps to capture the ~30s demo GIF.
+
+## Before enforcing an existing agent
+
+This example intentionally enforces its policy. To inventory existing tools
+first, construct the same Nominee with `mode: 'observe'`: policy denies and
+approval gates are recorded rather than enforced, while `observations()`
+reports execution attempts and argument shapes. It retains no raw
+string/boolean values or user IDs; numeric aggregates may be sensitive. Remove
+the mode to enforce; observe mode is not a security control.

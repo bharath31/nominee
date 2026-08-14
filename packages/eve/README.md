@@ -25,6 +25,18 @@ npm i nominee nominee-eve
 
 ---
 
+## Observe Before Enforcing
+
+Pass `new Nominee({ mode: 'observe' })` into `nomineeTool` or `withNominee` to
+inventory the Eve tool callbacks that actually run before writing a policy.
+Nominee and Eve-native approval gates configured through this adapter are
+suppressed while the policy verdicts are recorded. Observation reports do not
+retain raw string/boolean values or user IDs; numeric aggregates may be
+sensitive. Observe mode is not a security control and cannot be combined with
+`production: true`.
+
+---
+
 ## How It Works
 
 ```mermaid

@@ -43,8 +43,9 @@ export interface AuditEvent {
   /** Policy verdict, for `policy.decision` events. */
   effect?: Effect
   /**
-   * Present only in observe mode: the decision was recorded but not enforced,
-   * and the call ran regardless of `effect`.
+   * Present only in observe mode: the policy decision was recorded but did
+   * not itself block execution. This event does not prove the callback ran or
+   * completed; normal runtime and integrity failures still apply.
    */
   enforcement?: 'observe'
   /** Compact label of the deciding rule, e.g. `"deny:email.forward"`. */

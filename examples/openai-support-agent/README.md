@@ -49,3 +49,12 @@ When you compose the agent with `nomineeTool` (see `nominee-openai`):
 - a deny never calls `closeGitHubIssue`
 - allowed/approved calls resolve a fresh token at execution time and seal a
   receipt
+
+## Before enforcing an existing agent
+
+This starter is written for enforcement. To inventory existing OpenAI tool
+callbacks first, construct the same Nominee with `mode: 'observe'`: native
+approval gates from the adapter are suppressed, while `observations()` reports
+execution attempts and argument shapes. It retains no raw string/boolean values
+or user IDs; numeric aggregates may be sensitive. Remove the mode to enforce;
+observe mode is not a security control.

@@ -80,3 +80,12 @@ pnpm test
 - Refunds over $500 throw before the refund function runs.
 - `pnpm test` covers all three policy outcomes, HTML escaping, and approver
   credential checks.
+
+## Before enforcing an existing agent
+
+This example intentionally uses `production: true`, so it enforces. In a
+separate non-production inventory run, use `mode: 'observe'` instead: policy
+denies and approval gates are recorded rather than enforced, while
+`observations()` reports execution attempts and argument shapes. It retains no
+raw string/boolean values or user IDs; numeric aggregates may be sensitive.
+Observe mode and `production: true` cannot be combined.

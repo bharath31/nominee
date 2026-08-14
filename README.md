@@ -54,8 +54,11 @@ Your agent requests a tool call. Nominee checks your rules before the tool funct
 
 ## Don't have rules yet? Start by looking
 
-Observe mode wraps your existing tools and **blocks nothing**. No policy, no
-decisions to make — it records what your agent already does and reports back.
+Observe mode wraps your existing tools and does not enforce deny, ask, or
+budget decisions. No policy is required: it records the tool callbacks that
+actually start and reports argument shapes, numeric ranges, and hashed
+cardinalities without enumerating string values. Runtime and integrity failures
+still fail closed.
 
 ```bash
 npx nominee-cli observe
@@ -63,7 +66,7 @@ npx nominee-cli observe
 
 ```text
 nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
-ENFORCEMENT WAS OFF: every call ran. Nothing below was blocked.
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
 
   tool              calls  kind
   refund.issue          5  mutate
@@ -327,9 +330,9 @@ const resumed = await nominee.resumeAction(actionId)
 await nominee.executeCapability(resumed.capability, input, execute)
 // execute receives { action, input, token? }
 
-// Observe mode (report-only: records decisions, enforces nothing)
+// Observe mode (report-only: records policy decisions without enforcing them)
 const nominee = new Nominee({ mode: 'observe' })
-nominee.observe(tools)                           // wrap without blocking anything
+nominee.observe(tools)                           // deny/ask/budget gates are off
 nominee.observations()                           // what it saw, as JSON
 formatObservations(nominee.observations())       // …and as a terminal report
 

@@ -77,6 +77,7 @@ export function nomineeTool<
     input: Input,
     context?: MastraApprovalContext,
   ): Promise<boolean> => {
+    if (config.nominee.mode === 'observe') return false
     if (await configuredApproval(input, context)) return true
     if (!config.nativeApprovals) return false
     const requestContext = context?.requestContext ?? {}

@@ -212,3 +212,12 @@ Vercel Connect) or you're on a managed token layer (Auth0 Token Vault on its own
 Nango), use that — reach for nominee when you want this behaviour **framework-neutral
 and without a SaaS**: bring your own store, keep the same agent code across Eve, the
 Vercel AI SDK, or standalone, and swap the vault underneath without rewriting tools.
+
+## Before enforcing an existing agent
+
+This example intentionally enforces its merge policy. To inventory existing
+tools first, construct the same Nominee with `mode: 'observe'`: policy denies
+and approval gates are recorded rather than enforced, while `observations()`
+reports execution attempts and argument shapes. It retains no raw
+string/boolean values or user IDs; numeric aggregates may be sensitive. Remove
+the mode to enforce; observe mode is not a security control.

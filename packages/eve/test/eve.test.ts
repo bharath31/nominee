@@ -39,6 +39,26 @@ describe('nominee-eve', () => {
     expect(tool.approval).toBe(eveApproval)
   })
 
+  it('suppresses Eve and Nominee approval gates in observe mode', async () => {
+    const execute = vi.fn(async () => 'ran')
+    const nominee = makeNominee({ mode: 'observe', policy: [ask('wire.send')] })
+    const tool = nomineeTool({
+      nominee,
+      user: 'u1',
+      action: 'wire.send',
+      approval: true,
+      eveApproval: async () => 'user-approval' as const,
+      description: 'send a wire',
+      inputSchema: z.object({ cents: z.number() }),
+      execute,
+    })
+
+    expect(tool.approval).toBeUndefined()
+    await expect(tool.execute({ cents: 500 }, fakeCtx)).resolves.toBe('ran')
+    expect(execute).toHaveBeenCalledOnce()
+    expect(nominee.observations().totals).toMatchObject({ calls: 1, ask: 1 })
+  })
+
   it('injects a fresh token for the connection', async () => {
     let seen: string | undefined
     const tool = nomineeTool({
