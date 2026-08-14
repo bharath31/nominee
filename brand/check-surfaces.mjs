@@ -123,7 +123,6 @@ if (githubAgentReadme && /authorize\(\)/.test(githubAgentReadme)) {
   errors.push('examples/github-agent/README.md still references authorize() — use run() narrative')
 }
 
-<<<<<<< HEAD
 // 7. Prohibited overclaims (docs/positioning.md). Allowed only when the same
 // sentence negates the phrase — site/blog is included because that is where
 // overclaims hurt most.
