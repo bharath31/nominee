@@ -1,5 +1,13 @@
 # openai-support-agent
 
+## 1.0.4
+
+### Patch Changes
+
+- Updated dependencies [fa7324e]
+  - nominee@2.5.0
+  - nominee-openai@2.3.0
+
 ## 1.0.3
 
 ### Patch Changes
