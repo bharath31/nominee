@@ -125,8 +125,9 @@
           <h2>Ten-minute server</h2>
           <pre><code>npm i nominee nominee-mcp @modelcontextprotocol/sdk zod</code></pre>
           <pre><code>import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Nominee, allow, ask, deny } from 'nominee'
-import { registerNomineeTool } from 'nominee-mcp'
+import { mcpEndUser, registerNomineeTool } from 'nominee-mcp'
 import { z } from 'zod'
 
 const nominee = new Nominee({
@@ -147,12 +148,14 @@ registerNomineeTool(server, {
   action: 'email.forward',
   inputSchema: z.object({ to: z.string(), id: z.string() }),
   nominee,
-  user: ({ extra }) => extra.authInfo?.clientId ?? 'anonymous',
+  user: ({ extra }) => mcpEndUser(extra, 'local-stdio-user'),
   execute: async ({ to, id }) => {
     await forward(id, to)
     return { content: [{ type: 'text', text: `Forwarded ${id}` }] }
   },
-})</code></pre>
+})
+
+await server.connect(new StdioServerTransport())</code></pre>
           <p>
             Full notes, including <code>connection</code> tokens and observe mode:
             <a href="https://github.com/bharath31/nominee/blob/main/docs/integrations/mcp.md">docs/integrations/mcp.md</a>.
@@ -164,11 +167,15 @@ registerNomineeTool(server, {
         <section id="approvals" class="doc-section">
           <h2>Approvals</h2>
           <p>
-            MCP does not define a universal human-approval resume protocol. A nominee
-            <code>ask</code> throws <code>ActionPendingError</code>. Persist the action id,
-            resolve it in your UI, then <code>resumeAction()</code> and
-            <code>executeCapability()</code>. Denied calls never reach
-            <code>execute</code>.
+            MCP does not define a universal human-approval resume protocol.
+            <code>registerNomineeTool</code> returns
+            <code>structuredContent: { nominee: 'pending_approval', actionId, approvalId }</code>
+            instead of letting the SDK swallow <code>ActionPendingError</code>.
+            Persist the action id <em>and</em> the original tool input (the
+            durable record stores only <code>inputHash</code>), resolve the
+            approval, then <code>resumeAction()</code> and
+            <code>executeCapability(capability, originalInput, execute)</code>.
+            Denied calls never reach <code>execute</code>.
           </p>
         </section>
 

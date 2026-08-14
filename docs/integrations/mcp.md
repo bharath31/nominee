@@ -23,7 +23,7 @@ npm install nominee nominee-mcp @modelcontextprotocol/sdk zod
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Nominee, allow, ask, deny } from 'nominee'
-import { registerNomineeTool } from 'nominee-mcp'
+import { mcpEndUser, registerNomineeTool } from 'nominee-mcp'
 import { z } from 'zod'
 
 const nominee = new Nominee({
@@ -45,7 +45,9 @@ registerNomineeTool(server, {
   action: 'email.forward',
   inputSchema: z.object({ to: z.string(), id: z.string() }),
   nominee,
-  user: ({ extra }) => extra.authInfo?.clientId ?? 'anonymous',
+  // clientId is the OAuth application, shared by every end user. Prefer
+  // extra.sub from your auth layer; stdio with no authInfo may use a fallback.
+  user: ({ extra }) => mcpEndUser(extra, 'local-stdio-user'),
   execute: async ({ to, id }) => {
     await forward(id, to)
     return { content: [{ type: 'text', text: `Forwarded ${id}` }] }
@@ -66,14 +68,33 @@ an email tells the agent to forward the inbox; the model obeys; `email.forward`
 is denied before the mailer runs. Same boundary as an MCP tool handler.
 
 ```bash
-pnpm --filter prompt-injection-blocked test
+pnpm --filter prompt-injection-blocked demo
 ```
 
 ## 4. Durable approvals
 
-MCP has no universal resume protocol. A Nominee `ask` throws `ActionPendingError`.
-Persist `error.actionId`, resolve it in your approval UI, then `resumeAction()`
-and `executeCapability()`. Denied calls never reach `execute`.
+MCP's high-level `McpServer` catches thrown errors and turns them into
+`CallToolResult { isError: true }`. `registerNomineeTool` therefore converts
+`ActionPendingError` into a structured result:
+
+```ts
+{
+  isError: true,
+  structuredContent: { nominee: 'pending_approval', actionId, approvalId }
+}
+```
+
+Persist **both** `actionId` and the original tool input (the durable action
+record stores only `inputHash`). After approval:
+
+```ts
+await nominee.resolveActionApproval(actionId, { decision: 'approved', approver, via })
+const resumed = await nominee.resumeAction(actionId)
+await nominee.executeCapability(resumed.capability, originalInput, execute)
+```
+
+The low-level `nomineeMcpHandler()` still throws `ActionPendingError` if you
+need the exception at a custom transport. Denied calls never reach `execute`.
 
 For Postgres-backed production wiring see
 [`examples/mcp-action-server`](../../examples/mcp-action-server).

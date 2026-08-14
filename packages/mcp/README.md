@@ -18,8 +18,9 @@ and cannot be combined with `production: true`.
 
 ```ts
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Nominee, allow, ask } from 'nominee'
-import { registerNomineeTool } from 'nominee-mcp'
+import { mcpEndUser, registerNomineeTool } from 'nominee-mcp'
 import { z } from 'zod'
 
 const server = new McpServer({ name: 'support-tools', version: '1.0.0' })
@@ -36,7 +37,7 @@ registerNomineeTool(server, {
   inputSchema: z.object({ repo: z.string(), issue: z.number() }),
   nominee,
   action: 'github.issue.close',
-  user: ({ extra }) => extra.authInfo?.clientId ?? 'anonymous',
+  user: ({ extra }) => mcpEndUser(extra, 'local-stdio-user'),
   resource: ({ input }) => `repo:${input.repo}#${input.issue}`,
   connection: 'github',
   scopes: ['issues:write'],
@@ -45,10 +46,14 @@ registerNomineeTool(server, {
     return { content: [{ type: 'text', text: 'Issue closed' }] }
   },
 })
+
+await server.connect(new StdioServerTransport())
 ```
 
-MCP does not define a universal human-approval resume protocol. A Nominee
-`ask` therefore throws `ActionPendingError`; catch it at your transport/job
-boundary, persist the action id, resolve it through your approval UI, then call
-`resumeAction()` and `executeCapability()`. Denied calls never reach the MCP
-handler.
+MCP does not define a universal human-approval resume protocol. The high-level
+`McpServer` catches thrown errors, so `registerNomineeTool` returns
+`{ isError: true, structuredContent: { nominee: 'pending_approval', actionId, approvalId } }`.
+Persist that `actionId` **and the original tool input**, resolve it through your
+approval UI, then call `resumeAction()` and `executeCapability()`. The standalone
+`nomineeMcpHandler()` still throws `ActionPendingError`. Denied calls never reach
+the MCP handler.

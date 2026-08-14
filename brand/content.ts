@@ -43,8 +43,8 @@ export const brand = {
 
   /** The demonstrable insight that leads every surface. */
   insight:
-    'In a support agent, a $25 refund runs, a $200 refund waits for your approval, and a $2,000 refund never reaches the refund function.',
-  insightShort: '$25 runs. $200 waits for you. $2,000 is blocked.',
+    'The model was hijacked. The tool still did not run. nominee does not detect prompt injection; a deny rule still stops the forwarded inbox before the handler runs.',
+  insightShort: 'The model was hijacked. The tool still did not run.',
 
   /** The layer diagram: framework | nominee | tools+vault. */
   layers: [

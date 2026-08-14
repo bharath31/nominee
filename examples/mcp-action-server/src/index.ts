@@ -19,10 +19,12 @@ export async function createServer(pool: pg.Pool) {
         ask('github.commit'), // Requires approval boundary
         allow('github.read'),
       ],
+      fallback: 'deny',
     },
     receipts: {
       key: receiptKey,
       store: controlStore,
+      delivery: 'strict',
     },
     actionStore: controlStore,
     production: true,
