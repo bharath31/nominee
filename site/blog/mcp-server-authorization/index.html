@@ -133,7 +133,7 @@
 
           <p>The fixed user keeps the example readable. An HTTP server should resolve <code>user</code> and <code>tenant</code> from verified auth context, not from tool arguments. Add <code>connection</code> and <code>scopes</code> when the handler also needs a fresh downstream credential.</p>
 
-          <p>MCP has no universal approval-resume protocol for registered function tools. A Nominee <code>ask</code> can resolve through an inline handler, or it can surface <code>ActionPendingError</code> so your job or transport layer persists the action id and resumes after the human decides. Do not catch that error and call the raw handler.</p>
+          <p>The current MCP draft defines an <a href="https://modelcontextprotocol.io/specification/draft/server/tools#incomplete-tool-results">input-required multi-round-trip for <code>tools/call</code></a>: a server can return <code>InputRequiredResult</code>, elicit an accept or decline, and correlate the retry with <code>requestState</code> and <code>inputResponses</code>. <code>registerNomineeTool</code> does not yet translate a pending Nominee approval into that wire flow. With this adapter, an <code>ask</code> either resolves through an inline handler or surfaces <code>ActionPendingError</code>. If approval can cross a restart, configure a durable action store and persist the action id before resuming it after the human decides. Do not catch that error and call the raw handler.</p>
 
           <h2>The two authorization layers answer different questions</h2>
 
