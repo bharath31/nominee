@@ -18,7 +18,7 @@ This scan covers the ten open GitHub issues visible on August 5, 2026. Issues th
 | #48 — Task 9: Improve adapter semantics and compatibility guarantees | Add adapter compatibility tests and a compatibility matrix against current framework approval/resume behavior. |
 | #50 — Task 11: Add evidence export and observability recipes | Addressed in this branch by adding the evidence export and OpenTelemetry recipe. |
 | #51 — Task 12: Establish security-review and release discipline | Add attacker models, non-goals, claim-to-test traceability, and an independent review checklist. |
-| #52 — Task 13: Recruit ten narrow design partners | Non-code GTM/research task; requires partner discovery and outreach rather than repository implementation. |
+| #52 — Task 13: Recruit ten narrow design partners | Closed on GitHub as post-launch work. Active again as Linear NOM-16. Agent-doable kit: [docs/design-partners](design-partners/README.md). Still requires a human on the calls; pipeline is 0/10. |
 | #53 — Task 14: Publish technical “comparison proof” | Add developer-facing comparison articles explaining native approval, OAuth, FGA, connector platforms, and action authorization boundaries. |
 | #54 — Task 15: Create partner-ready integration kits | Add Auth0, WorkOS FGA, OPA, Arcade, and Composio partner kits that position Nominee as complementary infrastructure. |
 
