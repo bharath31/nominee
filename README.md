@@ -4,14 +4,15 @@
 
 <p align="center">
   Building an AI agent that can change real data?<br />
-  <strong>Your agent calls tools. Your rules decide what runs.</strong><br />
-  nominee is an open-source TypeScript library that checks every AI tool call<br />
-  before your tool code executes.
+  <strong>Find out what your agent can actually do.</strong><br />
+  One command, no policy, no premise to accept.<br />
+  Then your rules decide what runs.
 </p>
 
 <p align="center">
   <a href="https://nominee.dev">Website</a> ·
   <a href="https://nominee.dev/docs/">Docs</a> ·
+  <a href="https://nominee.dev/case-studies/">Case studies</a> ·
   <a href="https://nominee.dev/playground/">Playground</a> ·
   <a href="https://nominee.dev/agent">Security demo</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
@@ -29,35 +30,7 @@
 
 ---
 
-## Try it now
-
-[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
-
-Or run the same proof in your terminal:
-
-```bash
-npx nominee-cli
-```
-
-No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
-
-```text
-✓ $25 refund    allowed → refund.issue ran
-? $200 refund   agent paused → waiting for your approval
-✓ $200 refund   approved once → refund.issue ran
-✗ $2,000 refund blocked before refund.issue ran
-✗ customer export blocked before customers.export ran
-✓ receipt chain verifies
-```
-
-Your agent requests a tool call. Nominee checks your rules before the tool function runs.
-
-After your own policy has successfully governed one of your own tools,
-`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
-artifacts locally and offers a separate opt-in activation report. Neither
-artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
-
-## Don't have rules yet? Start by looking
+## 1. See what your agent does
 
 Observe mode wraps your existing tools and does not enforce deny, ask, or
 budget decisions. No policy is required: it records the tool callbacks that
@@ -66,8 +39,11 @@ cardinalities without enumerating string values. Runtime and integrity failures
 still fail closed.
 
 ```bash
-npx nominee-cli observe
+npx nominee-cli observe --out nominee.observations.json
 ```
+
+That command prints a **sample** report from a hard-coded support agent.
+Observing your own agent means wrapping its tools with `nominee.observe()`.
 
 ```text
 nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
@@ -89,12 +65,57 @@ const tools = nominee.observe(yourTools)   // …then run your agent as usual
 console.log(formatObservations(nominee.observations()))
 ```
 
+Turn the report into an editable, default-deny starter policy:
+
+```bash
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+The generated file cites the calls, dates, and numeric ranges behind every
+rule. Its thresholds reflect observed traffic, not security recommendations;
+review them before switching enforcement on. The report also inventories
+callable tools that were available but never used, so the starter policy can
+deny that unused authority explicitly.
+
+The same deny boundary is how you govern an MCP server: OAuth lets the client
+connect; nominee decides which tool call may execute. Ten-minute quickstart:
+[nominee.dev/docs/mcp](https://nominee.dev/docs/mcp/).
+
 Observe mode is report-only and says so: it announces on startup that
 enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
 to be constructed with `production: true`. It is not a security control — it is
 how you find out what you need one for. See [docs/observe.md](docs/observe.md).
 
-## Add it to your agent
+## 2. Then enforce a policy that matches
+
+[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
+
+Or run the same proof in your terminal:
+
+```bash
+npx nominee-cli
+```
+
+No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
+
+```text
+✓ $25 refund    allowed → refund.issue ran
+? $200 refund   agent paused → waiting for your approval
+✓ $200 refund   approved once → refund.issue ran
+✗ $2,000 refund blocked before refund.issue ran
+✗ customer export blocked before customers.export ran
+✓ receipt chain verifies
+```
+
+Your agent calls tools. Your rules decide what runs. Nominee checks each call before your tool code executes.
+
+After your own policy has successfully governed one of your own tools,
+`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
+artifacts locally and offers a separate opt-in activation report. Neither
+artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
+
+## 3. Add it to your agent
 
 ```bash
 npm i nominee
@@ -127,8 +148,6 @@ const tools = nominee.guard(
 )
 ```
 
-For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
-
 The result is literal:
 
 - `allow`: call the tool.
@@ -138,21 +157,15 @@ The result is literal:
 
 The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents, Mastra, Cloudflare Agents, and MCP tools.
 
-## Why add it instead of an `if`?
+## 4. Make it durable
 
-For one low-risk tool, use an `if`.
-
-Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
+For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
 
 > **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
 
-## Security proof: untrusted content cannot change the rules
+## Receipt transcript of the lead proof
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/nominee-injection.gif?v=1" alt="A prompt-injected agent tries to forward the whole inbox to an attacker; nominee's deny rule blocks the tool call before it runs, holds the delete for a human, and seals a tamper-evident receipt of every decision." width="100%" />
-</p>
-
-[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is a second, security-focused example. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
+[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is the same run as the GIF above. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
 
 ```
 2. The model obeys the injection and tries to exfiltrate
@@ -188,7 +201,7 @@ Nominee becomes useful when an approval lasts longer than one request, two worke
   doctored log (deny receipts removed): ✓ detected — broken at #7
 ```
 
-The support-agent example explains the product. This example tests the same boundary against untrusted model input.
+The support-agent refund CLI explains the product. The injection example is the hook — blast-radius containment, not a detector.
 
 ## Policy semantics
 
@@ -286,7 +299,7 @@ useful conformance implementations, but deliberately fail `production: true`.
 | **Cloudflare Agents** | via `nominee-ai` |
 | **OpenAI Agents SDK** | `nomineeTool` from [`nominee-openai`](packages/openai) — Nominee `ask` maps to native resumable approval |
 | **Mastra** | `nomineeTool` from [`nominee-mastra`](packages/mastra) — native or portable durable approval |
-| **MCP servers** | `registerNomineeTool` from [`nominee-mcp`](packages/mcp) |
+| **MCP servers** | [`nominee-mcp`](packages/mcp) — first-class: [governed MCP quickstart](https://nominee.dev/docs/mcp/) |
 | **Standalone** | `nominee.run({ tool, input, user, resource }, execute)` around any side effect |
 
 ```ts
@@ -376,6 +389,12 @@ nominee.invalidate(user, connection)
 const unsub = nominee.on((event) => log(event))
 ```
 
+## Why add it instead of an `if`?
+
+For one low-risk tool, use an `if`. After an observe report has shown mutating calls you did not know about, the extra machinery earns its keep.
+
+Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
+
 ## Why not …?
 
 - **Framework-native approval** — the right choice for framework-local confirmation and durable run control. nominee is useful when the decision must also incorporate application entitlements, stay consistent across runtimes, control credential delivery, or feed one evidence stream. If native approval covers the whole boundary, do not add nominee.
@@ -386,6 +405,9 @@ const unsub = nominee.on((event) => log(event))
 Partner-specific integration kits: [Auth0](docs/partner-kits/auth0.md) ·
 [WorkOS FGA](docs/partner-kits/workos-fga.md) · [OPA](docs/partner-kits/opa.md) ·
 [Arcade / Composio](docs/partner-kits/arcade-composio.md).
+
+Partner case studies (none published until numbers and written sign-off exist):
+[nominee.dev/case-studies](https://nominee.dev/case-studies/).
 
 ### When you *don't* need nominee
 

@@ -232,7 +232,9 @@ describe('observation report', () => {
 
     const report = n.observations()
     expect(report.mode).toBe('observe')
+    expect(report.version).toBe(2)
     expect(report.totals).toMatchObject({ calls: 4, tools: 2 })
+    expect(report.availableTools).toEqual(['orders.read', 'refund.issue'])
     expect(report.policyConfigured).toBe(false)
 
     const refund = report.tools.find((tool) => tool.tool === 'refund.issue')
@@ -250,6 +252,22 @@ describe('observation report', () => {
 
     const orders = report.tools.find((tool) => tool.tool === 'orders.read')
     expect(orders).toMatchObject({ kind: 'read', baseline: 'allow' })
+  })
+
+  it('keeps a bounded inventory of tools that were available but never called', async () => {
+    const n = new Nominee({ mode: 'observe' })
+    const tools = n.observe({
+      'orders.read': async () => 'order',
+      'customers.export': async () => 'rows',
+      metadata: { label: 'not a callable tool' },
+    })
+
+    await tools['orders.read']()
+
+    const report = n.observations()
+    expect(report.availableTools).toEqual(['customers.export', 'orders.read'])
+    expect(report.tools.map((tool) => tool.tool)).toEqual(['orders.read'])
+    expect(report.totals.tools).toBe(1)
   })
 
   it('is empty and JSON-serializable outside observe mode', () => {

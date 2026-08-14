@@ -17,7 +17,16 @@ export const brand = {
   name: 'nominee',
   version: '2.2.1',
 
-  /** Full hero one-liner (README, docs, OG image). */
+  /**
+   * First thing a reader meets. Discovery, not a category decision.
+   * Taglines below stay the second thing — they convert after the observe report.
+   */
+  discoveryLead: 'Find out what your agent can actually do.',
+  discoverySubhead:
+    'One command. No policy. No premise. Observe mode reports the tool callbacks that actually start.',
+  discoveryCommand: 'npx nominee-cli observe',
+
+  /** Full hero one-liner (README, docs, OG image) — second, after discovery. */
   taglineFull:
     'Your agent calls tools. Your rules decide what runs. nominee checks each call before your tool code executes.',
   /** Compressed hero for the big display headline on the landing page. */
@@ -34,8 +43,8 @@ export const brand = {
 
   /** The demonstrable insight that leads every surface. */
   insight:
-    'In a support agent, a $25 refund runs, a $200 refund waits for your approval, and a $2,000 refund never reaches the refund function.',
-  insightShort: '$25 runs. $200 waits for you. $2,000 is blocked.',
+    'The model was hijacked. The tool still did not run. nominee does not detect prompt injection; a deny rule still stops the forwarded inbox before the handler runs.',
+  insightShort: 'The model was hijacked. The tool still did not run.',
 
   /** The layer diagram: framework | nominee | tools+vault. */
   layers: [

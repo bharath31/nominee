@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nominee — rules for AI agent tool calls</title>
+    <title>nominee — find out what your agent can actually do</title>
     <meta
       name="description"
-      content="Your agent calls tools. Your rules decide what runs. Open-source TypeScript allow, ask, and deny rules checked before every AI tool call."
+      content="Find out what your agent can actually do. One command, no policy. Then your rules decide what runs — open-source TypeScript allow, ask, and deny checks before every AI tool call."
     />
     <link rel="canonical" href="https://nominee.dev/" />
     <meta name="theme-color" content="#faf9f5" />
@@ -167,7 +167,9 @@
       </a>
       <nav aria-label="Primary">
         <a href="/playground/">Playground</a>
+        <a href="/docs/mcp/">MCP</a>
         <a href="/docs/">Docs</a>
+        <a href="/case-studies/">Case studies</a>
         <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
       </nav>
     </header>
@@ -175,11 +177,11 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="hero-tag">Your agent can change real data <span class="ref">· MIT</span></p>
-          <h1>Your agent calls tools.<br />Your rules decide what runs.</h1>
+          <p class="hero-tag">No policy required <span class="ref">· MIT</span></p>
+          <h1>Find out what your agent<br />can actually do.</h1>
           <p class="lede">
-            <strong>Like GitHub branch protection for agent tools.</strong> Your rules let routine
-            calls run, hold risky calls for review, and block forbidden calls before the tool runs.
+            One command. No premise to accept. Observe mode reports the tool callbacks that
+            actually start — then <strong>your rules decide what runs.</strong>
           </p>
           <div class="hero-outcomes" aria-label="Support agent refund example">
             <span><strong>$25</strong> runs</span>
@@ -187,12 +189,17 @@
             <span><strong>$2,000</strong> blocked</span>
           </div>
           <div class="hero-actions">
-            <a class="btn btn-seal" href="/playground/">Try the live support agent →</a>
-            <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
-              <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
+            <a class="btn btn-seal" href="#observe">Start with observe →</a>
+            <button class="copy" data-copy="npx nominee-cli observe" aria-label="Copy observe command">
+              <span class="prompt">›</span><span class="cmd">npx nominee-cli observe</span><span class="copy-hint">copy</span>
             </button>
+            <a class="btn" href="#how">Injection proof</a>
           </div>
-          <p class="hero-note">Open-source TypeScript · no signup or API key · real published package</p>
+          <p class="hero-note">
+            <strong>Like GitHub branch protection for agent tools.</strong> Your rules let routine
+            calls run, hold risky calls for review, and block forbidden calls before the tool runs.
+            Open-source TypeScript · no signup or API key.
+          </p>
         </div>
 
         <div class="policy-demo" data-policy-demo aria-label="Interactive refund policy example">
@@ -222,6 +229,58 @@
             </div>
             <button type="button" class="result-approve" data-approve>Approve $200</button>
           </div>
+        </div>
+      </section>
+
+      <section class="section how" id="how">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>Nominee sits between the agent and your tools.</h2>
+          <p>
+            Your agent still chooses which tool to request. Nominee checks the user, action, and
+            arguments before your tool function receives control.
+          </p>
+        </div>
+        <div class="how-grid">
+          <figure class="how-video" aria-label="nominee in action">
+            <video
+              src="/assets/nominee-blocked.mp4"
+              poster="/assets/nominee-blocked-poster.png"
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="metadata"
+            ></video>
+            <figcaption>
+              Lead proof: untrusted email tells the agent to leak the inbox. The model follows
+              the instruction; the denied tool never runs. Blast-radius containment, not detection.
+              <a href="/docs/mcp/">Same boundary on an MCP server →</a>
+            </figcaption>
+          </figure>
+          <ul class="how-points">
+            <li>
+              <span class="hp-mark">¶</span>
+              <div>
+                <h3>Write the rules in code</h3>
+                <p>Use <code>allow</code>, <code>ask</code>, and <code>deny</code> with the same user, tenant, resource, and arguments your application already knows.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">⏸</span>
+              <div>
+                <h3>Approve the call you saw</h3>
+                <p>A $200 approval cannot become a $2,000 refund. The approved arguments execute once, then expire.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">§</span>
+              <div>
+                <h3>Keep the outcome</h3>
+                <p>Allowed, denied, approved, failed, and completed calls all leave receipts you can verify later.</p>
+              </div>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -277,6 +336,10 @@
           </button>
           <span>Discovery only · not a security control · <a href="/docs/#observe">read the guide</a></span>
         </div>
+        <p class="proof-link">
+          Save the report, then run <code>npx nominee-cli generate</code> for an editable,
+          evidence-backed starter policy. Observed thresholds are not security recommendations.
+        </p>
       </section>
 
       <section class="section" id="try">
@@ -308,54 +371,6 @@
             <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
           </button>
           <span>No signup · no API key · proof runs offline</span>
-        </div>
-      </section>
-
-      <section class="section how" id="how">
-        <div class="section-head">
-          <p class="eyebrow">How it works</p>
-          <h2>Nominee sits between the agent and your tools.</h2>
-          <p>
-            Your agent still chooses which tool to request. Nominee checks the user, action, and
-            arguments before your tool function receives control.
-          </p>
-        </div>
-        <div class="how-grid">
-          <figure class="how-video" aria-label="nominee in action">
-            <video
-              src="/assets/nominee-blocked.mp4"
-              poster="/assets/nominee-blocked-poster.png"
-              autoplay
-              muted
-              loop
-              playsinline
-              preload="metadata"
-            ></video>
-            <figcaption>A separate security proof: untrusted email tells the agent to leak the inbox. The model follows the instruction, but the denied tool never runs.</figcaption>
-          </figure>
-          <ul class="how-points">
-            <li>
-              <span class="hp-mark">¶</span>
-              <div>
-                <h3>Write the rules in code</h3>
-                <p>Use <code>allow</code>, <code>ask</code>, and <code>deny</code> with the same user, tenant, resource, and arguments your application already knows.</p>
-              </div>
-            </li>
-            <li>
-              <span class="hp-mark">⏸</span>
-              <div>
-                <h3>Approve the call you saw</h3>
-                <p>A $200 approval cannot become a $2,000 refund. The approved arguments execute once, then expire.</p>
-              </div>
-            </li>
-            <li>
-              <span class="hp-mark">§</span>
-              <div>
-                <h3>Keep the outcome</h3>
-                <p>Allowed, denied, approved, failed, and completed calls all leave receipts you can verify later.</p>
-              </div>
-            </li>
-          </ul>
         </div>
       </section>
 
@@ -481,12 +496,39 @@
         </div>
       </section>
 
+      <section class="section" id="mcp">
+        <div class="section-head">
+          <p class="eyebrow">MCP</p>
+          <h2>OAuth authorizes the connection. nominee authorizes the action.</h2>
+          <p>
+            MCP OAuth decides which client may talk to which server. It does not decide
+            whether <code>email.forward</code> may run with these arguments for this user.
+            <code>nominee-mcp</code> wraps the handler so a hijacked model still cannot
+            execute the denied tool.
+          </p>
+        </div>
+        <div class="proof-actions">
+          <a class="btn btn-seal" href="/docs/mcp/">Governed MCP server in ten minutes →</a>
+          <button class="copy" data-copy="npm i nominee nominee-mcp" aria-label="Copy: npm i nominee nominee-mcp">
+            <span class="prompt">$</span><span class="cmd">npm i nominee-mcp</span><span class="copy-hint">copy</span>
+          </button>
+        </div>
+      </section>
+
       <section class="section" id="packages">
         <div class="section-head">
           <p class="eyebrow">Packages</p>
           <h2>One authorization layer, wherever your agent runs.</h2>
         </div>
         <div class="package-grid">
+          <div class="package-card">
+            <span class="pc-tag">MCP · first class</span>
+            <h3><a href="/docs/mcp/">nominee-mcp</a></h3>
+            <p>Register guarded tools on the official MCP server SDK. OAuth connects; nominee decides which call runs.</p>
+            <button class="copy pkg-install" data-copy="npm i nominee nominee-mcp" aria-label="Copy: npm i nominee nominee-mcp">
+              <span class="prompt">$</span><span class="cmd">npm i nominee-mcp</span><span class="copy-hint">copy</span>
+            </button>
+          </div>
           <div class="package-card">
             <span class="pc-tag">Zero install</span>
             <h3><a href="https://www.npmjs.com/package/nominee-cli">nominee-cli</a></h3>
@@ -557,14 +599,6 @@
             <p>Mastra tools with native or portable durable approval and execution-time credentials.</p>
             <button class="copy pkg-install" data-copy="npm i nominee nominee-mastra" aria-label="Copy: npm i nominee nominee-mastra">
               <span class="prompt">$</span><span class="cmd">npm i nominee-mastra</span><span class="copy-hint">copy</span>
-            </button>
-          </div>
-          <div class="package-card">
-            <span class="pc-tag">Model Context Protocol</span>
-            <h3><a href="https://www.npmjs.com/package/nominee-mcp">nominee-mcp</a></h3>
-            <p>Register guarded tools on the official MCP server SDK with durable pending handles.</p>
-            <button class="copy pkg-install" data-copy="npm i nominee nominee-mcp" aria-label="Copy: npm i nominee nominee-mcp">
-              <span class="prompt">$</span><span class="cmd">npm i nominee-mcp</span><span class="copy-hint">copy</span>
             </button>
           </div>
         </div>

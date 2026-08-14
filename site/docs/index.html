@@ -49,6 +49,8 @@
       <nav aria-label="Primary">
         <a href="/">Home</a>
         <a href="/#packages">Packages</a>
+        <a href="/docs/mcp/">MCP</a>
+        <a href="/case-studies/">Case studies</a>
         <a href="/blog/">Blog</a>
         <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
       </nav>
@@ -57,6 +59,7 @@
     <div class="docs-wrap">
       <aside class="docs-side" aria-label="Docs navigation">
         <span class="grp">Start</span>
+        <a href="/docs/mcp/">MCP</a>
         <a href="#what">What nominee is</a>
         <a href="#when-not">When you don't need it</a>
         <a href="#observe">Observe mode</a>
@@ -84,7 +87,8 @@
       <article class="docs-main">
         <h1>Documentation</h1>
         <p class="lede">
-          <strong>Your agent calls tools. Your rules decide what runs.</strong> nominee is
+          <strong>Find out what your agent can actually do.</strong> One command, no policy.
+          Then: <strong>Your agent calls tools. Your rules decide what runs.</strong> nominee is
           an open-source TypeScript library that checks every AI tool call before your tool
           code executes.
         </p>
@@ -147,7 +151,7 @@
             decisions without enforcing them. Runtime and integrity failures still fail
             closed.
           </p>
-          <pre><code>npx nominee-cli observe</code></pre>
+          <pre><code>npx nominee-cli observe --out nominee.observations.json</code></pre>
           <pre><code>import { Nominee, formatObservations } from 'nominee'
 
 const nominee = new Nominee({ mode: 'observe' })
@@ -164,12 +168,27 @@ ENFORCEMENT WAS OFF: every observed call reached its tool callback.
   orders.read           3  read
   customers.export      1  unknown</code></pre>
           <p>
-            <code>nominee.observations()</code> returns the same data as JSON. It counts
+            <code>nominee.observations()</code> returns the same data as JSON. Schema version 2
+            includes a bounded inventory of callable tools supplied to <code>observe()</code>,
+            including tools that never ran; registering them does not count as traffic. It counts
             callbacks that actually started, not merely prepared actions. It retains
             argument shapes and numeric ranges but no raw strings, booleans, or user IDs;
             bounded cardinalities use capped SHA-256 fingerprints. Long strings are not
             retained even as fingerprints, and truncation flags disclose every cap. Treat
             numeric aggregates as sensitive when the numbers themselves are sensitive.
+          </p>
+          <h3>Generate a starter policy</h3>
+          <p>
+            Turn the saved report into an editable, default-deny policy, then check its tool
+            patterns against the real observed inventory:
+          </p>
+          <pre><code>npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts</code></pre>
+          <p>
+            Every generated rule cites its observed evidence. Numeric thresholds come from the
+            traffic window and are observations, <strong>not security recommendations</strong>.
+            Review and edit the file before enforcing it. The generator refuses to overwrite an
+            existing policy unless <code>--force</code> is explicit.
           </p>
           <div class="callout">
             <strong>Observe mode is not a security control.</strong> While it is on, a
@@ -543,7 +562,7 @@ const starRepo = nomineeTool({
               <tr><td>Vercel Eve</td><td><code>nominee-eve</code></td></tr>
               <tr><td>OpenAI Agents SDK</td><td><code>nominee-openai</code> — ask rules use native resumable approval</td></tr>
               <tr><td>Mastra</td><td><code>nominee-mastra</code> — native or portable approval</td></tr>
-              <tr><td>MCP server SDK</td><td><code>nominee-mcp</code> — registered decision-bound handlers</td></tr>
+              <tr><td>MCP server SDK</td><td><a href="/docs/mcp/"><code>nominee-mcp</code></a> — governed MCP quickstart; OAuth is the connection, nominee is the action</td></tr>
             </tbody>
           </table>
         </section>

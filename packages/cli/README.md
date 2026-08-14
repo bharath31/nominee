@@ -1,17 +1,18 @@
 # nominee-cli
 
-Try [nominee](https://nominee.dev) on a support-agent refund flow without cloning
+Preview a sample observe report — no policy, report only. This command runs
+a hard-coded support-agent tool set; wrapping *your* tools takes `observe()`
+in code.
+
+```
+npx nominee-cli observe
+```
+
+Then enforce a policy on the same support-agent refund flow, without cloning
 the repository, configuring an API key, or writing code:
 
 ```
 npx nominee-cli
-```
-
-Or, if you don't have any rules yet, start by looking at what your agent can
-already do — report only, with no policy decisions enforced:
-
-```
-npx nominee-cli observe
 ```
 
 (the package is `nominee-cli`; it installs a `nominee` binary — `npx nominee`
@@ -136,16 +137,41 @@ const nominee = new Nominee({ mode: 'observe' })
 const tools = nominee.observe(yourTools)
 ```
 
-`--out <file>` also writes the machine-readable JSON report (tool callback
-attempts, argument types and ranges, bounded cardinalities, and which arguments
-are unbounded). Raw strings, booleans, and user IDs are not retained; bounded
-counts use SHA-256 fingerprints. Numeric ranges remain visible and should be
-treated as sensitive when the underlying numbers are sensitive.
+`--out <file>` also writes the machine-readable JSON report (the callable-tool
+inventory, callback attempts, argument types and ranges, bounded cardinalities,
+and which arguments are unbounded). Available tools that never ran stay in the
+inventory without being counted as traffic. Raw strings, booleans, and user IDs
+are not retained; bounded counts use SHA-256 fingerprints. Numeric ranges remain
+visible and should be treated as sensitive when the underlying numbers are
+sensitive.
 
 Observe mode is a discovery tool, not a security control: it announces on
 startup that enforcement is off, marks every receipt `enforcement: 'observe'`,
 and refuses to be constructed with `production: true`. See
 [docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observe.md).
+
+## `nominee generate <observations.json>`
+
+Turns an observe report into a readable `nominee.policy.ts` you can edit and
+commit:
+
+```bash
+npx nominee-cli observe --out nominee.observations.json
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+Read-classified tools start at `allow`. Mutating tools with numeric evidence get
+an allow rule for the observed minimum-to-median range followed by `ask`; other
+called tools start at `ask`. Inventoried tools that never ran get `deny`, and the file
+ends with `fallback: 'deny'`. Every rule cites its call count, dates, and any
+range used.
+
+Those thresholds describe the captured traffic; they are **not security
+recommendations**. The generated header says so, and `generate` refuses to
+overwrite an existing output unless you pass `--force`. Version 1 reports are
+accepted, but they predate the callable-tool inventory and therefore cannot
+identify never-called tools.
 
 ## `nominee verify <file>`
 
@@ -195,23 +221,29 @@ construct your `Nominee` instance can be pointed at directly.
 
 `check` does **not** execute each rule's `when` predicate — it only checks
 whether a rule's tool-name pattern (`matchTool`, wildcards included) matches
-any tool name in a small built-in set of sample calls
+any tool name. Generated policies embed the observed inventory, so `check` uses
+those real names. Other policy files use a small built-in set of sample calls
 (`email.read`, `email.forward`, `github.merge_pr`, `payment.charge`, …), the
 same static reachability check the core library's dev-mode warnings already
 perform for guarded tools. A rule that depends entirely on `input` matching
 your real tools' argument shapes may still report as reachable/unreachable
 based on its tool name alone.
 
+Pass `--tools=refund.issue,inventory.adjust` to **append** extra sample names
+(built-ins stay). Pass `--replace-samples` with `--tools` to use only the
+names you listed. `check` also reports rules that can never fire because an
+earlier *unconditional* pattern already matches the same tool name (`allow('*')`
+shadows a later `deny('customers.export')`). An earlier rule with a `when`
+predicate is not treated as a shadow: if the predicate is false, evaluation
+continues. `when` predicates are still not executed.
+
 ```
-$ npx nominee-cli check policy.mjs
-Checking 4 rule(s) against 10 sample call(s)
+$ npx nominee-cli check policy.mjs --tools=refund.issue
+Checking 1 rule(s) against 11 sample call(s)
 
-  ✓ allow:email.read matched at least one sample call
-  ✓ allow:email.forward matched at least one sample call
-  ✗ allow:emial.send never matched any sample call — did you mean "email.read"?
-  ✓ ask:email.delete matched at least one sample call
+  ✓ allow:refund.issue matched at least one sample call
 
-1 rule pattern(s) never matched a sample call.
+All rules reachable.
 ```
 
 Exit code `0` when every rule matches at least one sample call, `1` if any

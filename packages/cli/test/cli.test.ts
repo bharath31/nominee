@@ -46,6 +46,18 @@ describe('cli dispatch', () => {
     expect(logs.join('\n')).toContain('Usage: nominee activate <policy-file> <receipts.json>')
   })
 
+  it('prints usage and exits 1 for "generate" with no report', async () => {
+    const code = await main(['generate'])
+    expect(code).toBe(1)
+    expect(logs.join('\n')).toContain('Usage: nominee generate')
+  })
+
+  it('rejects a generate option in place of the output filename', async () => {
+    const code = await main(['generate', 'report.json', '--out', '--force'])
+    expect(code).toBe(1)
+    expect(logs.join('\n')).toContain('Usage: nominee generate')
+  })
+
   it('shows help and exits 0 for --help', async () => {
     const code = await main(['--help'])
     expect(code).toBe(0)

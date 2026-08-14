@@ -10,7 +10,7 @@ import {
 import { ApprovalEngine, type ApprovalRequest } from './approval.js'
 import type { AuditEvent } from './audit.js'
 import { canonicalJson, sha256 } from './hash.js'
-import { ObservationCollector, type ObservationReport } from './observe.js'
+import { ObservationCollector, type ObservationReportV2 } from './observe.js'
 import {
   type Effect,
   type Policy,
@@ -1158,6 +1158,17 @@ export class Nominee {
           "'observe' }). Enforcing instances must use guard(), which blocks denied calls.",
       )
     }
+    this.observations_?.registerTools(
+      Object.entries(tools)
+        .filter(
+          ([, value]) =>
+            typeof value === 'function' ||
+            (value !== null &&
+              typeof value === 'object' &&
+              typeof (value as { execute?: unknown }).execute === 'function'),
+        )
+        .map(([name]) => name),
+    )
     return this.guard(tools, { ...opts, user: opts.user ?? 'observed-user' })
   }
 
@@ -1171,7 +1182,7 @@ export class Nominee {
    * cardinality, while numeric inputs are summarized as ranges and a sampled
    * median; treat those aggregates as sensitive when the numbers are sensitive.
    */
-  observations(): ObservationReport {
+  observations(): ObservationReportV2 {
     return (this.observations_ ?? new ObservationCollector()).report()
   }
 

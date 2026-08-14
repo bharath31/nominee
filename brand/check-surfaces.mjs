@@ -34,6 +34,13 @@ if (llmsRoot && llmsSite && sha256(llmsRoot) !== sha256(llmsSite)) {
 }
 
 const landing = read('site/index.html')
+const landingHero = landing.match(/<h1>[\s\S]*?<\/h1>/)
+if (
+  !landingHero ||
+  !/Find out what your agent\s*<br\s*\/?>\s*can actually do\./.test(landingHero[0])
+) {
+  errors.push('site/index.html <h1> should lead with the discovery headline')
+}
 if (
   landing &&
   !landing.includes(
@@ -52,8 +59,24 @@ const llmsRequired = [
   'nominee-mastra',
   'nominee-mcp',
   'nominee-postgres',
+  'Find out what your agent can actually do',
   'Your agent calls tools. Your rules decide what runs',
 ]
+
+const readme = read('README.md')
+if (readme && !readme.startsWith('<p align="center">')) {
+  errors.push('README.md should still open with the banner')
+}
+const discoveryIdx = readme.indexOf('Find out what your agent can actually do')
+const proofIdx = readme.indexOf('npx nominee-cli\n')
+const ifIdx = readme.indexOf('Why add it instead of an `if`')
+if (discoveryIdx < 0) errors.push('README.md missing discovery lead')
+if (discoveryIdx > 0 && proofIdx > 0 && discoveryIdx > proofIdx) {
+  errors.push('README.md should lead with observe/discovery before the refund proof')
+}
+if (ifIdx > 0 && proofIdx > 0 && ifIdx < proofIdx) {
+  errors.push('README.md should move "Why add it instead of an if" after the proof')
+}
 for (const needle of llmsRequired) {
   if (!llmsRoot.includes(needle)) {
     errors.push(`llms.txt missing required string: ${needle}`)
@@ -169,6 +192,17 @@ for (const abs of claimFiles) {
       match = pattern.exec(content)
     }
   }
+}
+
+if (!existsSync(join(root, 'site/docs/mcp/index.html'))) {
+  errors.push('missing site/docs/mcp/index.html — MCP quickstart must be a public page')
+}
+const mcpPage = read('site/docs/mcp/index.html')
+if (mcpPage && !mcpPage.includes('MCP OAuth authorizes the connection')) {
+  errors.push('site/docs/mcp/index.html should contrast MCP OAuth with action authorization')
+}
+if (mcpPage && /stops prompt injection/i.test(mcpPage)) {
+  errors.push('site/docs/mcp/index.html must not claim nominee stops prompt injection')
 }
 
 if (errors.length > 0) {

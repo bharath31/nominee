@@ -89,3 +89,8 @@ denies and approval gates are recorded rather than enforced, while
 `observations()` reports execution attempts and argument shapes. It retains no
 raw string/boolean values or user IDs; numeric aggregates may be sensitive.
 Observe mode and `production: true` cannot be combined.
+
+Write the inventory to JSON and run `npx nominee-cli generate` to draft a
+default-deny policy before adapting it to this production setup. Every generated
+rule cites observed evidence, and every threshold must be reviewed: traffic
+history describes what happened, not what should be authorized.

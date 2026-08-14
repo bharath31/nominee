@@ -6,10 +6,19 @@ import type {
   ServerRequest,
   ToolAnnotations,
 } from '@modelcontextprotocol/sdk/types.js'
-import type { ActionRecord, Nominee } from 'nominee'
+import { ActionPendingError, type ActionRecord, type Nominee } from 'nominee'
 import type { ZodType } from 'zod'
 
 export type McpToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>
+
+export const NOMINEE_MCP_PENDING = 'pending_approval' as const
+
+export interface NomineeMcpPendingContent {
+  nominee: typeof NOMINEE_MCP_PENDING
+  actionId: string
+  approvalId: string
+  [key: string]: unknown
+}
 
 interface McpResolverCall<TInput> {
   input: TInput
@@ -95,8 +104,58 @@ export function registerNomineeTool<TInput, TResult extends CallToolResult = Cal
       outputSchema: config.outputSchema,
       annotations: config.annotations,
     } as never,
-    handler as never,
+    (async (input: TInput, extra: McpToolExtra) => {
+      try {
+        return await handler(input, extra)
+      } catch (error) {
+        if (error instanceof ActionPendingError) return pendingToolResult(error)
+        throw error
+      }
+    }) as never,
   )
+}
+
+/**
+ * Resolve the application user. `authInfo.clientId` is the OAuth *application*,
+ * shared by every end user of that client — never pass it as `user`.
+ * Stdio servers with no authInfo may supply `fallback`.
+ */
+export function mcpEndUser(extra: McpToolExtra, fallback?: string): string {
+  const authInfo = extra.authInfo as { extra?: unknown } | undefined
+  const claims = authInfo?.extra
+  const record =
+    claims && typeof claims === 'object' ? (claims as Record<string, unknown>) : undefined
+  const subject = record?.sub ?? record?.userId
+  if (typeof subject === 'string' && subject) return subject
+  if (fallback !== undefined && extra.authInfo === undefined) return fallback
+  throw new Error(
+    'nominee-mcp: resolve an end-user subject from authInfo.extra.sub (or extra.userId); clientId is the OAuth application, not the user',
+  )
+}
+
+export function isNomineePendingResult(
+  result: CallToolResult,
+): result is CallToolResult & { structuredContent: NomineeMcpPendingContent } {
+  const content = result.structuredContent as NomineeMcpPendingContent | undefined
+  return (
+    result.isError === true &&
+    content?.nominee === NOMINEE_MCP_PENDING &&
+    typeof content.actionId === 'string' &&
+    typeof content.approvalId === 'string'
+  )
+}
+
+function pendingToolResult(error: ActionPendingError): CallToolResult {
+  const structuredContent: NomineeMcpPendingContent = {
+    nominee: NOMINEE_MCP_PENDING,
+    actionId: error.actionId,
+    approvalId: error.approvalId,
+  }
+  return {
+    isError: true,
+    content: [{ type: 'text', text: error.message }],
+    structuredContent,
+  }
 }
 
 async function resolve<TInput>(

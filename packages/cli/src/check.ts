@@ -11,6 +11,16 @@ export interface CheckCommandResult {
   code: number
 }
 
+export interface CheckOptions {
+  /**
+   * Extra sample tool names, appended to the built-in list. Pass
+   * `{ tools, replaceSamples: true }` to use only the caller-supplied names.
+   */
+  tools?: string[]
+  /** When true, ignore the built-in sample list and use `tools` only. */
+  replaceSamples?: boolean
+}
+
 /**
  * Built-in sample calls standing in for a real agent's traffic. Only the
  * tool name is used for matching (the same static reachability check the
@@ -30,7 +40,18 @@ const SAMPLE_TOOLS: readonly string[] = [
   'calendar.create_event',
 ]
 
-function normalizePolicy(input: unknown): Policy | undefined {
+function sampleTools(opts: CheckOptions, loaded: unknown): string[] {
+  if (opts.replaceSamples) return [...(opts.tools ?? [])]
+  const embeddedTools = (loaded as { nomineeObservedTools?: unknown }).nomineeObservedTools
+  const embedded =
+    Array.isArray(embeddedTools) && embeddedTools.every((tool) => typeof tool === 'string')
+      ? embeddedTools
+      : undefined
+  const base = embedded && embedded.length > 0 ? embedded : [...SAMPLE_TOOLS]
+  return [...base, ...(opts.tools ?? [])]
+}
+
+export function normalizePolicy(input: unknown): Policy | undefined {
   if (Array.isArray(input)) return { rules: input as Rule[] }
   if (input && typeof input === 'object' && Array.isArray((input as { rules?: unknown }).rules)) {
     return input as Policy
@@ -54,16 +75,38 @@ function levenshtein(a: string, b: string): number {
   return previous[b.length] ?? a.length
 }
 
-function nearestSampleTool(pattern: string): string | undefined {
+function nearestSampleTool(pattern: string, samples: readonly string[]): string | undefined {
   const literal = pattern.replace(/\*/g, '')
   let best: { tool: string; distance: number } | undefined
-  for (const tool of SAMPLE_TOOLS) {
+  for (const tool of samples) {
     const distance = levenshtein(literal, tool)
     if (!best || distance < best.distance) best = { tool, distance }
   }
   if (!best) return undefined
   const threshold = Math.max(2, Math.ceil(Math.max(literal.length, best.tool.length) / 2))
   return best.distance <= threshold ? best.tool : undefined
+}
+
+function ruleLabel(rule: Rule, pattern: string): string {
+  return `${rule.effect}:${pattern}`
+}
+
+/**
+ * A later pattern is shadowed when an earlier *unconditional* pattern matches
+ * it as a tool name (first-match-wins). Earlier rules with `when` are skipped:
+ * if the predicate returns false, evaluation continues, so a later
+ * unconditional deny is still reachable.
+ */
+function shadowingRule(earlier: Rule[], laterPattern: string): { label: string } | undefined {
+  for (const rule of earlier) {
+    if (typeof rule.when === 'function') continue
+    for (const pattern of rule.tools) {
+      if (matchTool(pattern, laterPattern)) {
+        return { label: ruleLabel(rule, pattern) }
+      }
+    }
+  }
+  return undefined
 }
 
 /**
@@ -73,7 +116,10 @@ function nearestSampleTool(pattern: string): string | undefined {
  * (`{ rules, fallback }`) — the same two shapes `NomineeOptions.policy`
  * already accepts.
  */
-export async function runCheck(policyFile: string): Promise<CheckCommandResult> {
+export async function runCheck(
+  policyFile: string,
+  opts: CheckOptions = {},
+): Promise<CheckCommandResult> {
   const path = resolve(process.cwd(), policyFile)
   if (!existsSync(path)) {
     console.log(`✗ policy file not found: ${policyFile}`)
@@ -101,35 +147,93 @@ export async function runCheck(policyFile: string): Promise<CheckCommandResult> 
     return { code: 1 }
   }
 
-  console.log(
-    `Checking ${policy.rules.length} rule(s) against ${SAMPLE_TOOLS.length} sample call(s)\n`,
-  )
+  const samples = sampleTools(opts, loaded)
+  if (samples.length === 0) {
+    console.log('✗ no sample tools to check against (pass --tools or omit replaceSamples)')
+    return { code: 1 }
+  }
+
+  console.log(`Checking ${policy.rules.length} rule(s) against ${samples.length} sample call(s)\n`)
 
   let neverMatched = 0
+  let shadowed = 0
+  const seen: Rule[] = []
   for (const rule of policy.rules) {
     for (const pattern of rule.tools) {
-      const matched = SAMPLE_TOOLS.some((tool) => matchTool(pattern, tool))
+      const shadow = shadowingRule(seen, pattern)
+      if (shadow) {
+        shadowed++
+        console.log(
+          `  ✗ ${ruleLabel(rule, pattern)} is shadowed by an earlier rule (${shadow.label})`,
+        )
+        continue
+      }
+      const matched = samples.some((tool) => matchTool(pattern, tool))
       if (matched) {
-        console.log(`  ✓ ${rule.effect}:${pattern} matched at least one sample call`)
+        console.log(`  ✓ ${ruleLabel(rule, pattern)} matched at least one sample call`)
       } else {
         neverMatched++
-        const suggestion = nearestSampleTool(pattern)
+        const suggestion = nearestSampleTool(pattern, samples)
         console.log(
-          `  ✗ ${rule.effect}:${pattern} never matched any sample call${
+          `  ✗ ${ruleLabel(rule, pattern)} never matched any sample call${
             suggestion ? ` — did you mean "${suggestion}"?` : ''
           }`,
         )
       }
     }
+    seen.push(rule)
   }
 
-  console.log(
-    `\n${
-      neverMatched === 0
-        ? 'All rules reachable.'
-        : `${neverMatched} rule pattern(s) never matched a sample call.`
-    }`,
-  )
+  const problems: string[] = []
+  if (shadowed > 0) {
+    problems.push(`${shadowed} rule pattern(s) shadowed by an earlier matching pattern.`)
+  }
+  if (neverMatched > 0) {
+    problems.push(`${neverMatched} rule pattern(s) never matched a sample call.`)
+  }
 
-  return { code: neverMatched === 0 ? 0 : 1 }
+  console.log(`\n${problems.length === 0 ? 'All rules reachable.' : problems.join(' ')}`)
+
+  return { code: problems.length === 0 ? 0 : 1 }
+}
+
+export function parseCheckArgs(argv: string[]): {
+  file?: string
+  tools?: string[]
+  replaceSamples?: boolean
+  error?: string
+} {
+  let file: string | undefined
+  const tools: string[] = []
+  let replaceSamples = false
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (!arg) continue
+    if (arg === '--replace-samples') {
+      replaceSamples = true
+      continue
+    }
+    if (arg === '--tools' || arg.startsWith('--tools=')) {
+      const value = arg === '--tools' ? argv[++i] : arg.slice('--tools='.length)
+      const names = (value ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      if (names.length === 0) {
+        return {
+          error: 'nominee check: --tools requires a comma-separated list of tool names',
+        }
+      }
+      tools.push(...names)
+      continue
+    }
+    if (!arg.startsWith('-') && file === undefined) {
+      file = arg
+    }
+  }
+  return {
+    file,
+    tools: tools.length > 0 ? tools : undefined,
+    replaceSamples: replaceSamples || undefined,
+  }
 }

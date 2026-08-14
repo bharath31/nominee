@@ -85,9 +85,10 @@ cardinalities, and numeric ranges rather than enumerated string values:
 ```jsonc
 {
   "mode": "observe",
-  "version": 1,
+  "version": 2,
   "window": { "from": 1755168000000, "to": 1755772800000 },
   "totals": { "calls": 142, "tools": 6, "allow": 142, "ask": 0, "deny": 0 },
+  "availableTools": ["customers.export", "orders.read", "refund.issue"],
   "tools": [
     {
       "tool": "refund.issue",
@@ -117,6 +118,13 @@ cardinalities, and numeric ranges rather than enumerated string values:
 }
 ```
 
+`availableTools` is a bounded inventory of callable tools passed to
+`observe()`, including tools that did not run during the window. It does not
+count as traffic. Comparing it with `tools` is the only honest way to identify
+unused authority; a report cannot infer tools it was never given. Schema version
+1 reports remain accepted by the CLI, but cannot support never-called-tool
+rules. `availableToolsTruncated` says when the inventory cap was reached.
+
 The collector never retains or emits raw string or boolean argument values. For
 short scalars it keeps at most eight SHA-256 fingerprints so it can report
 bounded cardinality such as `distinctValues: 1`; strings longer than 64
@@ -141,6 +149,24 @@ authority is widest: a numeric `amount` with no ceiling accepts `5` and
 `5_000_000` alike, and observing a week of `$5`–`$180` refunds tells you what
 happened, not what is possible.
 
+## Generate a policy to review
+
+Write the report and ask the CLI for an editable starter policy:
+
+```bash
+npx nominee-cli observe --out nominee.observations.json
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+The generator allows name-classified reads, proposes the observed
+minimum-to-median range followed by `ask` for mutations with numeric evidence,
+asks for other called tools, denies inventoried tools that never ran, and ends with
+`fallback: 'deny'`. Every rule carries its evidence. The header states the
+important limitation: observed traffic is not a security recommendation. Read
+and edit the file before enforcement. The CLI refuses to overwrite an existing
+policy unless `--force` is explicit.
+
 ## When you are done observing
 
 Remove `mode: 'observe'`, write rules, and use `guard()` / `run()`. The report
@@ -157,7 +183,8 @@ const nominee = new Nominee({
 ```
 
 Verify the rules you wrote are reachable with `npx nominee-cli check
-./nominee.policy.ts`.
+./nominee.policy.ts`. Generated files carry their observed tool inventory so
+this check uses real names rather than the CLI's generic examples.
 
 For the related human-oversight and record-keeping pattern, see
 [Article 14 human oversight for AI agents](https://nominee.dev/blog/eu-ai-act-article-14-human-oversight/).

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bharath31/nominee-mcp-action-server",
+  "title": "nominee governed MCP tools",
+  "description": "MCP tools behind allow/ask/deny. OAuth connects; nominee authorizes the action.",
+  "version": "1.0.2",
+  "websiteUrl": "https://nominee.dev/docs/mcp/",
+  "repository": {
+    "url": "https://github.com/bharath31/nominee",
+    "source": "github",
+    "subfolder": "examples/mcp-action-server"
+  }
+}
