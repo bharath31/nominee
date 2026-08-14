@@ -113,15 +113,17 @@ function inWindow(at, start, end) {
 function retentionFor(firstAt, events, horizonDays, asOf) {
   const start = firstAt + horizonDays * DAY
   const end = start + WINDOW
-  const retained = events.some((event) => inWindow(event.at, start, end))
-  if (asOf < start) return { eligible: false, retained: false, pending: true }
-  if (retained) return { eligible: true, retained: true, pending: false }
+  // Do not score anyone until the observation window has closed. Early
+  // returners in an open window would shrink the denominator to people who
+  // already came back.
   if (asOf < end) return { eligible: false, retained: false, pending: true }
-  return { eligible: true, retained: false, pending: false }
+  const retained = events.some((event) => inWindow(event.at, start, end))
+  return { eligible: true, retained, pending: false }
 }
 
 function readGate(rate) {
-  if (rate >= GATE.above.min) return { band: 'above_60', ...GATE.above }
+  // 60% is the top of the ambiguous band ("30–60%"), not the fit band.
+  if (rate > GATE.above.min) return { band: 'above_60', ...GATE.above }
   if (rate >= GATE.ambiguous.min) return { band: '30_to_60', ...GATE.ambiguous }
   return { band: 'below_30', ...GATE.below }
 }
@@ -134,7 +136,8 @@ function readGate(rate) {
  */
 export function summarizeRetentionCohorts(events, options = {}) {
   const asOf = options.asOf ?? Date.now()
-  const unique = dedupe(events).sort((a, b) => a.at - b.at)
+  const allUnique = dedupe(events)
+  const unique = allUnique.filter((event) => event.at <= asOf).sort((a, b) => a.at - b.at)
 
   const byPrincipal = new Map()
   const statusMixAll = emptyStatusMix()
@@ -192,7 +195,6 @@ export function summarizeRetentionCohorts(events, options = {}) {
     cohort.events += principal.eventCount
     for (const key of STATUS_KEYS) cohort.statusMix[key] += principal.statusMix[key]
     if (principal.distinctActions === 0) cohort.expansionUnknown += 1
-    else if (principal.expanded) cohort.expanded += 1
     for (const days of HORIZONS) {
       const result = retentionFor(principal.firstAt, principal.events, days, asOf)
       const bucket = cohort.retention[String(days)]
@@ -206,6 +208,15 @@ export function summarizeRetentionCohorts(events, options = {}) {
 
   const cohortList = [...cohorts.values()].sort((a, b) => a.week.localeCompare(b.week))
   for (const cohort of cohortList) {
+    const names = new Set()
+    for (const principal of principals) {
+      if (cohortWeek(principal.firstAt) !== cohort.week) continue
+      for (const event of principal.events) {
+        if (typeof event.action === 'string' && event.action) names.add(event.action)
+      }
+    }
+    cohort.distinctActions = names.size
+    cohort.expanded = names.size >= 2 ? 1 : 0
     for (const days of HORIZONS) {
       const bucket = cohort.retention[String(days)]
       bucket.rate = bucket.eligible === 0 ? null : bucket.retained / bucket.eligible
@@ -268,12 +279,16 @@ export function summarizeRetentionCohorts(events, options = {}) {
     warning:
       'This report only measures principals present in the supplied export. Nominee has no telemetry of its own. Missing data is a gap, not a zero.',
     events: unique.length,
-    duplicatesDropped: events.length - unique.length,
+    duplicatesDropped: events.length - allUnique.length,
     activatedPrincipals: principals.length,
     statusMix: statusMixAll,
     expansion: {
       principalsWithActionNames: principals.filter((p) => p.distinctActions > 0).length,
-      expandedToTwoOrMoreActions: principals.filter((p) => p.expanded).length,
+      distinctActions: new Set(
+        unique.flatMap((event) =>
+          typeof event.action === 'string' && event.action ? [event.action] : [],
+        ),
+      ).size,
       unknown: principals.filter((p) => p.distinctActions === 0).length,
     },
     cohorts: cohortList,
@@ -290,7 +305,7 @@ export function formatRetentionReport(report) {
     `activated principals (first governed action): ${report.activatedPrincipals}`,
     `events (deduped): ${report.events}`,
     `status mix: allow/succeeded ${report.statusMix.succeeded} · fail ${report.statusMix.failed} · deny ${report.statusMix.denied} · expired ${report.statusMix.expired}`,
-    `expansion 1→2 actions: ${report.expansion.expandedToTwoOrMoreActions} of ${report.expansion.principalsWithActionNames} with action names (${report.expansion.unknown} unknown)`,
+    `expansion 1→2 actions: ${report.expansion.distinctActions} distinct named actions in this export (${report.expansion.distinctActions >= 2 ? 'expanded' : 'not expanded'}; ${report.expansion.unknown} principals unknown)`,
     '',
     'weekly cohorts (week starts Monday UTC)',
   ]
@@ -326,20 +341,23 @@ export function formatRetentionReport(report) {
 }
 
 async function main() {
-  const path = process.argv[2]
+  const args = process.argv.slice(2)
+  const json = args.includes('--json')
+  const positional = args.filter((arg) => arg !== '--json')
+  const path = positional[0]
   if (!path) {
     throw new Error(
-      'usage: node scripts/retention-cohort-report.mjs <events.jsonl> [asOf=YYYY-MM-DD]',
+      'usage: node scripts/retention-cohort-report.mjs <events.jsonl> [asOf=YYYY-MM-DD] [--json]',
     )
   }
-  const asOfArg = process.argv[3]
+  const asOfArg = positional[1]
   const asOf = asOfArg ? Date.parse(`${asOfArg}T23:59:59.999Z`) : Date.now()
   if (asOfArg && !Number.isFinite(asOf)) throw new Error(`invalid asOf date: ${asOfArg}`)
 
   const text = await readFile(path, 'utf8')
   const { events } = parseUsageJsonl(text)
   const report = summarizeRetentionCohorts(events, { asOf })
-  if (process.argv.includes('--json')) {
+  if (json) {
     console.log(JSON.stringify(report, null, 2))
     return
   }

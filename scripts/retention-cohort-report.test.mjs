@@ -50,8 +50,8 @@ test('tracks 7/28/90 retention only after the observation window closes', () => 
 
   const early = summarizeRetentionCohorts(events, { asOf: t0 + 10 * DAY })
   const d7 = early.cohorts[0].retention['7']
-  assert.equal(d7.retained, 1)
-  assert.equal(d7.pending, 1)
+  assert.equal(d7.retained, 0)
+  assert.equal(d7.pending, 2)
   assert.equal(early.cohorts[0].retention['90'].pending, 2)
   assert.equal(early.decision.status, 'not_yet')
 
@@ -59,20 +59,59 @@ test('tracks 7/28/90 retention only after the observation window closes', () => 
   assert.equal(mature.cohorts[0].retention['90'].retained, 1)
   assert.equal(mature.cohorts[0].retention['90'].eligible, 2)
   assert.equal(mature.cohorts[0].statusMix.denied, 1)
-  assert.equal(mature.expansion.expandedToTwoOrMoreActions, 0)
+  assert.equal(mature.expansion.distinctActions, 1)
 })
 
-test('expansion requires includeAction and records the gap otherwise', () => {
+test('expansion is distinct named actions in the export, not per principal', () => {
   const withNames = [
     event({ eventId: '1', action: 'orders.read' }),
     event({ eventId: '2', at: t0 + DAY, action: 'refund.issue' }),
   ]
   const named = summarizeRetentionCohorts(withNames, { asOf: t0 + DAY })
-  assert.equal(named.expansion.expandedToTwoOrMoreActions, 1)
+  assert.equal(named.expansion.distinctActions, 2)
+
+  const split = summarizeRetentionCohorts(
+    [
+      event({ principalId: 'a', eventId: 'a1', action: 'orders.read' }),
+      event({ principalId: 'b', eventId: 'b1', action: 'refund.issue' }),
+    ],
+    { asOf: t0 + DAY },
+  )
+  assert.equal(split.expansion.distinctActions, 2)
 
   const unnamed = summarizeRetentionCohorts([event()], { asOf: t0 + DAY })
   assert.equal(unnamed.expansion.unknown, 1)
   assert.match(unnamed.gaps.join('\n'), /includeAction/)
+})
+
+test('exactly 60% day-90 retention is the ambiguous band', () => {
+  const events = []
+  for (let i = 0; i < 100; i++) {
+    events.push(event({ principalId: `p${i}`, eventId: `first-${i}`, at: t0 }))
+    if (i < 60) {
+      events.push(
+        event({
+          principalId: `p${i}`,
+          eventId: `later-${i}`,
+          at: t0 + 90 * DAY,
+        }),
+      )
+    }
+  }
+  const recorded = summarizeRetentionCohorts(events, { asOf: t0 + 98 * DAY })
+  assert.equal(recorded.decision.status, 'recorded')
+  assert.equal(recorded.decision.band, '30_to_60')
+  assert.equal(recorded.decision.firstHundredRetainedDay90, 60)
+})
+
+test('asOf ignores later events and does not treat --json as a date in CLI usage', () => {
+  const events = [
+    event({ eventId: 'first', at: t0 }),
+    event({ eventId: 'future', at: t0 + 12 * DAY }),
+  ]
+  const snapshot = summarizeRetentionCohorts(events, { asOf: t0 + 10 * DAY })
+  assert.equal(snapshot.events, 1)
+  assert.equal(snapshot.cohorts[0].retention['7'].pending, 1)
 })
 
 test('day-90 gate uses the first 100 principals and does not invent a rate', () => {

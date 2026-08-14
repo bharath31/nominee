@@ -32,10 +32,12 @@ node scripts/retention-cohort-report.mjs path/to/events.jsonl 2026-08-14
 ```
 
 The report cohorts by week of first governed action and prints 7 / 28 / 90-day
-retention, the allow/fail/deny/expired mix, and expansion from one named
-action to two. Retention at day N is “at least one later governed action in
-the seven-day window starting at first action + N days.” Incomplete windows
-are pending, not zero.
+retention, the allow/fail/deny/expired mix, and expansion of the export from one
+named action to two (not “each principal used both”). Retention at day N is
+“at least one later governed action in the seven-day window starting at first
+action + N days.” Incomplete windows stay pending until they close, including
+principals who already returned. 60% is the top of the ambiguous band; fit is
+**above** 60%.
 
 CLI `cli_proof_completed` events are not governed actions and are ignored.
 
