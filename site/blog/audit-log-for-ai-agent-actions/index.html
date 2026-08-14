@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Audit log for AI agent actions — nominee</title>
+    <meta name="description" content="An audit log for AI agent actions is a record of every tool the agent tried to run — including refusals — written where the model cannot skip or edit it. How to build that with a wrapper, when a console.log is enough, and when a hash-chained receipt helps." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/audit-log-for-ai-agent-actions/" />
+    <meta property="og:title" content="Audit log for AI agent actions" />
+    <meta property="og:description" content="Record every tool the agent tried to run, including the ones you refused, outside the model's reach." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/audit-log-for-ai-agent-actions/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Audit log for AI agent actions" />
+    <meta name="twitter:description" content="Record every tool the agent tried to run, including the ones you refused, outside the model's reach." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "Audit log for AI agent actions",
+      "description": "An audit log for AI agent actions is a record of every tool the agent tried to run — including refusals — written where the model cannot skip or edit it.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/audit-log-for-ai-agent-actions/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">How-to</span>
+          </div>
+          <h1>An audit log for AI agent actions is a record of every tool it <em>tried</em> — including the ones you refused.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 6 min read</p>
+          <p class="post-disclosure">I work at Auth0. nominee's core is zero-dependency and provider-neutral; Auth0 is one optional strategy of many. This post answers the logging question whether or not you adopt nominee.</p>
+        </div>
+
+        <div class="post-body">
+
+          <p>If you came here from the search box: log <strong>before</strong> the tool function runs, in <strong>your</strong> process, not in the model's transcript. Write the tool name, a hash of the arguments, the user, the decision (allow / deny / ask), and a timestamp. Persist that row somewhere the agent runtime cannot truncate. That is an audit log for agent actions. Chat history is not.</p>
+
+          <p>The rest of this page is when a <code>console.log</code> inside <code>execute</code> is enough, when it quietly lies, and one library-shaped way to get denials on the same stream as successes.</p>
+
+          <hr class="post-rule" />
+
+          <h2>The naive approach (and when it is sufficient)</h2>
+
+          <p>Most teams start here:</p>
+
+          <pre><code><span class="k">async function</span> <span class="fn">issueRefund</span>(input) {
+  console.<span class="fn">log</span>(<span class="s">'refund'</span>, input)
+  <span class="k">return</span> payments.<span class="fn">refund</span>(input)
+}</code></pre>
+
+          <p>That is enough when all of the following are true:</p>
+
+          <ul>
+            <li>every write goes through this one function (no second client the model can call);</li>
+            <li>you only care about calls that <em>succeeded</em> — not about the ones you blocked;</li>
+            <li>the log sink is already append-only and access-controlled (your app's existing audit table is fine);</li>
+            <li>nobody will later ask you to prove the file was not edited.</li>
+          </ul>
+
+          <p>If your agent is read-only, skip the log. There is no action worth reconstructing. If your platform already records every privileged API call with the human user as actor, and the agent cannot go around that API, you already have the audit trail — do not add a second one for the sake of having an "agent log."</p>
+
+          <hr class="post-rule" />
+
+          <h2>Where the naive log goes silent</h2>
+
+          <p>Three holes show up the first time something goes wrong:</p>
+
+          <ol>
+            <li><strong>Denials never appear.</strong> If you log inside <code>execute</code>, a policy or <code>if (amount &gt; 50) return</code> that runs <em>before</em> <code>execute</code> leaves no row. The interesting events — "the model asked to export customers" — are exactly the ones that never entered the function.</li>
+            <li><strong>The model is not the logger.</strong> A prompt-injected agent that is allowed to run shell or to edit files can omit, rewrite, or flood the same stream. The log has to live in the host, wrapping the tool, not in a "please log this" tool the model may skip.</li>
+            <li><strong>Transcripts are not evidence.</strong> The chat contains whatever the framework serialized for the next turn. It is sampled, truncated, and often missing tool arguments you later need. An auditor asking "what did we allow as Alice at 14:03?" should not have to grep a JSONL of model messages.</li>
+          </ol>
+
+          <p>A wrapper that logs on the way in, including the reject path, closes (1) and (2):</p>
+
+          <pre><code><span class="k">function</span> <span class="fn">audited</span>(name, fn, { user, decide }) {
+  <span class="k">return async</span> (input) => {
+    <span class="k">const</span> decision = <span class="fn">decide</span>({ name, input, user }) <span class="c">// allow | deny</span>
+    <span class="k">await</span> audit.<span class="fn">append</span>({ at: Date.now(), user, tool: name, decision, inputHash: <span class="fn">sha256</span>(JSON.<span class="fn">stringify</span>(input)) })
+    <span class="k">if</span> (decision === <span class="s">'deny'</span>) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">`denied: ${name}`</span>)
+    <span class="k">return</span> fn(input)
+  }
+}</code></pre>
+
+          <p>Hash the input by default. Raw arguments in a log are how refund destinations and email bodies leak into Datadog. Keep the preimage in the approval UI or a restricted store if a human must see it.</p>
+
+          <p>If you need to notice a deleted or rewritten row, hash-chain the records: each row's hash covers its body plus the previous hash. Anyone can recompute the chain; a gap or an edit fails verification. That property is <strong>tamper-evident</strong>: the break is detectable. A privileged operator who holds the signing key and the database can still write a replacement chain, so a real investigation still wants the log copied off-box.</p>
+
+          <hr class="post-rule" />
+
+          <h2>When nominee is a fit (and when it is not)</h2>
+
+          <p>nominee appends a receipt on every policy decision, approval, and (if you use it) token grant — including denies — before the tool function runs. Default input mode is a SHA-256 of canonical JSON, not the raw args. <code>verifyReceipts()</code> checks the hash chain; <code>npx nominee-cli verify receipts.json</code> does the same offline.</p>
+
+          <pre><code><span class="k">const</span> nominee = <span class="k">new</span> <span class="fn">Nominee</span>({
+  policy: { rules: [allow(<span class="s">'orders.read'</span>), deny(<span class="s">'customers.export'</span>)], fallback: <span class="s">'ask'</span> },
+  receipts: { key: process.env.RECEIPT_KEY, onReceipt: (r) => sink.<span class="fn">write</span>(r) },
+})
+
+<span class="k">await</span> nominee.<span class="fn">run</span>({ tool: <span class="s">'customers.export'</span>, input: {}, user }, exportCustomers)
+<span class="c">// exportCustomers never ran; a deny receipt is already on the chain</span></code></pre>
+
+          <p>Skip nominee when you need a catalog of SaaS connectors (Arcade, Composio), when the agent cannot write anything that matters, when your platform's native permission log already covers every call end-to-end, or when you wanted a standalone identity provider or policy engine — nominee is the enforcement point, not OpenFGA/OPA/Auth0.</p>
+
+          <p>Receipts are evidence primitives. They are not a compliance certification. Production mode asks for a durable store and strict delivery; that is still your key management and your off-box copy.</p>
+
+          <p>If you want the deeper argument — why a transcript of "the agent logged in as you" is the wrong artifact — read <a href="/blog/your-agent-logs-in-as-you/">Your agent logs in as you. It shouldn't get to be you.</a></p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See it for yourself</p>
+            <p class="cta-head">A deny, an allow, and a chain that verifies.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">no signup</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="https://github.com/bharath31/nominee/blob/main/packages/cli/README.md">nominee-cli verify →</a>
+              <a class="text-link" href="/docs/">Read the docs →</a>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">
+        Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design.
+        Auth0 is one strategy of many. PRs for other providers welcome.
+      </p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://www.npmjs.com/package/nominee">npm</a>
+        <a href="/blog/">Blog</a>
+        <span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
