@@ -83,10 +83,12 @@
             <li>you only need “we have a row,” not “this row is the same bits we wrote at 14:03”;</li>
             <li>the agent cannot reach the log table.</li>
           </ul>
-          <p>A 20-line verifier on top of that is still worth writing — it catches the silent <code>UPDATE</code> that someone ran from a laptop:</p>
-          <pre><code><span class="k">function</span> <span class="fn">verify</span>(rows) {
-  <span class="k">let</span> prev = <span class="s">'genesis'</span>
-  <span class="k">for</span> (<span class="k">const</span> row <span class="k">of</span> rows) {
+          <p>A 20-line verifier on top of that is still worth writing — it catches the silent <code>UPDATE</code> that someone ran from a laptop. Start <code>prev</code> at <code>genesis</code> only when the first row's <code>seq</code> is <code>0</code>. If you were handed a suffix (in-memory retention dropped the prefix), start at that suffix's <code>prev</code> and expected <code>seq</code>, or concatenate the durable full chain first:</p>
+          <pre><code><span class="k">function</span> <span class="fn">verify</span>(rows, resume = { seq: 0, prev: <span class="s">'genesis'</span> }) {
+  <span class="k">let</span> prev = resume.prev
+  <span class="k">for</span> (<span class="k">let</span> i = 0; i &lt; rows.length; i++) {
+    <span class="k">const</span> row = rows[i]
+    <span class="k">if</span> (row.seq !== resume.seq + i) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'seq'</span> }
     <span class="k">if</span> (row.prev !== prev) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'link'</span> }
     <span class="k">const</span> hash = <span class="fn">sha256</span>(<span class="fn">canonical</span>({ ...row, hash: undefined }))
     <span class="k">if</span> (hash !== row.hash) <span class="k">return</span> { ok: <span class="k">false</span>, brokenAt: row.seq, reason: <span class="s">'content'</span> }
@@ -98,8 +100,12 @@
           <p>Without a key, anyone can recompute a new chain from scratch after editing history. The break is visible only if you kept an earlier copy (or the chain tip in a second place). HMAC with a key held outside the log store raises the bar: forging a row needs the key. Losing the key means you cannot verify either. Copy the tip off-box if the investigation is real.</p>
           <hr class="post-rule" />
           <h2>When nominee is a fit (and when it is not)</h2>
-          <p><code>verifyReceipts(nominee.receipts)</code> is that loop. <code>npx nominee-cli verify receipts.json</code> runs it on a file that is a JSON array — the same shape as <code>JSON.stringify(nominee.receipts)</code>. Signed chains need <code>NOMINEE_RECEIPT_KEY</code>. The CLI proof also shows a doctored copy failing. That is the property: <strong>tamper-evident</strong>.</p>
-          <pre><code>writeFileSync(<span class="s">'receipts.json'</span>, JSON.<span class="fn">stringify</span>(nominee.receipts))
+          <p><code>nominee.verifyReceipts()</code> is that loop <em>with the ledger's checkpoint</em>: if in-memory retention dropped the prefix, it still verifies the visible window instead of demanding genesis. <code>verifyReceipts(array)</code> and <code>npx nominee-cli verify receipts.json</code> start at genesis — they need the <strong>full</strong> durable export (or an explicit <code>resume: { seq, prev }</code>). Dumping <code>JSON.stringify(nominee.receipts)</code> after the window has trimmed will look broken at the first retained row. Signed chains need <code>NOMINEE_RECEIPT_KEY</code>. The CLI proof also shows a doctored copy failing. That is the property: <strong>tamper-evident</strong>.</p>
+          <pre><code>nominee.<span class="fn">verifyReceipts</span>()              <span class="c">// in-process window, including retained suffixes</span>
+<span class="k">await</span> nominee.<span class="fn">verifyDurableReceipts</span>()  <span class="c">// full atomic stream, when a durable store is configured</span>
+
+<span class="c">// CLI: export the durable list (seq 0…n), not a trimmed in-memory window</span>
+writeFileSync(<span class="s">'receipts.json'</span>, JSON.<span class="fn">stringify</span>(<span class="k">await</span> store.<span class="fn">list</span>(stream)))
 <span class="c">// npx nominee-cli verify receipts.json</span>
 <span class="c">// ✓ 7 receipts intact</span></code></pre>
           <p>Skip nominee when your warehouse already verifies its own hash chain, when the agent is read-only, or when you wanted a GRC product to map controls to SOC reports. Receipts are primitives. Production mode wants a durable atomic store and <code>delivery: 'strict'</code>; that still is not a certification.</p>

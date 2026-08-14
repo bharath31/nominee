@@ -26,6 +26,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://nominee.dev/blog/verify-agent-action-audit-trail/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://nominee.dev/blog/agent-budget-limits-per-user/</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
