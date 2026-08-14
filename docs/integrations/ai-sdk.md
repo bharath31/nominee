@@ -1,57 +1,55 @@
 # Vercel AI SDK Integration
 
-The `nominee-ai` package provides a native adapter for the Vercel AI SDK, allowing you to wrap standard AI SDK tools with Nominee's authorization engine.
+The `nominee-ai` package guards Vercel AI SDK tools with Nominee's authorization engine.
+The key in the `tools` object is the policy action checked by `guardTools`.
 
 ## Installation
 
+This example uses OpenAI as the model provider and Zod for tool schemas:
+
 ```bash
-npm install nominee nominee-ai ai
+npm install nominee nominee-ai ai @ai-sdk/openai zod
 ```
 
 ## Usage
 
-Use `guardTools` to wrap a map of AI SDK tools before passing them to `generateText` or `streamText`.
-
 ```typescript
-import { Nominee, allow, ask, deny } from 'nominee';
-import { guardTools } from 'nominee-ai';
-import { generateText, tool } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import { z } from 'zod';
+import { openai } from '@ai-sdk/openai'
+import { generateText, tool } from 'ai'
+import { Nominee, allow, ask } from 'nominee'
+import { guardTools } from 'nominee-ai'
+import { z } from 'zod'
 
-// 1. Initialize Nominee
 const nominee = new Nominee({
   policy: {
-    rules: [
-      allow('weather.get'),
-      ask('email.send'),
-      deny('system.reboot')
-    ],
-    fallback: 'ask'
-  }
-});
+    rules: [allow('getWeather'), ask('sendEmail')],
+    fallback: 'deny',
+  },
+})
 
-// 2. Define standard AI SDK tools
 const rawTools = {
   getWeather: tool({
     description: 'Get the current weather',
-    parameters: z.object({ location: z.string() }),
-    execute: async ({ location }) => `Weather in ${location} is sunny.`
+    inputSchema: z.object({ location: z.string() }),
+    execute: async ({ location }) => `Weather in ${location} is sunny.`,
   }),
   sendEmail: tool({
     description: 'Send an email',
-    parameters: z.object({ to: z.string(), subject: z.string(), body: z.string() }),
-    execute: async ({ to, subject, body }) => `Email sent to ${to}.`
-  })
-};
+    inputSchema: z.object({ to: z.string(), body: z.string() }),
+    execute: async ({ to }) => `Email sent to ${to}.`,
+  }),
+}
 
-// 3. Wrap tools with Nominee
-const tools = guardTools(nominee, rawTools, { user: 'user-123' });
-
-// 4. Run the agent
 const result = await generateText({
-  model: openai('gpt-4o'),
-  prompt: 'Send an email to alice@example.com saying hi.',
-  tools
-});
+  model: openai('gpt-5-mini'),
+  prompt: 'What is the weather in London?',
+  tools: guardTools(nominee, rawTools, { user: 'user-123' }),
+})
+
+console.log(result.text)
 ```
+
+Set `OPENAI_API_KEY` before running the example. An `allow` decision executes immediately, a
+`deny` decision never calls the underlying tool, and an `ask` decision uses the approval handler
+configured on the `Nominee` instance. Use `nomineeTool` instead when a tool also needs a fresh
+third-party token, resource authorization, or an action name different from its object key.
