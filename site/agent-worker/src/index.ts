@@ -1,6 +1,7 @@
 import { Nominee, PolicyDeniedError, type Receipt, allow, ask, deny, verifyReceipts } from 'nominee'
 import { Auth0 } from 'nominee-auth0'
 import { DurableObjectActionStore } from './action-store.js'
+import { parsePublicFunnelEvent, trackFunnel } from './funnel.js'
 
 interface RateLimit {
   limit(opts: { key: string }): Promise<{ success: boolean }>
@@ -22,26 +23,6 @@ interface Env {
   // service) - set this var once you have the token to measure it too.
   CF_BEACON_TOKEN?: string
 }
-
-// Fire-and-forget demo funnel event. Never lets analytics break the demo, and
-// is a no-op locally where the FUNNEL binding isn't configured.
-function trackFunnel(env: Env, event: string, detail = ''): void {
-  try {
-    env.FUNNEL?.writeDataPoint({ blobs: [event, detail], doubles: [1], indexes: [event] })
-  } catch {
-    // best-effort
-  }
-}
-
-const PUBLIC_FUNNEL_EVENTS = new Set([
-  'cli_proof_completed',
-  'playground_run',
-  'playground_allowed',
-  'playground_blocked',
-  'playground_approval_requested',
-  'playground_approved',
-  'playground_denied',
-])
 
 // The payload the agent "reads" mid-run. Like the supporting security example
 // (examples/prompt-injection-blocked), this is a fixed fixture embedded in
@@ -203,19 +184,16 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/agent'
 
     // Explicitly allowlisted, anonymous product-funnel collector. It accepts no
-    // arbitrary properties: just an event name and a short installation id for
-    // deduplicating the CLI's one-time, opt-in activation report.
+    // arbitrary properties: just an event name and, for CLI activations, a
+    // validated installation UUID and installed package version.
     if (path.endsWith('/funnel') && request.method === 'POST') {
-      const body = (await request.json().catch(() => null)) as
-        | { event?: unknown; installationId?: unknown }
-        | null
-      const event = typeof body?.event === 'string' ? body.event : ''
-      if (!PUBLIC_FUNNEL_EVENTS.has(event)) return json({ ok: false }, 400)
-      const detail =
-        event === 'cli_proof_completed' && typeof body?.installationId === 'string'
-          ? body.installationId.slice(0, 64)
-          : ''
-      trackFunnel(env, event, detail)
+      const event = parsePublicFunnelEvent(await request.json().catch(() => null))
+      if (!event) return json({ ok: false }, 400)
+      if (!trackFunnel(env, event.event, event.detail, event.cliVersion)) {
+        // Do not acknowledge an opt-in activation that was not durably handed
+        // to Analytics Engine. The CLI will say it was not sent.
+        return json({ ok: false, error: 'analytics unavailable' }, 503)
+      }
       return json({ ok: true }, 202)
     }
 

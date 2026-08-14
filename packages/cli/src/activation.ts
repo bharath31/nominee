@@ -3,8 +3,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
+import packageMetadata from '../package.json' with { type: 'json' }
 
 const ENDPOINT = 'https://nominee.dev/agent/funnel'
+const SEND_TIMEOUT_MS = 3_000
 const STATE_DIR = join(homedir(), '.config', 'nominee')
 const STATE_FILE = join(STATE_DIR, 'telemetry.json')
 
@@ -20,6 +22,8 @@ export interface ActivationOptions {
   output?: NodeJS.WritableStream
   stateFile?: string
   send?: (payload: Record<string, string>) => Promise<void>
+  /** Test/embedding override. The CLI default is three seconds. */
+  timeoutMs?: number
 }
 
 function trackingDisabled(env: NodeJS.ProcessEnv): boolean {
@@ -27,11 +31,20 @@ function trackingDisabled(env: NodeJS.ProcessEnv): boolean {
   return value === '1' || value === 'true' || value === 'yes'
 }
 
+function validInstallationId(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  )
+}
+
 async function loadState(file: string): Promise<ActivationState> {
   try {
     const stored = JSON.parse(await readFile(file, 'utf8')) as Partial<ActivationState>
     return {
-      installationId: stored.installationId || randomUUID(),
+      installationId: validInstallationId(stored.installationId)
+        ? stored.installationId
+        : randomUUID(),
       prompted: stored.prompted === true,
       reported: stored.reported === true,
     }
@@ -45,6 +58,20 @@ async function saveState(file: string, state: ActivationState): Promise<void> {
   await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 })
 }
 
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error('activation report timed out')), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
+}
+
 /** Offers a one-time, disclosed activation report after the local proof succeeds. */
 export async function offerActivationReport(options: ActivationOptions = {}): Promise<void> {
   const env = options.env ?? process.env
@@ -53,22 +80,36 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
   if (trackingDisabled(env) || !('isTTY' in input) || !input.isTTY) return
 
   const file = options.stateFile ?? STATE_FILE
+  const timeoutMs = options.timeoutMs ?? SEND_TIMEOUT_MS
   const state = await loadState(file)
   if (state.prompted || state.reported) return
 
   const payload = {
     event: 'cli_proof_completed',
     installationId: state.installationId,
-    cliVersion: env.npm_package_version ?? 'unknown',
+    cliVersion: packageMetadata.version,
   }
   output.write('\nShare this activation with nominee? (optional)\n')
   output.write(`This sends exactly: ${JSON.stringify(payload)}\n`)
   output.write('Set DO_NOT_TRACK=1 to disable this prompt.\n')
 
   const prompt = createInterface({ input, output })
-  const answer = await prompt.question('Send? [y/N] ')
-  prompt.close()
+  let answer: string
+  try {
+    answer = await prompt.question('Send? [y/N] ')
+  } finally {
+    prompt.close()
+  }
   state.prompted = true
+
+  try {
+    // Persist the one-time choice before any network request. If local state
+    // is unwritable, sending would risk reporting the same install repeatedly.
+    await saveState(file, state)
+  } catch {
+    output.write('Activation was not sent because the local choice could not be saved.\n')
+    return
+  }
 
   if (/^y(es)?$/i.test(answer.trim())) {
     const send =
@@ -78,16 +119,19 @@ export async function offerActivationReport(options: ActivationOptions = {}): Pr
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
         })
         if (!response.ok) throw new Error(`report failed (${response.status})`)
       })
     try {
-      await send(payload)
+      await withTimeout(send(payload), timeoutMs)
       state.reported = true
       output.write('Activation shared. Thank you.\n')
     } catch {
       output.write('Activation was not sent.\n')
     }
   }
-  await saveState(file, state).catch(() => undefined)
+  // `prompted: true` is already durable, so a failed acknowledgement write
+  // cannot cause a duplicate report on the next run.
+  if (state.reported) await saveState(file, state).catch(() => undefined)
 }

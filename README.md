@@ -39,7 +39,7 @@ Or run the same proof in your terminal:
 npx nominee-cli
 ```
 
-No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm.
+No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional activation report; `DO_NOT_TRACK=1` disables even that prompt.
 
 ```text
 ✓ $25 refund    allowed → refund.issue ran

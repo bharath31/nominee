@@ -66,7 +66,9 @@ the managed source here.
 ## Optional analytics (no secrets)
 
 Neither of these needs `wrangler secret put` — leave them unset and the demo
-still works (beacon omitted; funnel writes no-op).
+still works (beacon omitted; internal funnel writes no-op). The public funnel
+collector returns `503` while its sink is absent so an opt-in CLI never reports
+a false success.
 
 ### `CF_BEACON_TOKEN` — Cloudflare Web Analytics
 
@@ -88,8 +90,11 @@ guards `env.FUNNEL?`.
 
 The public `POST /agent/funnel` route accepts only the CLI activation event and
 the named playground outcomes. Arbitrary event names and properties are
-rejected. The CLI event is sent only after the CLI prints its exact payload and
-the developer opts in; `DO_NOT_TRACK=1` suppresses even the prompt.
+rejected. A CLI event must carry a version-4 installation UUID and the CLI's own
+semantic version. The CLI event is sent only after the CLI prints its exact
+payload, persists the one-time choice, and the developer opts in;
+`DO_NOT_TRACK=1` suppresses even the prompt. Analytics Engine stores
+`[event, installationId, cliVersion]` in its three blob fields.
 
 To enable:
 
@@ -97,6 +102,9 @@ To enable:
 2. Uncomment the `[[analytics_engine_datasets]]` block in `wrangler.toml`
    (`binding = "FUNNEL"`, `dataset = "nominee_agent_funnel"`).
 3. Redeploy.
+
+Until all three steps are complete, `POST /agent/funnel` returns `503` and the
+CLI prints `Activation was not sent.`
 
 ## Routes
 

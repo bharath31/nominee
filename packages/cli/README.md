@@ -22,8 +22,10 @@ Runs a support-agent policy proof against the real `nominee` package:
 - the receipt chain verifies, while a doctored copy does not.
 
 The proof itself makes no network calls and needs no environment variables or
-API keys. (`npx` may first download the package from npm.) It exits `0` only
-when every policy and receipt invariant holds, and `1` if one regresses.
+API keys. (`npx` may first download the package from npm.) After a successful
+interactive run, the CLI separately offers one optional activation report, as
+described below. The proof exits `0` only when every policy and receipt
+invariant holds, and `1` if one regresses; reporting cannot change that result.
 
 ```
 $ npx nominee-cli
@@ -59,6 +61,16 @@ Your agent asked. Your rules decided what ran.
 
 Install: npm i nominee
 ```
+
+### Optional activation report
+
+On an interactive terminal, a successful proof asks once whether to share an
+anonymous activation. It prints the exact three-field payload before asking:
+`event`, a random installation-scoped UUID, and the installed `nominee-cli`
+version. Nothing is sent unless you answer yes. The choice is saved before the
+request, the request times out after three seconds, non-interactive runs never
+prompt, and `DO_NOT_TRACK=1` disables even the prompt. No reporting code exists
+in the core `nominee` package.
 
 ## `nominee verify <file>`
 

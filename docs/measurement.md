@@ -93,8 +93,17 @@ An **activated developer** is an anonymous CLI installation that successfully
 finishes the offline proof and then explicitly opts in to reporting
 `cli_proof_completed`. This is intentionally narrower than downloads, page
 views, or playground runs. The CLI shows the exact payload before asking,
-persists the choice locally so it asks only once, and does nothing when
-`DO_NOT_TRACK=1` is set. No reporting code exists in the core library.
+persists the choice locally **before** attempting the request so it asks only
+once, reads `cliVersion` from its own installed package, and does nothing when
+`DO_NOT_TRACK=1` is set. The optional request is capped at three seconds and
+cannot change the successful proof's exit code. No reporting code exists in the
+core library.
+
+The Worker accepts a CLI event only when it carries the expected version-4
+installation UUID and a valid CLI version. It returns `503` instead of claiming
+success when the Analytics Engine `FUNNEL` binding is unavailable; in that case
+the CLI says the activation was not sent. Enable the binding before treating
+opt-ins as an activation source.
 
 The playground records the anonymous path from `playground_run` through allow,
 block, approval request, approve, or deny in the Worker's optional `FUNNEL`
@@ -111,3 +120,5 @@ The report subtracts, for each day and each published package, the minimum
 download count observed across all packages. That common floor is labeled as
 estimated automated monorepo traffic. The remainder is still only an
 **estimated human download** and must never be presented as observed activation.
+Series are joined by their explicit `day` field; missing date coverage fails the
+report instead of silently substituting zero.

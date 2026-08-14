@@ -21,10 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      # Advisory: analytics config must never gate publishing the site.
+      # The script skips known analytics permission gaps, but fails on Pages
+      # lookup errors and partial configuration so deploys cannot hide drift.
       - name: Configure Cloudflare Web Analytics
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        continue-on-error: true
         run: node scripts/configure-cloudflare-web-analytics.mjs
       - name: Publish to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}

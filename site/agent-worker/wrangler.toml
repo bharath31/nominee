@@ -38,9 +38,10 @@ new_sqlite_classes = ["AgentSession"]
 # Demo funnel events (session_start/blocked/approved/denied/published/error).
 # DISABLED until Analytics Engine is enabled on the account (dashboard →
 # Workers → Analytics Engine); a worker with this binding fails to deploy
-# otherwise (error 10089). The code guards `Env.FUNNEL?`, so with the binding
-# absent the funnel just no-ops — the demo works fully without it. To turn it
-# back on: enable Analytics Engine in the dashboard, then uncomment this block.
+# otherwise (error 10089). Internal demo events no-op when the binding is absent;
+# the public opt-in collector returns 503 rather than acknowledging a dropped
+# activation. To turn it back on: enable Analytics Engine in the dashboard,
+# then uncomment this block.
 # [[analytics_engine_datasets]]
 # binding = "FUNNEL"
 # dataset = "nominee_agent_funnel"

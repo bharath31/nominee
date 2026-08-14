@@ -29,7 +29,7 @@ export async function main(argv: string[]): Promise<number> {
   switch (command) {
     case undefined: {
       const result = await runProof()
-      if (result.code === 0) await offerActivationReport()
+      if (result.code === 0) await offerActivationReport().catch(() => undefined)
       return result.code
     }
 
