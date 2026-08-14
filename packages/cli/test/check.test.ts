@@ -76,6 +76,15 @@ describe('runCheck', () => {
     expect(output).toContain('shadowed by an earlier matching pattern')
   })
 
+  it('does not treat a conditional earlier rule as a shadow', async () => {
+    const result = await runCheck(fixture('conditional-then-deny.mjs'))
+    expect(result.code).toBe(0)
+    const output = logs.join('\n')
+    expect(output).toContain('✓ allow:email.forward matched at least one sample call')
+    expect(output).toContain('✓ deny:email.forward matched at least one sample call')
+    expect(output).not.toContain('shadowed')
+  })
+
   it('exits 0 when deny(customers.export) comes before allow(*)', async () => {
     const result = await runCheck(fixture('deny-first.mjs'), { tools: ['customers.export'] })
     expect(result.code).toBe(0)
@@ -96,6 +105,15 @@ describe('parseCheckArgs', () => {
       file: 'policy.mjs',
       tools: ['a', 'b'],
       replaceSamples: true,
+    })
+  })
+
+  it('rejects a missing or empty --tools value', () => {
+    expect(parseCheckArgs(['policy.mjs', '--tools'])).toEqual({
+      error: 'nominee check: --tools requires a comma-separated list of tool names',
+    })
+    expect(parseCheckArgs(['policy.mjs', '--tools='])).toEqual({
+      error: 'nominee check: --tools requires a comma-separated list of tool names',
     })
   })
 })

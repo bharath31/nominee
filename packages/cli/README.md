@@ -205,8 +205,10 @@ based on its tool name alone.
 Pass `--tools=refund.issue,inventory.adjust` to **append** extra sample names
 (built-ins stay). Pass `--replace-samples` with `--tools` to use only the
 names you listed. `check` also reports rules that can never fire because an
-earlier pattern already matches the same tool name (`allow('*')` shadows a
-later `deny('customers.export')`). `when` predicates are still not executed.
+earlier *unconditional* pattern already matches the same tool name (`allow('*')`
+shadows a later `deny('customers.export')`). An earlier rule with a `when`
+predicate is not treated as a shadow: if the predicate is false, evaluation
+continues. `when` predicates are still not executed.
 
 ```
 $ npx nominee-cli check policy.mjs --tools=refund.issue

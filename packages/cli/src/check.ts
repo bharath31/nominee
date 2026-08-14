@@ -86,11 +86,14 @@ function ruleLabel(rule: Rule, pattern: string): string {
 }
 
 /**
- * A later pattern is shadowed when an earlier pattern matches it as a tool
- * name (first-match-wins). `when` predicates are not executed.
+ * A later pattern is shadowed when an earlier *unconditional* pattern matches
+ * it as a tool name (first-match-wins). Earlier rules with `when` are skipped:
+ * if the predicate returns false, evaluation continues, so a later
+ * unconditional deny is still reachable.
  */
 function shadowingRule(earlier: Rule[], laterPattern: string): { label: string } | undefined {
   for (const rule of earlier) {
+    if (typeof rule.when === 'function') continue
     for (const pattern of rule.tools) {
       if (matchTool(pattern, laterPattern)) {
         return { label: ruleLabel(rule, pattern) }
@@ -192,6 +195,7 @@ export function parseCheckArgs(argv: string[]): {
   file?: string
   tools?: string[]
   replaceSamples?: boolean
+  error?: string
 } {
   let file: string | undefined
   const tools: string[] = []
@@ -203,26 +207,18 @@ export function parseCheckArgs(argv: string[]): {
       replaceSamples = true
       continue
     }
-    if (arg === '--tools') {
-      const value = argv[++i]
-      if (value) {
-        tools.push(
-          ...value
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean),
-        )
+    if (arg === '--tools' || arg.startsWith('--tools=')) {
+      const value = arg === '--tools' ? argv[++i] : arg.slice('--tools='.length)
+      const names = (value ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      if (names.length === 0) {
+        return {
+          error: 'nominee check: --tools requires a comma-separated list of tool names',
+        }
       }
-      continue
-    }
-    if (arg.startsWith('--tools=')) {
-      tools.push(
-        ...arg
-          .slice('--tools='.length)
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-      )
+      tools.push(...names)
       continue
     }
     if (!arg.startsWith('-') && file === undefined) {

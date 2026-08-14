@@ -64,6 +64,10 @@ export async function main(argv: string[]): Promise<number> {
 
     case 'check': {
       const parsed = parseCheckArgs(rest)
+      if (parsed.error) {
+        console.log(parsed.error)
+        return 1
+      }
       if (!parsed.file) {
         console.log('Usage: nominee check <policy-file> [--tools=name,name] [--replace-samples]')
         return 1
