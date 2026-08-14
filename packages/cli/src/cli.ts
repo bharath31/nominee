@@ -4,8 +4,8 @@ import { runObserve } from './observe.js'
 import { runProof } from './proof.js'
 import { runVerify } from './verify.js'
 
-// Command dispatcher for `npx nominee-cli`. Hand-rolled argv dispatch — three
-// subcommands don't need a CLI framework dependency.
+// Command dispatcher for `npx nominee-cli`. This small command set does not
+// need a CLI framework dependency.
 
 const HELP = `nominee — the authorization layer for AI agents
 
