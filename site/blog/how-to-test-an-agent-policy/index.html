@@ -78,18 +78,22 @@
           </ol>
           <hr class="post-rule" />
           <h2>The naive approach (and when it is sufficient)</h2>
-          <pre><code><span class="k">const</span> cases = [
-  { tool: <span class="s">'refund.issue'</span>, input: { amount: 25 }, want: <span class="s">'allow'</span> },
-  { tool: <span class="s">'refund.issue'</span>, input: { amount: 200 }, want: <span class="s">'ask'</span> },
-  { tool: <span class="s">'refund.issue'</span>, input: { amount: 2000 }, want: <span class="s">'deny'</span> },
-  { tool: <span class="s">'customers.export'</span>, input: {}, want: <span class="s">'deny'</span> },
+          <pre><code><span class="k">const</span> engine = <span class="k">new</span> <span class="fn">PolicyEngine</span>([{ rules, fallback: <span class="s">'deny'</span> }])
+<span class="k">const</span> cases = [
+  { tool: <span class="s">'refund.issue'</span>, input: { amount: 25 }, user: <span class="s">'alice'</span>, want: <span class="s">'allow'</span> },
+  { tool: <span class="s">'refund.issue'</span>, input: { amount: 200 }, user: <span class="s">'alice'</span>, want: <span class="s">'ask'</span> },
+  { tool: <span class="s">'refund.issue'</span>, input: { amount: 2000 }, user: <span class="s">'alice'</span>, want: <span class="s">'deny'</span> },
+  { tool: <span class="s">'customers.export'</span>, input: {}, user: <span class="s">'alice'</span>, want: <span class="s">'deny'</span> },
 ]
 
 <span class="k">for</span> (<span class="k">const</span> row <span class="k">of</span> cases) {
-  <span class="k">const</span> got = <span class="fn">decide</span>(row) <span class="c">// your if/else or PolicyEngine.evaluate</span>
-  expect(got).<span class="fn">toBe</span>(row.want)
+  <span class="k">const</span> got = <span class="k">await</span> engine.<span class="fn">evaluate</span>(
+    { tool: row.tool, input: row.input, user: row.user },
+    { commit: <span class="k">false</span> },
+  )
+  expect(got.effect).<span class="fn">toBe</span>(row.want)
 }</code></pre>
-          <p>That table is enough when the policy is a handful of <code>if</code>s in one file, one agent, no delegation chain, and no <code>when</code> predicate that calls the network. Keep the table next to the policy. Run it in CI. Ship.</p>
+          <p>That table is enough when the policy is a handful of rules in one file, one agent, no delegation chain, and no <code>when</code> predicate that calls the network. <code>evaluate(..., { commit: false })</code> (or <code>nominee.check</code>) does not consume allow-budgets. Keep the table next to the policy. Run it in CI. Ship. A plain <code>if/else</code> <code>decide</code> function is fine too — give it <code>user</code> and assert the returned effect the same way.</p>
           <p>Add the lint when you have more than a dozen tools or anyone has already shipped a silent misspelling:</p>
           <pre><code><span class="k">const</span> tools = Object.<span class="fn">keys</span>(rawTools)
 <span class="k">for</span> (<span class="k">const</span> rule <span class="k">of</span> rules) {
