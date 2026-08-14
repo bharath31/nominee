@@ -53,6 +53,69 @@
         </div>
 
         <div class="post-list">
+          <a class="post-card" href="/blog/ai-sdk-human-in-the-loop-approval/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">How-to</span>
+            </div>
+            <h2 class="post-title">AI SDK human-in-the-loop approval for tool calls.</h2>
+            <p class="post-excerpt">Use needsApproval for a local confirmation. Put shared authorization around execute when the decision also depends on user, resource, arguments, or budget.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/mcp-server-authorization/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">Engineering</span>
+            </div>
+            <h2 class="post-title">MCP server authorization needs one check at the tool boundary.</h2>
+            <p class="post-excerpt">Use OAuth for server access and scopes. Derive identity from verified transport context, then authorize the exact tool, resource, and arguments before its handler runs.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/agent-tool-permissions-multi-tenant-saas/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">Engineering</span>
+            </div>
+            <h2 class="post-title">Agent tool permissions for multi-tenant SaaS start with the session.</h2>
+            <p class="post-excerpt">Take user and tenant from authenticated application state. Treat model arguments as untrusted, then recheck the named resource at execution.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/openai-agents-sdk-approval-workflow/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">How-to</span>
+            </div>
+            <h2 class="post-title">OpenAI Agents SDK approval workflow.</h2>
+            <p class="post-excerpt">Resolve needsApproval interruptions on RunState, resume the run, and bind the approved call ID to application policy before execution.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/mastra-human-in-the-loop/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">How-to</span>
+            </div>
+            <h2 class="post-title">Mastra human-in-the-loop tool approval.</h2>
+            <p class="post-excerpt">Use requireApproval for a tool-local gate. Let shared policy trigger Mastra's native suspend and resume flow when the rule belongs to the application.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/least-privilege-ai-agent-credentials/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">Engineering</span>
+            </div>
+            <h2 class="post-title">Least-privilege credentials for AI agents.</h2>
+            <p class="post-excerpt">Authorize first, request the provider's narrowest practical scopes, fetch a fresh credential at execution, and keep raw tokens outside model context.</p>
+            <span class="post-read">Read →</span>
+          </a>
+          <a class="post-card" href="/blog/langchain-js-tool-permissions/">
+            <div class="post-meta">
+              <span class="post-date">August 14, 2026</span>
+              <span class="post-tag">How-to</span>
+            </div>
+            <h2 class="post-title">LangChain JS tool permissions.</h2>
+            <p class="post-excerpt">Filter tool visibility, pause selected calls for review, and enforce the trusted user, tenant, resource, and exact input inside the tool callback.</p>
+            <span class="post-read">Read →</span>
+          </a>
           <a class="post-card" href="/blog/verify-agent-action-audit-trail/">
             <div class="post-meta">
               <span class="post-date">August 14, 2026</span>

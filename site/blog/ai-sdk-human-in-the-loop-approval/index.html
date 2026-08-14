@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI SDK human-in-the-loop approval for tool calls — nominee</title>
+    <meta name="description" content="Use AI SDK needsApproval when one tool needs a confirmation. Put authorization policy around execution when approval also depends on the user, resource, arguments, or a durable audit trail." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nominee.dev/blog/ai-sdk-human-in-the-loop-approval/" />
+    <meta property="og:title" content="AI SDK human-in-the-loop approval for tool calls" />
+    <meta property="og:description" content="A current TypeScript pattern for approving AI SDK tool calls, plus the point where a native approval flag needs application authorization behind it." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/blog/ai-sdk-human-in-the-loop-approval/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="article:published_time" content="2026-08-14" />
+    <meta property="article:author" content="Bharath" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AI SDK human-in-the-loop approval for tool calls" />
+    <meta name="twitter:description" content="Approve a Vercel AI SDK tool call with the arguments in view, then decide whether the approval rule belongs in the framework or in application policy." />
+    <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": "AI SDK human-in-the-loop approval for tool calls",
+      "description": "A current TypeScript pattern for approving AI SDK tool calls, plus the point where a native approval flag needs application authorization behind it.",
+      "datePublished": "2026-08-14",
+      "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
+      "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
+      "url": "https://nominee.dev/blog/ai-sdk-human-in-the-loop-approval/"
+    }
+    </script>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/#how">How it works</a>
+        <a href="/#why">Why nominee</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" aria-current="page">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+    <main>
+      <article class="post-article">
+        <div class="post-article-header">
+          <a class="post-back" href="/blog/">← Blog</a>
+          <div class="post-article-meta">
+            <span class="post-date">August 14, 2026</span>
+            <span class="post-tag">How-to</span>
+          </div>
+          <h1>AI SDK human-in-the-loop<br />approval for tool calls.</h1>
+          <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 7 min read</p>
+        </div>
+        <div class="post-body">
+          <p>Short answer: set <code>needsApproval</code> on a Vercel AI SDK tool, show the proposed arguments to your user, add the approval response to the messages, and call the model again. The tool does not execute during the first call. Use an authorization layer around <code>execute</code> when the decision also depends on your signed-in user, a database resource, a shared budget, or policy that must work outside the AI SDK.</p>
+
+          <p>The current <a href="https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling">AI SDK tool-calling guide</a> documents the full two-call flow. <code>generateText</code> and <code>streamText</code> return a <code>tool-approval-request</code>; your application supplies a <code>tool-approval-response</code> before the approved tool can run.</p>
+
+          <hr class="post-rule" />
+          <h2>Start with the native approval flag</h2>
+
+          <p>A native approval rule fits a tool whose risk is easy to express next to its schema:</p>
+
+          <pre><code><span class="k">const</span> sendEmail = <span class="fn">tool</span>({
+  description: <span class="s">'Send an email'</span>,
+  inputSchema: z.<span class="fn">object</span>({
+    to: z.<span class="fn">string</span>().<span class="fn">email</span>(),
+    subject: z.<span class="fn">string</span>(),
+  }),
+  needsApproval: <span class="k">async</span> ({ to }) =&gt; !to.<span class="fn">endsWith</span>(<span class="s">'@acme.com'</span>),
+  execute: <span class="k">async</span> ({ to, subject }) =&gt; mailer.<span class="fn">send</span>({ to, subject }),
+})</code></pre>
+
+          <p>Keep this version when one AI SDK agent owns the tool, the rule is local, and your application already stores the approval state you need. The SDK gives you the pause and resume protocol. You do not need another library to render a confirmation button.</p>
+
+          <p>The rule starts to strain when two tools implement different checks for the same business action, or when “may this run?” requires data the model must not supply. A recipient domain in model output is inspectable. The user’s tenant membership and current permission on a customer record must come from your application.</p>
+
+          <hr class="post-rule" />
+          <h2>Put shared policy around the execute callback</h2>
+
+          <p><code>guardTools</code> preserves the AI SDK tool shape and routes each server-side <code>execute</code> through the same Nominee instance. The object key becomes the policy action name:</p>
+
+          <pre><code><span class="k">import</span> { openai } <span class="k">from</span> <span class="s">'@ai-sdk/openai'</span>
+<span class="k">import</span> { generateText, tool } <span class="k">from</span> <span class="s">'ai'</span>
+<span class="k">import</span> { Nominee, allow, ask } <span class="k">from</span> <span class="s">'nominee'</span>
+<span class="k">import</span> { guardTools } <span class="k">from</span> <span class="s">'nominee-ai'</span>
+<span class="k">import</span> { z } <span class="k">from</span> <span class="s">'zod'</span>
+
+<span class="k">const</span> nominee = <span class="k">new</span> <span class="t">Nominee</span>({
+  policy: {
+    rules: [
+      <span class="fn">allow</span>(<span class="s">'sendEmail'</span>, {
+        when: ({ input }) =&gt; input.to.<span class="fn">endsWith</span>(<span class="s">'@acme.com'</span>),
+      }),
+      <span class="fn">ask</span>(<span class="s">'sendEmail'</span>),
+    ],
+    fallback: <span class="s">'deny'</span>,
+  },
+  onApprovalRequest: (request) =&gt; approvalUi.<span class="fn">show</span>({
+    input: request.detail,
+    approve: () =&gt; request.<span class="fn">approve</span>(),
+    deny: () =&gt; request.<span class="fn">deny</span>(),
+  }),
+})
+
+<span class="k">const</span> rawTools = {
+  sendEmail: <span class="fn">tool</span>({
+    description: <span class="s">'Send an email'</span>,
+    inputSchema: z.<span class="fn">object</span>({
+      to: z.<span class="fn">string</span>().<span class="fn">email</span>(),
+      subject: z.<span class="fn">string</span>(),
+    }),
+    execute: ({ to, subject }) =&gt; mailer.<span class="fn">send</span>({ to, subject }),
+  }),
+}
+
+<span class="k">const</span> result = <span class="k">await</span> <span class="fn">generateText</span>({
+  model: <span class="fn">openai</span>(<span class="s">'gpt-5-mini'</span>),
+  prompt: <span class="s">'Email the release note to pat@example.com'</span>,
+  tools: <span class="fn">guardTools</span>(nominee, rawTools, { user: session.userId }),
+})</code></pre>
+
+          <p>The callback runs after Nominee reaches <code>allow</code> or after a human resolves <code>ask</code>. A denial rejects before <code>mailer.send</code> receives control. For an approval that may outlive the request, use Nominee’s durable action flow or a framework-native resumable adapter instead of keeping one promise in memory.</p>
+
+          <h2>Choose the smaller boundary that meets your requirements</h2>
+
+          <ul>
+            <li><strong>Use AI SDK approval alone</strong> for a local confirmation rule and an approval UI you already own.</li>
+            <li><strong>Add shared action policy</strong> when several frameworks or workers must apply the same user, resource, argument, and budget rules.</li>
+          </ul>
+
+          <p>Approval answers whether a person accepted one proposed call. Application authorization answers whether that person and agent may perform the action at all. The deeper distinction is covered in <a href="/blog/native-approval-vs-action-authorization/">the AI SDK can pause a tool call; it cannot define your application policy</a>.</p>
+
+          <div class="post-cta-block">
+            <p class="eyebrow">See the boundary run</p>
+            <p class="cta-head">Approve one tool call and inspect the receipt chain.</p>
+            <div class="post-cta-install">
+              <span class="prompt">$</span> npx nominee-cli
+              <span class="copy-hint">proof runs offline after npx installs the package</span>
+            </div>
+            <div class="post-cta-links">
+              <a class="star-cta" href="https://github.com/bharath31/nominee"><span class="gh-star">★</span> Star on GitHub</a>
+              <a class="text-link" href="/docs/#approval">Read the approval docs →</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer>
+      <div class="foot-brand">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.8" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </div>
+      <p class="foot-note">Built by <a href="https://bharath.sh">Bharath</a> at Auth0. Neutral by design. Auth0 is one strategy of many. PRs for other providers welcome.</p>
+      <div class="foot-links">
+        <a href="https://github.com/bharath31/nominee">GitHub</a><a href="/docs/">Docs</a><a href="https://www.npmjs.com/package/nominee">npm</a><a href="/blog/">Blog</a><span>MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>
