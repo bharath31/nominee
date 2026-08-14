@@ -42,7 +42,7 @@ describe('nominee observe', () => {
 
       const report = JSON.parse(readFileSync(out, 'utf8'))
       expect(report.mode).toBe('observe')
-      expect(report.version).toBe(1)
+      expect(report.version).toBe(2)
       expect(report.totals.calls).toBe(9)
       const refund = report.tools.find((tool: { tool: string }) => tool.tool === 'refund.issue')
       expect(refund.unboundedArguments).toEqual(['amount'])

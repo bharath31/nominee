@@ -167,11 +167,8 @@ export interface ToolObservation {
   argumentsTruncated?: true
 }
 
-/** A serializable summary of one observe session. */
-export interface ObservationReport {
+interface ObservationReportBase {
   mode: 'observe'
-  /** Schema version, so a generator can refuse a report it doesn't understand. */
-  version: 1
   generatedAt: number
   /** First and last observed call. Both `generatedAt` when nothing was seen. */
   window: { from: number; to: number }
@@ -193,6 +190,29 @@ export interface ObservationReport {
   /** Set when even the bounded count of untracked tool names was exhausted. */
   toolsTruncated?: true
 }
+
+/** Historical report shape emitted before available-tool inventories were captured. */
+export interface ObservationReportV1 extends ObservationReportBase {
+  version: 1
+}
+
+/** Current serializable summary of one observe session. */
+export interface ObservationReportV2 extends ObservationReportBase {
+  /** Schema version, so a generator can refuse a report it doesn't understand. */
+  version: 2
+  /**
+   * Bounded inventory of tool names supplied to {@link Nominee.observe}, including tools
+   * that were available but never called during this observation window. A policy generator
+   * can therefore propose an explicit deny for unused authority instead of pretending it can
+   * infer tools it was never told about.
+   */
+  availableTools: string[]
+  /** Set when the available-tool inventory exceeded the same bounded counting cap. */
+  availableToolsTruncated?: true
+}
+
+/** Any observation report schema understood by public formatters and tooling. */
+export type ObservationReport = ObservationReportV1 | ObservationReportV2
 
 interface ArgumentState {
   name: string
@@ -241,6 +261,8 @@ export class ObservationCollector {
   private readonly tools = new Map<string, ToolState>()
   private readonly untracked = new Set<string>()
   private untrackedOverflowed = false
+  private readonly available = new Set<string>()
+  private availableOverflowed = false
   private calls = 0
   /** Verdict totals across every call, including tools past the tracking cap. */
   private readonly verdicts = { allow: 0, ask: 0, deny: 0 }
@@ -308,12 +330,31 @@ export class ObservationCollector {
     this.sawPolicy = true
   }
 
+  /**
+   * Record the bounded tool inventory presented to `observe()`. Registering tools does not
+   * count as traffic: a never-called tool remains absent from `tools` and can be identified by
+   * comparing this inventory with the observed entries.
+   */
+  registerTools(tools: Iterable<string>): void {
+    try {
+      for (const name of tools) {
+        const tool = boundedLabel(name)
+        if (this.available.has(tool)) continue
+        if (this.available.size < MAX_TOOLS + MAX_UNTRACKED_TOOLS) this.available.add(tool)
+        else this.availableOverflowed = true
+      }
+    } catch {
+      // Tool registries may be application-controlled iterables. Inventory is best-effort and
+      // must never make observe mode interfere with execution.
+    }
+  }
+
   get size(): number {
     return this.calls
   }
 
   /** Build the report. Pure — the collector keeps accumulating afterwards. */
-  report(now = Date.now()): ObservationReport {
+  report(now = Date.now()): ObservationReportV2 {
     const tools = [...this.tools.values()]
       .map((state) => summarizeTool(state))
       .sort((a, b) => b.calls - a.calls || a.tool.localeCompare(b.tool))
@@ -326,11 +367,13 @@ export class ObservationCollector {
 
     return {
       mode: 'observe',
-      version: 1,
+      version: 2,
       generatedAt: now,
       window: { from: this.from ?? now, to: this.to ?? now },
       totals,
       policyConfigured: this.sawPolicy,
+      availableTools: [...this.available].sort(),
+      ...(this.availableOverflowed ? { availableToolsTruncated: true as const } : {}),
       tools,
       ...(this.untracked.size ? { untrackedTools: this.untracked.size } : {}),
       ...(this.untrackedOverflowed ? { toolsTruncated: true as const } : {}),

@@ -41,7 +41,10 @@ Observe mode wraps your existing tools with no policy required and records
 deny, ask, and budget decisions without enforcing them. It records which tool
 callbacks actually start, into the same hash-chained receipts, and reports
 argument shapes, numeric ranges, and hashed cardinalities without enumerating
-string values. Runtime and integrity failures still fail closed.
+string values. The JSON report also inventories callable tools supplied to
+`observe()`, including tools that never ran, so a policy generator can
+distinguish unused authority from unknown authority. Runtime and integrity
+failures still fail closed.
 
 ```ts
 import { Nominee, formatObservations } from 'nominee'
@@ -68,6 +71,11 @@ It is a discovery tool, not a security control, and it says so: startup prints
 an unmissable notice that enforcement is off, every receipt carries
 `enforcement: 'observe'`, and `production: true` refuses to construct with it.
 See [docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observe.md).
+
+Save that report and generate an editable starter policy with
+`npx nominee-cli generate observations.json`. Generated thresholds are
+observations, not security recommendations; review every rule before enforcing
+it.
 
 ---
 

@@ -40,12 +40,18 @@ const SAMPLE_TOOLS: readonly string[] = [
   'calendar.create_event',
 ]
 
-function sampleTools(opts: CheckOptions): string[] {
+function sampleTools(opts: CheckOptions, loaded: unknown): string[] {
   if (opts.replaceSamples) return [...(opts.tools ?? [])]
-  return [...SAMPLE_TOOLS, ...(opts.tools ?? [])]
+  const embeddedTools = (loaded as { nomineeObservedTools?: unknown }).nomineeObservedTools
+  const embedded =
+    Array.isArray(embeddedTools) && embeddedTools.every((tool) => typeof tool === 'string')
+      ? embeddedTools
+      : undefined
+  const base = embedded && embedded.length > 0 ? embedded : [...SAMPLE_TOOLS]
+  return [...base, ...(opts.tools ?? [])]
 }
 
-function normalizePolicy(input: unknown): Policy | undefined {
+export function normalizePolicy(input: unknown): Policy | undefined {
   if (Array.isArray(input)) return { rules: input as Rule[] }
   if (input && typeof input === 'object' && Array.isArray((input as { rules?: unknown }).rules)) {
     return input as Policy
@@ -141,7 +147,7 @@ export async function runCheck(
     return { code: 1 }
   }
 
-  const samples = sampleTools(opts)
+  const samples = sampleTools(opts, loaded)
   if (samples.length === 0) {
     console.log('✗ no sample tools to check against (pass --tools or omit replaceSamples)')
     return { code: 1 }

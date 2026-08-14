@@ -47,6 +47,8 @@ export { classifyTool, formatObservations, ObservationCollector } from './observ
 export type {
   ArgumentObservation,
   ObservationReport,
+  ObservationReportV1,
+  ObservationReportV2,
   ObservedCall,
   ToolKind,
   ToolObservation,

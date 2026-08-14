@@ -92,7 +92,7 @@ const nominee = new Nominee({
 // Observe mode (report-only: records policy decisions without enforcing them)
 const observing = new Nominee({ mode: 'observe' })  // refused with production: true
 const observed = observing.observe(rawTools)        // no policy needed
-observing.observations()                            // JSON; hashed cardinality + numeric ranges
+observing.observations()                            // JSON; tool inventory, cardinality + ranges
 formatObservations(observing.observations())        // terminal report
 
 // Authorization

@@ -136,16 +136,41 @@ const nominee = new Nominee({ mode: 'observe' })
 const tools = nominee.observe(yourTools)
 ```
 
-`--out <file>` also writes the machine-readable JSON report (tool callback
-attempts, argument types and ranges, bounded cardinalities, and which arguments
-are unbounded). Raw strings, booleans, and user IDs are not retained; bounded
-counts use SHA-256 fingerprints. Numeric ranges remain visible and should be
-treated as sensitive when the underlying numbers are sensitive.
+`--out <file>` also writes the machine-readable JSON report (the callable-tool
+inventory, callback attempts, argument types and ranges, bounded cardinalities,
+and which arguments are unbounded). Available tools that never ran stay in the
+inventory without being counted as traffic. Raw strings, booleans, and user IDs
+are not retained; bounded counts use SHA-256 fingerprints. Numeric ranges remain
+visible and should be treated as sensitive when the underlying numbers are
+sensitive.
 
 Observe mode is a discovery tool, not a security control: it announces on
 startup that enforcement is off, marks every receipt `enforcement: 'observe'`,
 and refuses to be constructed with `production: true`. See
 [docs/observe.md](https://github.com/bharath31/nominee/blob/main/docs/observe.md).
+
+## `nominee generate <observations.json>`
+
+Turns an observe report into a readable `nominee.policy.ts` you can edit and
+commit:
+
+```bash
+npx nominee-cli observe --out nominee.observations.json
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+Read-classified tools start at `allow`. Mutating tools with numeric evidence get
+an allow rule for the observed minimum-to-median range followed by `ask`; other
+called tools start at `ask`. Inventoried tools that never ran get `deny`, and the file
+ends with `fallback: 'deny'`. Every rule cites its call count, dates, and any
+range used.
+
+Those thresholds describe the captured traffic; they are **not security
+recommendations**. The generated header says so, and `generate` refuses to
+overwrite an existing output unless you pass `--force`. Version 1 reports are
+accepted, but they predate the callable-tool inventory and therefore cannot
+identify never-called tools.
 
 ## `nominee verify <file>`
 
@@ -195,7 +220,8 @@ construct your `Nominee` instance can be pointed at directly.
 
 `check` does **not** execute each rule's `when` predicate — it only checks
 whether a rule's tool-name pattern (`matchTool`, wildcards included) matches
-any tool name in a small built-in set of sample calls
+any tool name. Generated policies embed the observed inventory, so `check` uses
+those real names. Other policy files use a small built-in set of sample calls
 (`email.read`, `email.forward`, `github.merge_pr`, `payment.charge`, …), the
 same static reachability check the core library's dev-mode warnings already
 perform for guarded tools. A rule that depends entirely on `input` matching

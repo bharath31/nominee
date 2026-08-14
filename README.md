@@ -66,7 +66,7 @@ cardinalities without enumerating string values. Runtime and integrity failures
 still fail closed.
 
 ```bash
-npx nominee-cli observe
+npx nominee-cli observe --out nominee.observations.json
 ```
 
 ```text
@@ -88,6 +88,19 @@ const tools = nominee.observe(yourTools)   // …then run your agent as usual
 
 console.log(formatObservations(nominee.observations()))
 ```
+
+Turn the report into an editable, default-deny starter policy:
+
+```bash
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+The generated file cites the calls, dates, and numeric ranges behind every
+rule. Its thresholds reflect observed traffic, not security recommendations;
+review them before switching enforcement on. The report also inventories
+callable tools that were available but never used, so the starter policy can
+deny that unused authority explicitly.
 
 Observe mode is report-only and says so: it announces on startup that
 enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
