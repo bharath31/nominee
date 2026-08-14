@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Verify an agent action audit trail — nominee</title>
-    <meta name="description" content="To verify an agent action audit trail, recompute each record's hash over its body plus the previous hash. A gap or an edit fails. JSONL in git is not verification. How to do it with a 20-line function, and when a signed chain helps." />
+    <meta name="description" content="To verify an agent action audit trail, recompute each record's hash over its body plus the previous hash. With trusted start and tip checkpoints, a gap or edit fails. Tail deletion needs that external tip. How to do it with a 20-line function, and when a signed chain helps." />
     <link rel="canonical" href="https://nominee.dev/blog/verify-agent-action-audit-trail/" />
     <meta property="og:title" content="Verify an agent action audit trail" />
-    <meta property="og:description" content="Recompute the hash chain. If a row was edited or dropped, verification fails. That is tamper-evident, not a certification." />
+    <meta property="og:description" content="Recompute the hash chain between trusted checkpoints. Edits and internal gaps fail; detecting tail deletion needs an external tip. Tamper-evident, not a certification." />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://nominee.dev/blog/verify-agent-action-audit-trail/" />
     <meta property="og:image" content="https://nominee.dev/assets/og.png" />
@@ -24,7 +24,7 @@
       "@context": "https://schema.org",
       "@type": "BlogPosting",
       "headline": "Verify an agent action audit trail",
-      "description": "Recompute the hash chain. If a row was edited or dropped, verification fails.",
+      "description": "Recompute the hash chain between trusted checkpoints. Edits and internal gaps fail; tail deletion needs an external tip.",
       "datePublished": "2026-08-14",
       "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
       "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
@@ -67,7 +67,7 @@
           <p class="post-disclosure">I work at Auth0. A hash chain is tamper-evident: an edit shows up. A privileged operator with the key can still write a replacement chain. This page will not call that a certification.</p>
         </div>
         <div class="post-body">
-          <p>Verification means: given an export of records, you can show that <strong>no row was dropped, inserted, or rewritten</strong> since the chain was sealed. The algorithm is old:</p>
+          <p>Verification means: given an export plus a trusted starting checkpoint and expected latest tip, you can show that <strong>no row between those checkpoints was dropped, inserted, or rewritten</strong>. Without the expected tip, deleting records from the tail remains undetectable. The algorithm is old:</p>
           <ol>
             <li>Sort by sequence number. The first row's <code>prev</code> is a genesis sentinel.</li>
             <li>For each row, hash the canonical body (including <code>prev</code>) with SHA-256, or HMAC-SHA256 if you have a key.</li>
@@ -104,8 +104,11 @@
           <pre><code>nominee.<span class="fn">verifyReceipts</span>()              <span class="c">// in-process window, including retained suffixes</span>
 <span class="k">await</span> nominee.<span class="fn">verifyDurableReceipts</span>()  <span class="c">// full atomic stream, when a durable store is configured</span>
 
-<span class="c">// CLI: export the durable list (seq 0…n), not a trimmed in-memory window</span>
-writeFileSync(<span class="s">'receipts.json'</span>, JSON.<span class="fn">stringify</span>(<span class="k">await</span> store.<span class="fn">list</span>(stream)))
+<span class="c">// Use the exact same constant passed as receipts.stream at construction.</span>
+<span class="k">const</span> receiptStream = <span class="s">'support-agent-v1'</span>
+<span class="k">const</span> receipts = <span class="k">await</span> store.<span class="fn">list</span>(receiptStream)
+<span class="k">if</span> (receipts.length === 0) <span class="k">throw new</span> <span class="fn">Error</span>(<span class="s">`no receipts in ${receiptStream}`</span>)
+writeFileSync(<span class="s">'receipts.json'</span>, JSON.<span class="fn">stringify</span>(receipts))
 <span class="c">// npx nominee-cli verify receipts.json</span>
 <span class="c">// ✓ 7 receipts intact</span></code></pre>
           <p>Skip nominee when your warehouse already verifies its own hash chain, when the agent only reads public non-sensitive data and you do not need an action trail, or when you wanted a GRC product to map controls to SOC reports. Receipts are primitives. Production mode wants a durable atomic store and <code>delivery: 'strict'</code>; that still is not a certification.</p>
