@@ -1,5 +1,11 @@
 # nominee-mcp
 
+## 2.5.0
+
+### Patch Changes
+
+- fa7324e: Surface pending approvals as structured MCP tool results from `registerNomineeTool`, and resolve end-user identity from auth claims rather than OAuth clientId.
+
 ## 2.2.1
 
 ### Patch Changes

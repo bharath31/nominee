@@ -1,5 +1,18 @@
 # nominee-cli
 
+## 2.5.0
+
+### Minor Changes
+
+- fa7324e: `nominee check` reports rules shadowed by an earlier matching pattern and accepts `--tools` extra sample names (built-ins remain unless `--replace-samples`).
+- fa7324e: Inventory available observe-mode tools and generate an evidence-commented,
+  default-deny starter policy from an observation report.
+
+### Patch Changes
+
+- Updated dependencies [fa7324e]
+  - nominee@2.5.0
+
 ## 2.4.0
 
 ### Minor Changes

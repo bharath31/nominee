@@ -1,6 +1,6 @@
 {
   "name": "opa-recipe",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "type": "module",
   "description": "nominee policy rule whose `when` calls a mocked OPA-shaped decision point; the decision's reason lands on the receipt unchanged. Swap in a real OPA server with one fetch call.",
