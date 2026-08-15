@@ -46,12 +46,13 @@ packages/
   cli/      published as nominee-cli       - local console, policy generator, and runnable proof
   ai/       published as nominee-ai        - Vercel AI SDK and Cloudflare Agents adapter
   eve/      published as nominee-eve       - Vercel Eve adapter
-  openai/   published as nominee-openai    - OpenAI Agents SDK adapter
-  mastra/   published as nominee-mastra    - Mastra adapter
-  mcp/      published as nominee-mcp       - MCP server adapter
-  auth0/    published as nominee-auth0     - optional Auth0 strategy (+ CIBA stores)
-  supabase/ published as nominee-supabase  - optional Supabase strategy
-  postgres/ published as nominee-postgres  - durable action/receipt stores for multi-replica
+  openai/     published as nominee-openai     - OpenAI Agents SDK adapter
+  mastra/     published as nominee-mastra     - Mastra adapter
+  mcp/        published as nominee-mcp        - MCP server adapter
+  langchain/  published as nominee-langchain  - LangChain JS adapter
+  auth0/      published as nominee-auth0      - optional Auth0 strategy (+ CIBA stores)
+  supabase/   published as nominee-supabase   - optional Supabase strategy
+  postgres/   published as nominee-postgres   - durable action/receipt stores for multi-replica
 examples/
   support-refund-agent/       durable Vercel AI SDK approval + PostgreSQL wiring
   prompt-injection-blocked/   supporting security proof: injected exfiltration blocked by policy
@@ -149,13 +150,13 @@ chain).
 
 Adapters expose `nomineeTool(config)`, `withNominee(nominee, defaults)`, and —
 for `nominee-ai` — `guardTools(nominee, tools, { user })`; `nominee-mcp` exposes
-`registerNomineeTool`. Adapter config uses `inputSchema`, optional `connection`,
-optional `approval` (forces an ask), optional `action` (the policy tool name),
-and an `execute(input, ctx)` function. The adapter context is `{ token?, user,
-ai }` for `nominee-ai` and `{ token?, user, eve }` for `nominee-eve`. Official
-adapters route through the decision-bound path, so they bind authorization to an
-argument fingerprint and surface `ActionPendingError` when an approval outlives
-the request.
+`registerNomineeTool`. Adapter config uses `inputSchema` (LangChain: `schema`),
+optional `connection`, optional `approval` / `requireApproval` (forces an ask),
+optional `action` (the policy tool name), and an `execute(input, ctx)` function.
+The adapter context is `{ token?, user, ai }` for `nominee-ai` and
+`{ token?, user, eve }` for `nominee-eve`. Official adapters route through the
+decision-bound path, so they bind authorization to an argument fingerprint and
+surface `ActionPendingError` when an approval outlives the request.
 
 ## Commands
 

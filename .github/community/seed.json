@@ -8,7 +8,7 @@
     {
       "category": "Ideas",
       "title": "Which framework should we adapt next?",
-      "body": "Official adapters today: `nominee-ai`, `nominee-eve`, `nominee-openai`, `nominee-mastra`, `nominee-mcp`. Each routes through `nominee.run()` so authorization is bound to the exact arguments.\n\nThis thread is for **the next adapter**, not a rewrite of the core.\n\nPlease include:\n\n- Framework name and the tool primitive it already has (`tool()`, `createTool`, …)\n- Whether it has a native approval/resume API we should record as `frameworkApproval` instead of asking twice\n- A link to a minimal official example\n\nLangChain JS is a frequent request; there is no official adapter yet. If that is what you need, say so here rather than opening an issue until we have a concrete `run()` mapping.\n\nCore stays dependency-free — adapters live in their own packages."
+      "body": "Official adapters today: `nominee-ai`, `nominee-eve`, `nominee-openai`, `nominee-mastra`, `nominee-mcp`, `nominee-langchain`. Each routes through `nominee.run()` so authorization is bound to the exact arguments.\n\nThis thread is for **the next adapter**, not a rewrite of the core.\n\nPlease include:\n\n- Framework name and the tool primitive it already has (`tool()`, `createTool`, …)\n- Whether it has a native approval/resume API we should record as `frameworkApproval` instead of asking twice\n- A link to a minimal official example\n\nCore stays dependency-free — adapters live in their own packages."
     },
     {
       "category": "Q&A",

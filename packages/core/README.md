@@ -302,6 +302,7 @@ Errors: `PolicyDeniedError`, `ApprovalDeniedError`, `ActionPendingError`,
 | **OpenAI Agents SDK** | [`nominee-openai`](https://www.npmjs.com/package/nominee-openai) — native resumable approvals |
 | **Mastra** | [`nominee-mastra`](https://www.npmjs.com/package/nominee-mastra) — native or portable approvals |
 | **MCP servers** | [`nominee-mcp`](https://www.npmjs.com/package/nominee-mcp) — `registerNomineeTool()` |
+| **LangChain JS** | [`nominee-langchain`](https://www.npmjs.com/package/nominee-langchain) — `nomineeTool()` |
 
 ---
 

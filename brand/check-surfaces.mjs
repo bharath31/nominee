@@ -58,6 +58,7 @@ const llmsRequired = [
   'nominee-openai',
   'nominee-mastra',
   'nominee-mcp',
+  'nominee-langchain',
   'nominee-postgres',
   'Find out what your agent can actually do',
   'Your agent calls tools. Your rules decide what runs',
@@ -84,7 +85,11 @@ for (const needle of llmsRequired) {
 }
 
 // 3. Adapter READMEs must not claim authorize() is the execution path
-const adapterReadmes = ['packages/ai/README.md', 'packages/eve/README.md']
+const adapterReadmes = [
+  'packages/ai/README.md',
+  'packages/eve/README.md',
+  'packages/langchain/README.md',
+]
 const staleAdapterPatterns = [
   /calls `nominee\.authorize\(/,
   /calls nominee\.authorize\(/,

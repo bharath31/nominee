@@ -6,7 +6,7 @@ Standing weekly check-in. Persistence is the job. Do not mark
 Owner: unassigned (needs a named human; agents cannot authenticate to
 upstream GitHub orgs, the MCP publisher, or Glama).
 
-## This week (2026-08-14)
+## This week (2026-08-15)
 
 | Target | Blocker | Next human action |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ upstream GitHub orgs, the MCP publisher, or Glama).
 | MCP registry | Example server is `private: true`; `mcp-publisher login` needs the GitHub owner | Publish npm package with `mcpName`, then `npx mcp-publisher publish` |
 | OpenAI Agents JS | No official third-party ecosystem page | PR against `openai/openai-agents-js` docs *or* list on awesome-ai-sdks |
 | Mastra | They ask for an issue before a docs PR | File integration request issue; Discord + ashwin@mastra.ai |
-| LangChain JS | Community integrations are standalone packages + a docs issue | Open issue on `langchain-ai/docs` linking `docs/integrations/langchain.md` |
+| LangChain JS | Package exists (`nominee-langchain`); listing is still a docs issue | Open issue on `langchain-ai/docs` linking `docs/integrations/langchain.md` |
 | awesome-mcp-servers | Glama listing + A-grade badge required | Submit server to glama.ai, then PR Security section |
 | awesome-ai-sdks | `awesome-ai-agents` is the wrong list (agents, not SDKs) | PR `e2b-dev/awesome-ai-sdks` |
 | awesome-llm-security | Pick one canonical list and stay honest about detection | PR Tools/Defense; do not say “stops injection” |
@@ -24,6 +24,7 @@ upstream GitHub orgs, the MCP publisher, or Glama).
 | Date | What moved | What did not |
 | --- | --- | --- |
 | 2026-08-14 | In-repo copy, upstream URLs, `mcpName` on the example `server.json` companion | Zero live inbound URLs |
+| 2026-08-15 | `nominee-langchain` adapter (`packages/langchain`) | Still zero live inbound URLs |
 
 ## Rules
 

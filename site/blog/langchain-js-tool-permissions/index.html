@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://nominee.dev/blog/langchain-js-tool-permissions/" />
     <meta property="og:title" content="LangChain JS tool permissions" />
-    <meta property="og:description" content="A current TypeScript guide to LangChain tool filtering, human approval, and decision-bound execution inside DynamicStructuredTool." />
+    <meta property="og:description" content="A current TypeScript guide to LangChain tool filtering, human approval, and decision-bound execution with nominee-langchain." />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://nominee.dev/blog/langchain-js-tool-permissions/" />
     <meta property="og:image" content="https://nominee.dev/assets/og.png" />
@@ -31,7 +31,7 @@
       "@context": "https://schema.org",
       "@type": "BlogPosting",
       "headline": "LangChain JS tool permissions",
-      "description": "A current TypeScript guide to LangChain tool filtering, human approval, and decision-bound execution inside DynamicStructuredTool.",
+      "description": "A current TypeScript guide to LangChain tool filtering, human approval, and decision-bound execution with nominee-langchain.",
       "datePublished": "2026-08-14",
       "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
       "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
@@ -75,7 +75,7 @@
         <div class="post-body">
           <p>Short answer: filter the tools an agent can see for coarse capability control, use LangChain’s human-in-the-loop middleware when a proposed call needs review, and enforce the final user and resource permission inside the tool callback before the side effect starts.</p>
 
-          <p>LangChain’s current JavaScript docs cover <a href="https://docs.langchain.com/oss/javascript/langchain/tools">tools and runtime context</a> and <a href="https://docs.langchain.com/oss/javascript/langchain/human-in-the-loop">human-in-the-loop middleware</a>. Both are useful. Neither makes a model-supplied user or tenant ID trustworthy.</p>
+          <p>LangChain’s current JavaScript docs cover <a href="https://docs.langchain.com/oss/javascript/langchain/tools">tools and runtime context</a> and <a href="https://docs.langchain.com/oss/javascript/langchain/human-in-the-loop">human-in-the-loop middleware</a>. Both are useful. Neither makes a model-supplied user or tenant ID trustworthy. The official adapter is <code>nominee-langchain</code>.</p>
 
           <hr class="post-rule" />
           <h2>Tool filtering can be the whole requirement</h2>
@@ -93,9 +93,9 @@
           <hr class="post-rule" />
           <h2>Put the enforcement point inside the tool</h2>
 
-          <p>LangChain needs no special adapter here. Keep the side effect inside <code>nominee.run</code>:</p>
+          <p>Use <code>nomineeTool</code> from <code>nominee-langchain</code> so the side effect runs only after a capability is issued:</p>
 
-          <pre><code><span class="k">import</span> { DynamicStructuredTool } <span class="k">from</span> <span class="s">'@langchain/core/tools'</span>
+          <pre><code><span class="k">import</span> { nomineeTool } <span class="k">from</span> <span class="s">'nominee-langchain'</span>
 <span class="k">import</span> { Nominee, ask } <span class="k">from</span> <span class="s">'nominee'</span>
 <span class="k">import</span> { z } <span class="k">from</span> <span class="s">'zod'</span>
 
@@ -108,24 +108,20 @@
     permissions.<span class="fn">can</span>({ user, action, resource, tenant }),
 })
 
-<span class="k">export const</span> refundTool = <span class="k">new</span> <span class="t">DynamicStructuredTool</span>({
+<span class="k">export const</span> refundTool = <span class="fn">nomineeTool</span>({
   name: <span class="s">'payments_refund'</span>,
   description: <span class="s">'Refund a payment'</span>,
   schema: z.<span class="fn">object</span>({
     transactionId: z.<span class="fn">string</span>(),
     cents: z.<span class="fn">number</span>().<span class="fn">int</span>().<span class="fn">positive</span>(),
   }),
-  func: <span class="k">async</span> (input) =&gt;
-    nominee.<span class="fn">run</span>(
-      {
-        tool: <span class="s">'payments.refund'</span>,
-        input,
-        user: session.userId,
-        tenant: session.tenantId,
-        resource: <span class="s">'payment:'</span> + input.transactionId,
-      },
-      () =&gt; payments.<span class="fn">refund</span>({ ...input, tenantId: session.tenantId }),
-    ),
+  nominee,
+  action: <span class="s">'payments.refund'</span>,
+  user: session.userId,
+  tenant: session.tenantId,
+  resource: ({ input }) =&gt; <span class="s">'payment:'</span> + input.transactionId,
+  execute: <span class="k">async</span> (input) =&gt;
+    payments.<span class="fn">refund</span>({ ...input, tenantId: session.tenantId }),
 })</code></pre>
 
           <p>The policy receives parsed tool arguments. The user and tenant come from the authenticated session. A denial exits before <code>payments.refund</code> receives control. With a named resource, the authorizer is checked during planning and again immediately before execution after an approval pause.</p>

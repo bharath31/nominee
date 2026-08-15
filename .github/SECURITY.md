@@ -35,7 +35,7 @@ version in your report.
 - The **core** package (`nominee`) has zero runtime dependencies; report issues in the engine, token cache, approval engine, or audit here.
 - Strategy, store, and adapter packages (`nominee-auth0`, `nominee-postgres`,
   `nominee-ai`, `nominee-eve`, `nominee-openai`, `nominee-mastra`,
-  `nominee-mcp`) wrap third-party SDKs/APIs — issues in nominee's handling of
+  `nominee-mcp`, `nominee-langchain`) wrap third-party SDKs/APIs — issues in nominee's handling of
   them are in scope; issues in the upstream provider should also be reported
   to that provider.
 - nominee never persists third-party tokens itself; tokens are fetched at call time and cached in memory only. Reports about token handling, leakage in logs/audit, or approval bypass are especially welcome.
