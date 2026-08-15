@@ -58,7 +58,7 @@ The monorepo uses `pnpm` workspaces and `tsup` for bundling.
 2. **Build everything:** `pnpm -r build`
 3. **Run tests:** `pnpm -r test`
 4. **Lint and format:** `pnpm check` and `pnpm format`
-5. **Sync check:** `node brand/check-surfaces.mjs` — validates public docs stay aligned with the API
+5. **Sync check:** `node brand/check-surfaces.mjs` — validates public docs stay aligned with the API, and rejects tracked GTM/internal planning files
 
 Please ensure tests pass, code is formatted with Biome, and the surface sync check passes before submitting a PR.
 

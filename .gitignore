@@ -10,9 +10,16 @@ coverage/
 INTERNAL_NOTES.md
 marketing_plan.md
 
-# Positioning / GTM working notes — local only, never committed
+# Positioning / GTM working notes — local only, never committed.
+# Agents: do not rename around this list. brand/check-surfaces.mjs fails CI
+# if any of these paths are tracked. Keep copies only on disk / a private repo.
 .agents/
 docs/launch-500-dau.md
+docs/launch-shot/
+docs/design-partners/
+docs/placements/
+docs/retention-gate.md
+docs/integrations/submission-drafts.md
 
 # Superpowers planning notes — local only, never committed
 docs/superpowers/

@@ -61,13 +61,7 @@ The last two are the ones that indicate Nominee is actually load-bearing. An
 integration that only renders a confirmation dialog has not exercised the
 authorization boundary.
 
-## Day-90 retention gate
-
-500 activations is a distribution milestone. Fit is whether the first 100
-activated principals still have nominee evaluating real actions at day 90.
-Above 60% means keep distributing; 30–60% means find the leak; below 30% means
-stop acquisition spend. The full table, the pending decision log, and the
-offline report live in [retention-gate.md](retention-gate.md).
+## Day-90 retention
 
 Partners export `usageReporter` JSONL from their own sink — nominee never
 collects it — then:

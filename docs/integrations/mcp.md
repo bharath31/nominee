@@ -113,5 +113,6 @@ be combined with `production: true`.
 
 A draft `server.json` for the reference server lives at
 [`examples/mcp-action-server/server.json`](../../examples/mcp-action-server/server.json).
-Publishing to the official MCP registry is a separate authenticated step — see
-[`docs/placements/mcp-registry.md`](../placements/mcp-registry.md).
+Publishing to the official MCP registry is a separate authenticated step for a
+human with npm + GitHub owner access. Do not claim a listing until search on
+registry.modelcontextprotocol.io returns this server.
