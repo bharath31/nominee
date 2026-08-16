@@ -23,6 +23,7 @@ Use the `nominee.*` namespace for Nominee-specific attributes. Prefer strings an
 | `nominee.decision` | `receipt.decision` | `allow`, `deny`, `ask`, approval outcome, or lifecycle outcome. |
 | `nominee.reason` | `receipt.reason` | Keep reasons bounded; avoid embedding user input. |
 | `nominee.policy.version` | configured `policyVersion` | Required for production forensics. |
+| `nominee.receipt.schema_version` | `receipt.v` | `1` on new receipts; omit for unversioned legacy records. Not the policy set version. |
 | `nominee.policy.rule` | matching rule id/name when available | Optional; keep stable across deploys. |
 | `nominee.input_hash` | `receipt.inputHash` | Safe correlation key for exact reviewed arguments. |
 | `nominee.receipt.seq` | `receipt.seq` | Sequence in the receipt stream. |

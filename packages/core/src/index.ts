@@ -66,6 +66,7 @@ export type {
 } from './policy.js'
 
 export {
+  RECEIPT_SCHEMA_VERSION,
   ReceiptLedger,
   MemoryAtomicReceiptStore,
   formatReceipts,

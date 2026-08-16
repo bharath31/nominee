@@ -1,6 +1,9 @@
 import { canonicalJson, hmacSha256, sha256 } from './hash.js'
 import type { Effect } from './policy.js'
 
+/** Schema version sealed into new receipts and covered by `hash`. */
+export const RECEIPT_SCHEMA_VERSION = 1 as const
+
 /**
  * Receipts are nominee's tamper-evident answer to "what did the agent do as
  * me, and who let it?". Every policy decision, approval, and token grant
@@ -64,13 +67,21 @@ export interface Receipt {
   input?: unknown
   /** Free-form extra context. */
   detail?: unknown
+  /**
+   * Receipt-record schema version, included in the canonical JSON that
+   * `hash` covers. New receipts always seal {@link RECEIPT_SCHEMA_VERSION}
+   * (`1`). Absent on records written before this field existed.
+   * `verifyReceipts` accepts both shapes in one chain; unknown versions fail
+   * closed. This is not `policyVersion` (which versions the policy set).
+   */
+  v?: number
   /** Hash of the previous receipt (`"genesis"` for the first). */
   prev: string
   /** SHA-256 (or HMAC-SHA256 when a key is set) of this receipt's canonical content. */
   hash: string
 }
 
-export type ReceiptEntry = Omit<Receipt, 'seq' | 'at' | 'prev' | 'hash' | 'inputHash'> & {
+export type ReceiptEntry = Omit<Receipt, 'seq' | 'at' | 'prev' | 'hash' | 'inputHash' | 'v'> & {
   input?: unknown
 }
 
@@ -170,6 +181,7 @@ export function sealReceipt(
   const body: Omit<Receipt, 'hash'> = {
     ...rest,
     ...recordedInput,
+    v: RECEIPT_SCHEMA_VERSION,
     seq: checkpoint.seq,
     at: checkpoint.at ?? Date.now(),
     prev: checkpoint.prev,
@@ -185,6 +197,14 @@ export function sealReceipt(
  * appended since a hibernating agent last checkpointed — starting from the
  * expected `seq`/`prev` rather than genesis. Verifying the full, concatenated
  * chain from the start needs no `resume`.
+ *
+ * Schema versions: each receipt is hashed independently, so a chain may mix
+ * unversioned (pre-`v`) records and `v: 1` records as long as every `prev`
+ * link and content hash is intact. Receipts with a `v` other than
+ * {@link RECEIPT_SCHEMA_VERSION} fail closed even if their hash matches.
+ * Stripping `v` to masquerade as a legacy record still fails: `v` is hashed
+ * content, so dropping it changes this receipt's hash, which breaks the next
+ * receipt's `prev` link — the same property that already detects any edit.
  */
 export function verifyReceipts(
   receipts: Receipt[],
@@ -206,6 +226,14 @@ export function verifyReceipts(
     }
     if (r.prev !== prev) {
       return { ok: false, checked: i, brokenAt: r.seq, reason: 'broken chain link (prev mismatch)' }
+    }
+    if (r.v !== undefined && r.v !== RECEIPT_SCHEMA_VERSION) {
+      return {
+        ok: false,
+        checked: i,
+        brokenAt: r.seq,
+        reason: `unsupported receipt schema version ${String(r.v)}`,
+      }
     }
     const { hash, ...content } = r
     if (computeHash(content, opts.key) !== hash) {
