@@ -79,8 +79,8 @@ describe('ReceiptLedger', () => {
     expect(verifyReceipts([first, second]).ok).toBe(true)
 
     const { v: _dropped, hash: _oldHash, ...rest } = first
-    const stripped = { ...rest, hash: sha256(canonicalJson(rest)) }
-    expect(stripped.v).toBeUndefined()
+    const stripped: Receipt = { ...rest, hash: sha256(canonicalJson(rest)) }
+    expect('v' in stripped).toBe(false)
     const result = verifyReceipts([stripped, second])
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('broken chain link (prev mismatch)')
