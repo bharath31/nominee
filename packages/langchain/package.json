@@ -1,6 +1,6 @@
 {
   "name": "nominee-langchain",
-  "version": "2.5.0",
+  "version": "2.7.0",
   "description": "Decision-bound LangChain JS tools for governed AI agents",
   "type": "module",
   "main": "./dist/index.cjs",
