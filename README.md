@@ -307,6 +307,7 @@ useful conformance implementations, but deliberately fail `production: true`.
 | **OpenAI Agents SDK** | `nomineeTool` from [`nominee-openai`](packages/openai) — Nominee `ask` maps to native resumable approval |
 | **Mastra** | `nomineeTool` from [`nominee-mastra`](packages/mastra) — native or portable durable approval |
 | **MCP servers** | [`nominee-mcp`](packages/mcp) — first-class: [governed MCP quickstart](https://nominee.dev/docs/mcp/) |
+| **LangChain JS** | `nomineeTool` from [`nominee-langchain`](packages/langchain) — portable `run()` inside LangChain `tool()` |
 | **Standalone** | `nominee.run({ tool, input, user, resource }, execute)` around any side effect |
 
 ```ts

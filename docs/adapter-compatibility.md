@@ -1,7 +1,7 @@
 # Adapter compatibility
 
 This is a snapshot of what each official adapter (`packages/ai`, `packages/eve`,
-`packages/mastra`, `packages/mcp`, `packages/openai`) declares as its supported
+`packages/langchain`, `packages/mastra`, `packages/mcp`, `packages/openai`) declares as its supported
 framework version range, cross-checked against that framework's *actual*
 resolved version in this monorepo's lockfile (`pnpm why <peer>`), and how each
 adapter maps onto that framework's current approval/resume mechanism. Re-verify
@@ -27,9 +27,10 @@ deferring to Node's runtime interop, will fail to load nominee-ai's `.cjs` entry
 once `ai@7` is the resolved peer. This trap is specific to the top of the
 declared range — it doesn't reproduce with `ai@5`/`ai@6`.
 
-**Three adapters declare open-ended floors with no ceiling.** `nominee-mastra`
-(`@mastra/core: >=1.54.0`), `nominee-mcp` (`@modelcontextprotocol/sdk:
->=1.30.0`), and `nominee-openai` (`@openai/agents: >=0.14.1`) all accept any
+**Four adapters declare open-ended floors with no ceiling.** `nominee-langchain`
+(`@langchain/core: >=1.0.0`), `nominee-mastra` (`@mastra/core: >=1.54.0`),
+`nominee-mcp` (`@modelcontextprotocol/sdk: >=1.30.0`), and `nominee-openai`
+(`@openai/agents: >=0.14.1`) all accept any
 future version once past the floor. Diffing each framework's changelog from the
 declared floor to its current published `latest` on npm (Mastra `1.57.0`, MCP
 SDK `1.30.0` — identical to the floor, OpenAI Agents SDK `0.14.3`) turned up no
@@ -55,6 +56,7 @@ handling of an Eve version this adapter no longer supports.
 | **nominee-mastra** — Mastra (`@mastra/core`) | `>=1.54.0` (resolved: `1.54.0`) | Wraps `createTool()`. Mastra's own `requireApproval` callback (native suspend/resume) is evaluated by the Mastra agent runtime *before* Mastra ever calls `execute`; when it resolves true from an agent tool call, nomineeTool binds the run's live `context.agent.toolCallId` into `nominee.run()` as `frameworkApproval: { id, via: 'mastra' }` so nominee records the framework's approval evidence instead of asking again. Direct/workflow execution (no trusted `agent.toolCallId`) falls back to nominee's own portable `ActionPendingError` rather than self-approving. A policy denial throws from `execute`, surfacing as a rejected `tool.execute()` call. | 2026-08-06 |
 | **nominee-mcp** — Model Context Protocol SDK (`@modelcontextprotocol/sdk`) | `>=1.30.0` (resolved: `1.30.0`) | `registerNomineeTool` registers a handler on the real `McpServer.registerTool`. There is no MCP-native approval primitive to hook into, so approval is nominee's own portable `requireApproval: boolean` blocking inside the handler via `nominee.run()`. A denial thrown from the handler is caught by the SDK's `CallToolRequest` handler and returned as `{ isError: true, content: [...] }`, not a protocol-level rejection. Verified against the real `McpServer` class in `packages/mcp/test/mcp.test.ts` (existing coverage — see note below). | 2026-08-06 |
 | **nominee-openai** — OpenAI Agents SDK (`@openai/agents`) | `>=0.14.1` (resolved: `0.14.1`) | Wraps `tool()`. Nominee's `ask` decision is mapped into the SDK's native resumable `needsApproval` function, which pauses the run until `RunContext.isToolApproved` reports the call approved on resume; nomineeTool then binds the approved `callId` into `nominee.run()` as `frameworkApproval: { id, via: 'openai-agents' }` so nominee records the native approval instead of blocking again. A policy denial throws from `execute`, surfacing as a rejected `tool.invoke()` call. Verified against the real `RunContext` class and `tool.invoke()`/`tool.needsApproval()` in `packages/openai/test/openai.test.ts` (existing coverage — see note below). | 2026-08-06 |
+| **nominee-langchain** — LangChain JS (`@langchain/core`) | `>=1.0.0` (resolved: `1.2.8`) | Wraps LangChain's `tool()`. There is no LangChain-native resumable tool-approval primitive comparable to OpenAI Agents `needsApproval`, so approval is nominee's portable `requireApproval` / `ask` path inside the tool function via `nominee.run()`. A policy denial throws from `invoke()`, surfacing as a rejected promise. Verified against the real `tool()` helper and `StructuredTool.invoke()` in `packages/langchain/test/langchain.test.ts`. | 2026-08-15 |
 
 ## Test coverage notes
 
@@ -87,6 +89,9 @@ local mock), and what was added:
   from `@modelcontextprotocol/sdk/server/mcp.js`, instantiates a real server,
   and calls the real `registerNomineeTool` → `server.registerTool` path,
   asserting on the real `RegisteredTool` it returns. No new test added.
+- **nominee-langchain** — `langchain.test.ts` imports `tool()` from
+  `@langchain/core/tools` (used inside `nomineeTool`) and drives the real
+  structured tool through `invoke()`. No separate compat file.
 - **nominee-openai** — `openai.test.ts` already imports the real `RunContext`
   class from `@openai/agents`, instantiates it for real, and drives the real
   `FunctionTool` returned by the real `tool()` (used inside `nomineeTool`)

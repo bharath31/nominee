@@ -9,7 +9,7 @@ This document outlines the market landscape for AI agent authorization and how N
 | Framework-native approval vs action authorization | [native-approval-vs-action-authorization](https://nominee.dev/blog/native-approval-vs-action-authorization/) | Published |
 | OAuth scopes vs action authorization | [oauth-scopes-vs-action-authorization](https://nominee.dev/blog/oauth-scopes-vs-action-authorization/) | Published |
 | FGA / OPA decide; nominee executes | [fga-opa-decide-nominee-executes](https://nominee.dev/blog/fga-opa-decide-nominee-executes/) | Published |
-| LangChain adapter | — | **Gap** — no comparison essay yet. Adapter notes: [`docs/integrations/langchain.md`](integrations/langchain.md) |
+| LangChain adapter | — | Adapter shipped as [`nominee-langchain`](../packages/langchain). Comparison essay still a gap. |
 
 Bottom-of-funnel how-tos (approval, deny-before-delete, budgets, audit trails) live under [`site/blog/`](../site/blog/) and are tracked separately.
 

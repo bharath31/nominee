@@ -25,6 +25,7 @@ values or user IDs, and expose bounded numeric aggregates. See
 - `nominee-openai` adapts nominee to the OpenAI Agents SDK.
 - `nominee-mastra` adapts nominee to Mastra.
 - `nominee-mcp` adapts nominee to MCP servers.
+- `nominee-langchain` adapts nominee to LangChain JS tools.
 - `nominee-auth0` is the optional Auth0 strategy (Token Vault + CIBA).
 - `nominee-supabase` is the optional Supabase strategy.
 - `nominee-postgres` supplies durable action/receipt stores for production.

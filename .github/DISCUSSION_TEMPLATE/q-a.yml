@@ -25,6 +25,7 @@ body:
         - nominee-openai
         - nominee-mastra
         - nominee-mcp
+        - nominee-langchain
         - nominee-cli
   - type: textarea
     id: snippet
