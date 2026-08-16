@@ -168,7 +168,7 @@ formatReceiptsCsv(nominee.receipts) // spreadsheet projection; includes enforcem
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
-Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. New receipts include `v: 1` (the receipt schema version) in that hashed content. `verifyReceipts` still accepts unversioned records sealed before this field existed, including mixed chains; an unknown `v` fails closed. This is not `policyVersion`, which versions the policy set. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
+Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. New receipts include `v: 1` (the receipt schema version) in that hashed content. `verifyReceipts` still accepts unversioned records sealed before this field existed, including mixed chains; an unknown `v` fails closed. This is not `policyVersion`, which versions the policy set. A mixed chain cannot hide tampering by stripping `v`: that changes the record's hash, so the next receipt's `prev` no longer matches. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
 
 For a threat model that includes whole-database rollback, anchor the signed
 stream tip in an external append-only system; a valid older chain is still a

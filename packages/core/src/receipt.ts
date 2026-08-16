@@ -17,14 +17,6 @@ export const RECEIPT_SCHEMA_VERSION = 1 as const
  * writing user data into logs.
  */
 export interface Receipt {
-  /**
-   * Receipt-record schema version, included in the canonical JSON that
-   * `hash` covers. New receipts always seal {@link RECEIPT_SCHEMA_VERSION}
-   * (`1`). Absent on records written before this field existed.
-   * `verifyReceipts` accepts both shapes in one chain; unknown versions fail
-   * closed. This is not `policyVersion` (which versions the policy set).
-   */
-  v?: number
   /** Position in the chain, starting at 0. */
   seq: number
   /** Epoch milliseconds. */
@@ -75,6 +67,14 @@ export interface Receipt {
   input?: unknown
   /** Free-form extra context. */
   detail?: unknown
+  /**
+   * Receipt-record schema version, included in the canonical JSON that
+   * `hash` covers. New receipts always seal {@link RECEIPT_SCHEMA_VERSION}
+   * (`1`). Absent on records written before this field existed.
+   * `verifyReceipts` accepts both shapes in one chain; unknown versions fail
+   * closed. This is not `policyVersion` (which versions the policy set).
+   */
+  v?: number
   /** Hash of the previous receipt (`"genesis"` for the first). */
   prev: string
   /** SHA-256 (or HMAC-SHA256 when a key is set) of this receipt's canonical content. */
@@ -202,6 +202,9 @@ export function sealReceipt(
  * unversioned (pre-`v`) records and `v: 1` records as long as every `prev`
  * link and content hash is intact. Receipts with a `v` other than
  * {@link RECEIPT_SCHEMA_VERSION} fail closed even if their hash matches.
+ * Stripping `v` to masquerade as a legacy record still fails: `v` is hashed
+ * content, so dropping it changes this receipt's hash, which breaks the next
+ * receipt's `prev` link — the same property that already detects any edit.
  */
 export function verifyReceipts(
   receipts: Receipt[],

@@ -69,6 +69,24 @@ describe('ReceiptLedger', () => {
     expect(verifyReceipts([legacy, next])).toEqual({ ok: true, checked: 2 })
   })
 
+  it('cannot hide a v:1 edit by stripping v in a mixed chain', () => {
+    const first = new ReceiptLedger().append(entry({ tool: 'email.read', effect: 'allow' }))
+    const second = sealReceipt(
+      { type: 'policy.decision', user: 'alice', tool: 'email.forward', effect: 'deny' },
+      { seq: 1, prev: first.hash, at: first.at + 1 },
+      { inputMode: 'hash' },
+    )
+    expect(verifyReceipts([first, second]).ok).toBe(true)
+
+    const { v: _dropped, hash: _oldHash, ...rest } = first
+    const stripped = { ...rest, hash: sha256(canonicalJson(rest)) }
+    expect(stripped.v).toBeUndefined()
+    const result = verifyReceipts([stripped, second])
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('broken chain link (prev mismatch)')
+    expect(result.brokenAt).toBe(1)
+  })
+
   it('fails closed on an unsupported receipt schema version', () => {
     const ledger = new ReceiptLedger()
     ledger.append(entry({ effect: 'allow' }))
