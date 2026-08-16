@@ -403,7 +403,12 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
           <p>
             By default inputs are recorded as <code>inputHash</code> (SHA-256 of the canonical
             JSON) — provable without writing user data into logs.
-            <code>receipts: { input: 'raw' }</code> or <code>'none'</code> change that. In-memory
+            <code>receipts: { input: 'raw' }</code> or <code>'none'</code> change that.
+            New receipts include <code>v: 1</code> (the receipt schema version, covered by
+            the hash; not <code>policyVersion</code>). <code>verifyReceipts</code> still
+            accepts unversioned records sealed before that field existed, including mixed
+            chains; an unknown <code>v</code> fails closed.
+            In-memory
             receipts retain the latest 1,000 entries by default; pass
             <code>receipts: { retain: 'all' }</code> or stream to a sink/durable store for an
             unbounded audit history. Pass <code>receipts: false</code> to disable receipts entirely.

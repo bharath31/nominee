@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { canonicalJson, sha256 } from '../src/hash.js'
 import {
+  RECEIPT_SCHEMA_VERSION,
   type Receipt,
   ReceiptLedger,
   formatReceipts,
   formatReceiptsCsv,
+  sealReceipt,
   verifyReceipts,
 } from '../src/index.js'
 
@@ -23,7 +26,60 @@ describe('ReceiptLedger', () => {
     expect(ledger.size).toBe(3)
     expect(ledger.all[0]?.prev).toBe('genesis')
     expect(ledger.all[1]?.prev).toBe(ledger.all[0]?.hash)
+    expect(ledger.all.every((receipt) => receipt.v === RECEIPT_SCHEMA_VERSION)).toBe(true)
     expect(ledger.verify()).toEqual({ ok: true, checked: 3 })
+  })
+
+  it('covers schema version in the hash so dropping v fails verification', () => {
+    const ledger = new ReceiptLedger()
+    ledger.append(entry({ tool: 'email.read', effect: 'allow' }))
+    const [sealed] = ledger.all
+    expect(sealed?.v).toBe(1)
+    const { v: _dropped, ...withoutVersion } = sealed as Receipt
+    expect(verifyReceipts([{ ...withoutVersion, hash: sealed!.hash } as Receipt]).ok).toBe(false)
+  })
+
+  it('verifies unversioned legacy receipts, v1 receipts, and mixed chains', () => {
+    const legacyBody = {
+      seq: 0,
+      at: 1_700_000_000_000,
+      type: 'policy.decision',
+      user: 'alice',
+      tool: 'email.read',
+      effect: 'allow' as const,
+      prev: 'genesis',
+    }
+    const legacy: Receipt = {
+      ...legacyBody,
+      hash: sha256(canonicalJson(legacyBody)),
+    }
+    expect(legacy.v).toBeUndefined()
+    expect(verifyReceipts([legacy])).toEqual({ ok: true, checked: 1 })
+
+    const current = new ReceiptLedger().append(entry({ tool: 'email.read', effect: 'allow' }))
+    expect(current.v).toBe(1)
+    expect(verifyReceipts([current])).toEqual({ ok: true, checked: 1 })
+
+    const next = sealReceipt(
+      { type: 'policy.decision', user: 'alice', tool: 'email.forward', effect: 'deny' },
+      { seq: 1, prev: legacy.hash, at: 1_700_000_000_001 },
+      { inputMode: 'hash' },
+    )
+    expect(next.v).toBe(1)
+    expect(verifyReceipts([legacy, next])).toEqual({ ok: true, checked: 2 })
+  })
+
+  it('fails closed on an unsupported receipt schema version', () => {
+    const ledger = new ReceiptLedger()
+    ledger.append(entry({ effect: 'allow' }))
+    const sealed = ledger.all[0]
+    expect(sealed).toBeDefined()
+    const { hash: _prior, ...rest } = sealed as Receipt
+    const content = { ...rest, v: 2 }
+    const unsupported = { ...content, hash: sha256(canonicalJson(content)) }
+    const result = verifyReceipts([unsupported])
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('unsupported receipt schema version 2')
   })
 
   it('detects content tampering', () => {

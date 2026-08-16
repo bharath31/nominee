@@ -285,7 +285,7 @@ console.log(formatReceipts(nominee.receipts))
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
-By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
+By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). New receipts seal `v: 1` (receipt schema version, distinct from `policyVersion`) into the hashed content; `verifyReceipts` still accepts unversioned records and mixed chains, and fails closed on an unknown `v`. If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
 In-memory receipts retain the latest 1,000 entries by default to keep development servers bounded; pass `receipts: { retain: 'all' }` or use `onReceipt` / `nominee-postgres` for an unbounded audit history.
 
 Anchor the signed stream tip outside the primary database when whole-database
