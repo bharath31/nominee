@@ -5,6 +5,7 @@
  * Wired into CI — see .github/workflows/ci.yml
  */
 
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
@@ -111,6 +112,79 @@ for (const rel of adapterReadmes) {
 const agents = read('AGENTS.md')
 if (agents && !agents.includes('check-surfaces.mjs')) {
   errors.push('AGENTS.md should reference brand/check-surfaces.mjs in Documentation section')
+}
+if (agents && !agents.includes('Never commit GTM or internal planning')) {
+  errors.push('AGENTS.md must keep the "Never commit GTM or internal planning" rule')
+}
+
+// GTM / internal planning must stay untracked. Path-only gitignore is not
+// enough: agents have committed the same notes under new folder names.
+const GTM_TRACKED_FORBIDDEN = [
+  /^docs\/launch-shot\//,
+  /^docs\/design-partners\//,
+  /^docs\/placements\//,
+  /^docs\/retention-gate\.md$/,
+  /^docs\/launch-500-dau\.md$/,
+  /^docs\/integrations\/submission-drafts\.md$/,
+  /^docs\/superpowers\//,
+  /^launch\//,
+  /^LAUNCH\.md$/,
+  /^marketing_plan\.md$/,
+  /^INTERNAL_NOTES\.md$/,
+  /^PROGRESS\.md$/,
+  /\.local\.md$/,
+]
+
+function trackedFiles() {
+  const result = spawnSync('git', ['ls-files', '-z'], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+  if (result.status !== 0) {
+    errors.push(`git ls-files failed: ${(result.stderr || result.error || '').toString().trim()}`)
+    return []
+  }
+  return result.stdout.split('\0').filter(Boolean)
+}
+
+const tracked = trackedFiles()
+for (const rel of tracked) {
+  if (GTM_TRACKED_FORBIDDEN.some((pattern) => pattern.test(rel))) {
+    errors.push(`tracked GTM/internal planning path: ${rel} — keep it gitignored/local (AGENTS.md)`)
+  }
+}
+
+const linearScan = spawnSync(
+  'git',
+  [
+    'grep',
+    '-l',
+    '-I',
+    '-e',
+    'linear.app/brth31',
+    '--',
+    'docs',
+    'site',
+    'examples',
+    'packages',
+    'README.md',
+    'llms.txt',
+    '.github',
+  ],
+  { cwd: root, encoding: 'utf8' },
+)
+if (linearScan.status === 0) {
+  for (const rel of linearScan.stdout.split('\n').filter(Boolean)) {
+    errors.push(
+      `${rel} links private Linear workspace linear.app/brth31 — do not copy internal tickets into the public tree`,
+    )
+  }
+} else if (linearScan.status !== 1 && linearScan.status !== 0) {
+  // status 1 = no matches; anything else is unexpected
+  const err = (linearScan.stderr || '').trim()
+  if (err && !/not a git repository/i.test(err)) {
+    errors.push(`git grep linear.app/brth31 failed: ${err}`)
+  }
 }
 
 // 5. site/docs must teach run() in the token quickstart section

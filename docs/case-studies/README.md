@@ -1,10 +1,10 @@
 # Case studies
 
 Case studies are the only artifact that answers *does this work for someone who
-isn't the author?* They are gated on design partners. Recruitment, scorecard,
-and outreach live in [docs/design-partners](../design-partners/README.md). This
-directory holds the template and the sign-off log. It does **not** invent
-named-company stories.
+isn't the author?* They are gated on design partners with numbers and written
+sign-off. Recruitment and outreach stay off this public tree. This directory
+holds the template and the sign-off log. It does **not** invent named-company
+stories.
 
 ## Hard rules
 

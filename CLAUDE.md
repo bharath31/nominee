@@ -44,4 +44,7 @@ node brand/check-surfaces.mjs
 Keep examples, package READMEs, and the microsite consistent with the TypeScript
 API. When changing core action lifecycle or adapter `run()` wiring, update root
 README, both `llms.txt` files, `site/docs/index.html`, and affected package
-READMEs. Internal planning notes should stay in gitignored local files.
+READMEs. Internal planning notes, launch kits, design-partner pipelines, and
+placement follow-through boards stay gitignored (see AGENTS.md "Never commit
+GTM or internal planning"). Do not invent a new `docs/` folder to bypass
+`.gitignore`; CI rejects those paths.

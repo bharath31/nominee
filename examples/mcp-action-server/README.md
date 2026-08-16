@@ -84,5 +84,4 @@ npx mcp-publisher publish
 ```
 
 Do not claim a registry listing until search on
-registry.modelcontextprotocol.io returns this server. See
-[docs/placements/mcp-registry.md](../../docs/placements/mcp-registry.md).
+registry.modelcontextprotocol.io returns this server.

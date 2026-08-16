@@ -199,7 +199,33 @@ First-touch docs live in three places:
 
 Deeper operator docs live in `docs/`: [production.md](docs/production.md) for the
 production runbook and [measurement.md](docs/measurement.md) for the opt-in usage
-reporter. Positioning and GTM working notes are gitignored and stay local.
+reporter.
+
+### Never commit GTM or internal planning
+
+This repository is **public**. `.gitignore` is not enough — agents have shipped
+the same notes under new folder names (`docs/launch-shot/`,
+`docs/design-partners/`, `docs/placements/follow-through.md`). Do **not**
+commit, open a PR for, or "document in-repo" any of:
+
+- Launch kits (Product Hunt / HN / Reddit drafts, gate checklists, day-of
+  posting plans)
+- Design-partner outreach, scorecards, pipelines, call notes, contact lists
+- Placement / listing follow-through boards, paste-ready upstream PR blurbs
+  meant only for filing, weekly GTM status
+- Private Linear issue bodies, workspace URLs (`linear.app/brth31`), or
+  "Road to 500" / kill-criteria working notes
+- Named third-party maintainer emails used as outreach targets
+- Anything that belongs in `*.local.md`, `launch/`, `INTERNAL_NOTES.md`, or
+  `marketing_plan.md`
+
+Keep those files gitignored on disk or in a **private** repo. Public `docs/`
+is for operators of the library (production runbook, observe, measurement
+script usage, integration guides). `brand/check-surfaces.mjs` fails if a
+forbidden path is tracked or a private Linear workspace URL appears in git.
+
+Positioning *copy* for the site lives in `brand/content.ts` and
+`docs/positioning.md`. That is not a license to commit the GTM machine.
 
 Keep examples aligned with the actual exported API before publishing.
 
