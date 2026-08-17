@@ -14,19 +14,20 @@ overrides:
 importers:
 
   .:
-    devDependencies:
+    dependencies:
       '@agent404/cloudflare':
         specifier: ^0.1.0
         version: 0.1.0
+      agent-404:
+        specifier: ^0.1.0
+        version: 0.1.0
+    devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
         version: 1.9.4
       '@changesets/cli':
         specifier: ^2.31.1
         version: 2.31.1(@types/node@26.0.0)
-      agent-404:
-        specifier: ^0.1.0
-        version: 0.1.0
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.25)(tsx@4.22.4)(typescript@5.9.3)
