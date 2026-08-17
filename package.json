@@ -14,8 +14,10 @@
     "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
+    "@agent404/cloudflare": "^0.1.0",
     "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.31.1",
+    "agent-404": "^0.1.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^4.1.10"
