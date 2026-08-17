@@ -1,5 +1,12 @@
 # nominee-cli
 
+## 2.8.0
+
+### Patch Changes
+
+- Updated dependencies [c68e48d]
+  - nominee@2.8.0
+
 ## 2.6.0
 
 ### Minor Changes

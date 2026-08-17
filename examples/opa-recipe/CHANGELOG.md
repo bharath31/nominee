@@ -1,5 +1,12 @@
 # opa-recipe
 
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [c68e48d]
+  - nominee@2.8.0
+
 ## 1.0.4
 
 ### Patch Changes

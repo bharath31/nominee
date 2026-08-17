@@ -1,5 +1,14 @@
 # mcp-action-server
 
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [c68e48d]
+  - nominee@2.8.0
+  - nominee-mcp@2.5.0
+  - nominee-postgres@2.3.0
+
 ## 1.0.4
 
 ### Patch Changes
