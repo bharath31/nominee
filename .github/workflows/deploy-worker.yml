@@ -39,13 +39,13 @@ jobs:
       - run: pnpm --filter nominee --filter nominee-auth0 build
       - name: Deploy worker
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: cd site/agent-worker && npx --yes wrangler@4 deploy
+        run: cd site/agent-worker && pnpm exec wrangler deploy
       # Push the receipt-signing key to the worker after deploy. Idempotent
       # (re-sets the same value each run); the secret is read from env as a
       # shell var, never interpolated into the command string.
       - name: Sync receipt key
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.NOMINEE_RECEIPT_KEY != '' }}
-        run: cd site/agent-worker && printf '%s' "$NOMINEE_RECEIPT_KEY" | npx --yes wrangler@4 secret put NOMINEE_RECEIPT_KEY
+        run: cd site/agent-worker && printf '%s' "$NOMINEE_RECEIPT_KEY" | pnpm exec wrangler secret put NOMINEE_RECEIPT_KEY
       - name: Note missing token
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
         run: echo "::warning::Set the CLOUDFLARE_WORKERS_API_TOKEN repo secret with Workers Scripts Edit to enable worker auto-deploy."

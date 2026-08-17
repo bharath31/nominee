@@ -33,7 +33,7 @@ jobs:
         run: node scripts/configure-cloudflare-web-analytics.mjs
       - name: Publish to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: npx --yes wrangler@4 pages deploy site --project-name=nominee-dev --branch=main
+        run: pnpm exec wrangler pages deploy site --project-name=nominee-dev --branch=main
       - name: Note missing token
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
         run: echo "::warning::Set the CLOUDFLARE_API_TOKEN repo secret to enable auto-deploy."
