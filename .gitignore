@@ -39,3 +39,5 @@ LAUNCH.md
 # transient secret-staging files
 *.rk.tmp
 .rk.tmp
+.vercel
+.env*
