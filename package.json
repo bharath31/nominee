@@ -1,29 +1,25 @@
 {
-  "name": "nominee-monorepo",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Authorization and durable action controls for AI agents",
+  "$schema": "../../node_modules/biome/configuration_schema.json",
+  "packageManager": "pnpm@10.10.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
-    "check": "biome check .",
+    "build": "tsup",
     "format": "biome format --write .",
     "version-packages": "changeset version && biome format --write packages/*/package.json",
     "release": "pnpm build && changeset publish"
   },
-  "devDependencies": {
+  "dependencies": {
     "@agent404/cloudflare": "^0.1.0",
+    "agent-404": "^0.1.0"
+  },
+  "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.31.1",
-    "agent-404": "^0.1.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^4.1.10"
   },
-  "packageManager": "pnpm@10.10.0",
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bharath31/nominee.git"
