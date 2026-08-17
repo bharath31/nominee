@@ -18,9 +18,14 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: pnpm
+      # The Pages worker (site/_worker.js) bundles @agent404/cloudflare, so
+      # dependencies must be present before wrangler bundles the site.
+      - run: pnpm install --frozen-lockfile
       # The script skips known analytics permission gaps, but fails on Pages
       # lookup errors and partial configuration so deploys cannot hide drift.
       - name: Configure Cloudflare Web Analytics
