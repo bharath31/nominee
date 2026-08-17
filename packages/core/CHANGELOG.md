@@ -1,5 +1,11 @@
 # nominee
 
+## 2.8.0
+
+### Minor Changes
+
+- c68e48d: Seal receipt schema version `v: 1` into every new receipt hash. `verifyReceipts` still accepts unversioned legacy records and mixed chains, and fails closed on an unknown `v`.
+
 ## 2.5.0
 
 ### Minor Changes
