@@ -25,7 +25,7 @@ export const brand = {
   leadEyebrow: 'Approval is the easy part.',
   leadH1: 'Your agent got approval at 2:14.\nIt executed at 2:31 with a dead token.',
   leadLede:
-    'Your framework can already pause a tool call — that part is solved. It cannot tell you the token expired during the pause, the arguments drifted, the permission changed, or the approval got spent twice. nominee makes the moment after "approve" correct, and leaves a receipt.',
+    'Your framework can pause a tool call. It cannot catch what changes while it waits: tokens expire, arguments drift, permissions change, or approvals get replayed. nominee makes the moment after "approve" correct and leaves a receipt.',
   leadChips: 'token minted at execution · bound to the args a human saw · spendable once',
 
   /** The lead proof — the number a skeptic cannot argue with. */
