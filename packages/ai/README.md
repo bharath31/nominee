@@ -183,6 +183,12 @@ For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditio
 
 ---
 
+## What happens on `ask`
+
+`ask` rules (and `approval: true`) route through `nominee.run()`. If a human settles the approval inline — e.g. your `onApprovalRequest` calls `req.approve()` within the same request — the tool runs right away. If the approval outlives the request (the callback only notifies, a CIBA push is still pending, or the process goes away first), the tool's `execute` throws `ActionPendingError` with a durable `actionId` instead of hanging — and the tool never runs. Catch it where the call is made, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume later with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
+---
+
 ## `withNominee` — Set Defaults Once
 
 Apply a shared `nominee` instance and user context across all tools in one call:

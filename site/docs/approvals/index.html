@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Approvals that outlive the request — nominee</title>
+    <meta
+      name="description"
+      content="When a human approval outlives the request: catch ActionPendingError, persist the action id and the original input, resolve it later, resume, and execute the one-use capability."
+    />
+    <link rel="canonical" href="https://nominee.dev/docs/approvals/" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Approvals that outlive the request — nominee" />
+    <meta
+      property="og:description"
+      content="The out-of-band approval path, step by step: ActionPendingError → resolveActionApproval → resumeAction → executeCapability."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://nominee.dev/docs/approvals/" />
+    <meta property="og:image" content="https://nominee.dev/assets/og.png" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .callout { border-left: 2px solid var(--seal); background: var(--seal-tint); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; color: var(--paper-soft); }
+      .callout-warn { border-left-color: #b45309; background: rgba(180, 83, 9, 0.08); }
+      .api-table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 14px; }
+      .api-table th, .api-table td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+      .api-table th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .step-tag { display: inline-block; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--seal); margin-bottom: 3px; }
+    </style>
+  </head>
+  <body>
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="nominee home">
+        <svg class="brand-seal" viewBox="0 0 40 40" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-opacity="0.9" stroke-width="1">
+            <circle cx="20" cy="20" r="15" /><circle cx="20" cy="20" r="11" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(60 20 20)" />
+            <ellipse cx="20" cy="20" rx="15" ry="5" stroke-opacity="0.5" transform="rotate(120 20 20)" />
+          </g>
+        </svg>
+        <span>nominee</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/docs/">Docs</a>
+        <a href="/docs/approvals/" aria-current="page">Approvals</a>
+        <a href="/blog/">Blog</a>
+        <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <div class="docs-wrap">
+      <aside class="docs-side" aria-label="Approvals guide">
+        <span class="grp">This page</span>
+        <a href="#why">Why the call throws</a>
+        <a href="#steps">The four steps</a>
+        <a href="#persist">You persist the input</a>
+        <a href="#binding">Why re-supply is the point</a>
+        <a href="#adapters">Per-adapter behavior</a>
+        <a href="#reference">The canonical example</a>
+        <span class="grp">Related</span>
+        <a href="/docs/#approval">Approvals overview</a>
+        <a href="/docs/mcp/#approvals">MCP approvals</a>
+        <a href="/agent">Live pause/resume demo</a>
+      </aside>
+
+      <article class="docs-main">
+        <h1>When the approval outlives the request</h1>
+        <p class="lede">
+          <strong>The call throws. The action lives on.</strong> An <code>ask</code> that
+          cannot be settled inside the current request does not hang a connection — it
+          returns a durable action id immediately, and a human can approve it minutes,
+          days, or a restart later. Here is the whole path.
+        </p>
+
+        <section id="why" class="doc-section">
+          <h2>Why the call throws</h2>
+          <p>
+            Every official adapter and <code>nominee.run()</code> route through the
+            decision-bound lifecycle. When the policy says <code>ask</code>, nominee first
+            tries to settle the approval inline — your <code>onApprovalRequest</code>
+            callback calling <code>req.approve()</code> within the request, or a strategy
+            that blocks on a decision (Auth0 CIBA). When it cannot — the callback only
+            notifies, the push is still pending, or the process is going away — the call
+            throws <code>ActionPendingError</code> immediately and the pending action is
+            durably recorded.
+          </p>
+          <p>
+            That is the intended shape of this path: <strong>no hung connection, no
+            in-memory state</strong>. What survives is a durable action record. Two things
+            to know about it:
+          </p>
+          <ul>
+            <li>
+              It stores the input as <code>inputHash</code> — a SHA-256 of the canonical
+              JSON — <strong>not the input itself</strong>. The raw arguments are never in
+              nominee's action store.
+            </li>
+            <li>
+              It expires. Actions live for <code>actionTtlMs</code> (default 24 hours), and
+              the one-use capability you get at resume time lives for
+              <code>capabilityTtlMs</code> (default 5 minutes).
+            </li>
+          </ul>
+          <p>
+            To resume across processes or replicas, construct the <code>Nominee</code>
+            with a durable action store — <code>nominee-postgres</code> provides one. The
+            in-memory store is process-local and fine for single-process demos.
+          </p>
+        </section>
+
+        <section id="steps" class="doc-section">
+          <h2>The four steps</h2>
+          <p>
+            Setup: a policy where refunds above a threshold need a human, and your tools
+            wrapped with <code>guard()</code> (or any adapter's
+            <code>nomineeTool()</code>):
+          </p>
+          <pre><code>import { Nominee, allow, ask, ActionPendingError } from 'nominee'
+
+const nominee = new Nominee({
+  policy: {
+    rules: [
+      allow('orders.read'),
+      allow('refund.issue', { when: ({ input }) => input.amount &lt;= 50 }),
+      ask('refund.issue', { when: ({ input }) => input.amount &lt;= 500 }),
+      deny('refund.issue'),
+    ],
+    fallback: 'deny',
+  },
+  onApprovalRequest: (req) => notifySlack(req), // notifies; does NOT settle inline
+})
+
+const tools = nominee.guard(
+  {
+    'orders.read': readOrder,
+    'refund.issue': issueRefund,
+  },
+  { user: 'alice' },
+)</code></pre>
+
+          <h3><span class="step-tag">Step 1</span>Catch the throw — persist the action id and the input</h3>
+          <pre><code>const input = { orderId: 'ord_1', amount: 200 }
+
+try {
+  await tools['refund.issue'](input)
+} catch (error) {
+  if (error instanceof ActionPendingError) {
+    // error.actionId — durable; error.approvalId — the approval inside it
+    await db.pendingActions.save({
+      actionId: error.actionId,
+      input, // your copy of the exact arguments you called with
+    })
+    return { status: 'waiting_for_approval', actionId: error.actionId }
+  }
+  throw error // PolicyDeniedError and others propagate unchanged
+}</code></pre>
+          <div class="callout callout-warn">
+            <strong>Persist the original input yourself.</strong> The durable action record
+            stores only <code>inputHash</code> — nominee deliberately never keeps your raw
+            arguments. Your application is the only copy of <code>input</code>, and step 4
+            needs it back, byte for byte.
+          </div>
+
+          <h3><span class="step-tag">Step 2</span>Resolve the approval — later, from anywhere</h3>
+          <p>
+            Minutes later, from a webhook, an admin UI, or a different process entirely.
+            The resolver records an <code>approval.resolved</code> receipt with the
+            approver's identity and the mechanism:
+          </p>
+          <pre><code>// your approval endpoint — authenticate the approver first
+await nominee.resolveActionApproval(actionId, {
+  decision: 'approved', // or 'denied'
+  approver: 'manager@acme.com',
+  via: 'web',
+})</code></pre>
+
+          <h3><span class="step-tag">Step 3</span>Resume — this does <em>not</em> execute the tool</h3>
+          <pre><code>const resumed = await nominee.resumeAction(actionId)
+// { status: 'ready', action, capability } — a one-use capability, nothing runs yet</code></pre>
+          <p>
+            <code>resumeAction()</code> only issues the capability. If the approval has not
+            been settled yet it returns <code>{ status: 'pending_approval', approvalId }</code>
+            (poll again later); a denied or expired action returns
+            <code>{ status: 'denied' | 'expired' }</code> with no capability and the tool
+            never runs. The capability is consumed once and expires quickly — call step 4
+            right away.
+          </p>
+
+          <h3><span class="step-tag">Step 4</span>Execute — re-supply the original input and your tool function</h3>
+          <pre><code>const result = await nominee.executeCapability(
+  resumed.capability,
+  input, // the SAME arguments the approver reviewed — from your persistence
+  ({ input, token }) => issueRefund(input), // YOUR tool function, again
+)
+// the action is marked succeeded; a failure is recorded the same way</code></pre>
+          <div class="callout callout-warn">
+            <strong>This is where step 1's persistence comes back.</strong>
+            <code>executeCapability</code> re-fingerprints the input you hand it and compares
+            it to the hash the approver signed off on. A different amount, a different order,
+            a missing field: <code>AuthorizationInputChangedError</code>, a deny receipt on
+            the chain, and the tool never runs.
+          </div>
+        </section>
+
+        <section id="persist" class="doc-section">
+          <h2>You persist the input — that is not an omission</h2>
+          <p>
+            The durable action record keeps <code>inputHash</code>, policy version, user,
+            resource, tenant, and approval state. It does not keep your arguments, and it
+            cannot run your tool for you: nominee does not know what
+            <code>issueRefund</code> is. So the out-of-band path splits the state in two:
+          </p>
+          <table class="api-table">
+            <thead><tr><th>State</th><th>Who keeps it</th></tr></thead>
+            <tbody>
+              <tr><td>Action id, input <em>hash</em>, approval decision, capability, outcome, receipts</td><td>nominee's durable action store (<code>nominee-postgres</code> in production)</td></tr>
+              <tr><td>The original input, and which function to call with it</td><td><strong>Your application</strong> — next to the action id, in your own table or cache</td></tr>
+            </tbody>
+          </table>
+          <p>
+            Storing the hash instead of the arguments keeps user data out of nominee's
+            store and receipt log, and it makes the argument-binding check at step 4
+            meaningful. If nominee held the input itself, "the input matches" would be a
+            comparison against a copy nominee made. The input you re-supply is the
+            application's attestation — at execution time — that these are the arguments
+            that were reviewed.
+          </p>
+        </section>
+
+        <section id="binding" class="doc-section">
+          <h2>Why re-supplying the input is the point</h2>
+          <p>
+            A capability is bound to the canonical hash of the exact arguments policy and
+            the approver saw. <code>executeCapability</code> fingerprints the input you pass
+            at execution and refuses — with a deny receipt — if it differs, so a tampered
+            queue, a buggy retry, or an agent that "adjusts the amount" after approval can
+            never widen the decision. The same guarantee closes the loop on the pause
+            itself: when an action names a <code>resource</code>, your
+            <code>authorizer</code> is consulted again after capability consumption, so a
+            permission revoked mid-approval also fails closed.
+          </p>
+        </section>
+
+        <section id="adapters" class="doc-section">
+          <h2>Per-adapter behavior</h2>
+          <p>
+            All adapters route through the same decision-bound lifecycle; what differs is
+            how the pending state surfaces:
+          </p>
+          <table class="api-table">
+            <thead><tr><th>Adapter</th><th>What <code>ask</code> does when it outlives the request</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>nominee-ai</code> (Vercel AI SDK / Cloudflare Agents)</td>
+                <td>Throws <code>ActionPendingError</code> out of the tool's <code>execute</code>. Catch it where the call is made (or in your model's tool-error handling), persist, resume.</td>
+              </tr>
+              <tr>
+                <td><code>nominee-eve</code> (Vercel Eve)</td>
+                <td>Same portable path — <code>ActionPendingError</code> out of <code>execute</code>. An Eve-native <code>eveApproval</code> gate is independent and still applies on top.</td>
+              </tr>
+              <tr>
+                <td><code>nominee-openai</code> (OpenAI Agents SDK)</td>
+                <td>Maps <code>ask</code> into the SDK's native resumable approval: the run pauses, and on resume the adapter verifies the approved tool-call id and seals it as approval evidence. If <code>execute</code> runs without verifiable framework approval, the portable path applies instead.</td>
+              </tr>
+              <tr>
+                <td><code>nominee-mastra</code> (Mastra)</td>
+                <td>Portable path by default (<code>nativeApprovals: false</code>): <code>ActionPendingError</code>. With <code>nativeApprovals: true</code>, <code>ask</code> maps to Mastra's native pause/resume for agent tools; calls without Mastra's <code>toolCallId</code> marker (workflows, direct execution) fail closed to the portable path.</td>
+              </tr>
+              <tr>
+                <td><code>nominee-mcp</code> (MCP server SDK)</td>
+                <td><code>registerNomineeTool</code> returns <code>{ isError: true, structuredContent: { nominee: 'pending_approval', actionId, approvalId } }</code> — MCP has no approval-resume protocol, so the id travels in the tool result. The low-level <code>nomineeMcpHandler()</code> throws <code>ActionPendingError</code> at a custom transport.</td>
+              </tr>
+              <tr>
+                <td><code>nominee-langchain</code> (LangChain JS)</td>
+                <td>Portable path only — LangChain has no first-class resumable tool-approval primitive. <code>invoke()</code> rejects with <code>ActionPendingError</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            In every case the recovery is the same four steps, and denied calls never
+            reach <code>execute</code>.
+          </p>
+        </section>
+
+        <section id="reference" class="doc-section">
+          <h2>The canonical example</h2>
+          <p>
+            <a href="https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent"><code>examples/support-refund-agent</code></a>
+            is the reference implementation of this path: an Express app with
+            <code>nominee-ai</code> tools, <code>production: true</code>, and
+            <code>PostgresControlStore</code> durable stores.
+          </p>
+          <ul>
+            <li>
+              <strong>Policy by amount</strong> — refunds ≤ $50 run, ≤ $500 ask, larger
+              ones are denied before the refund function runs.
+            </li>
+            <li>
+              <strong>Step 1 as an HTTP contract</strong> — <code>POST /refund</code>
+              catches <code>ActionPendingError</code> and returns <code>202</code> with the
+              <code>actionId</code>, <code>approvalId</code>, and the original
+              <code>input</code> echoed back so the caller can re-supply it.
+            </li>
+            <li>
+              <strong>Authenticated steps 2–4</strong> — <code>POST /approve</code> and
+              <code>POST /deny</code> require a Bearer credential
+              (<code>APPROVER_CREDENTIAL</code>); <code>POST /refund/resume</code> takes
+              the action id <em>plus the same input</em>, checks
+              <code>resumed.status === 'ready'</code>, and calls
+              <code>executeCapability</code>.
+            </li>
+            <li>
+              <strong>Proof</strong> — the test suite covers all three policy outcomes,
+              HTML escaping, and the approver credential checks, and the run
+              walkthrough above drives the resume flow manually.
+            </li>
+          </ul>
+          <div class="callout">
+            See the same pause-and-resume live at
+            <a href="/agent">nominee.dev/agent</a> — a Cloudflare Durable Object that
+            hibernates while it waits for your approval, then resumes the same hash-chained
+            receipt log and fetches a fresh GitHub token only at that moment.
+          </div>
+          <p>
+            Coming from the examples: dedicated approval walkthroughs for
+            <code>nominee-langchain</code> and <code>nominee-mastra</code> are on the way;
+            until then, read the <code>ask</code> sections of the
+            <a href="https://www.npmjs.com/package/nominee-langchain">nominee-langchain</a>
+            and <a href="https://www.npmjs.com/package/nominee-mastra">nominee-mastra</a>
+            READMEs alongside this page. MCP's durable-approval notes also live in
+            <a href="https://github.com/bharath31/nominee/blob/main/docs/integrations/mcp.md">docs/integrations/mcp.md</a>.
+          </p>
+        </section>
+      </article>
+    </div>
+
+    <script>
+      // add a copy button to every code block
+      for (const pre of document.querySelectorAll('.doc-section pre')) {
+        const btn = document.createElement('button')
+        btn.className = 'pre-copy'
+        btn.textContent = 'copy'
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(pre.innerText.trim())
+            btn.textContent = 'copied ✓'
+            setTimeout(() => { btn.textContent = 'copy' }, 1400)
+          } catch {}
+        })
+        pre.appendChild(btn)
+      }
+    </script>
+  </body>
+</html>

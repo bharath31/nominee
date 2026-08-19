@@ -39,6 +39,10 @@ without that marker fails closed to Nominee's portable durable approval handle
 everywhere. In both modes, denied calls never reach `execute`, and credentials
 are resolved only after capability consumption.
 
+## What happens on `ask`
+
+By default (`nativeApprovals: false`), a Nominee `ask` that cannot be settled inline throws `ActionPendingError` out of the tool's `execute` — the durable, portable path. Catch it, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume later with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. With `nativeApprovals: true`, `ask` instead maps into Mastra's native pause/resume flow for agent tools, with approval evidence bound to Mastra's `toolCallId`; calls that lack that marker (workflows, direct execution) fail closed to the portable `ActionPendingError` path. In both modes denied calls never reach `execute`. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
 ## Observe before enforcing
 
 Use the same tool with `new Nominee({ mode: 'observe' })` to inventory the
