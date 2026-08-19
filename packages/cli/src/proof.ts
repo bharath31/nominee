@@ -256,8 +256,11 @@ export async function runProof(): Promise<ProofResult> {
         await nominee.executeCapability(swap.capability, SWAP, executeRefund)
         console.log(red('  ✗ APPROVED $200 EXECUTED AS $2,000 — this line must never print'))
       } catch (error) {
-        argSwapRejected =
-          error instanceof AuthorizationInputChangedError || error instanceof CapabilityInvalidError
+        // The rejection must be the input-binding guard itself. Accepting
+        // CapabilityInvalidError here would let the proof pass if the approval
+        // were only bound to a stale/consumed capability, not to the exact
+        // approved input — so only AuthorizationInputChangedError counts.
+        argSwapRejected = error instanceof AuthorizationInputChangedError
         if (argSwapRejected) {
           console.log(`${red('✗')} arg swap             approved $200, executed $2,000 → rejected`)
         }

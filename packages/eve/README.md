@@ -128,6 +128,12 @@ option remains as a deprecated alias.
 
 ---
 
+## What happens on `ask`
+
+`ask` rules (and `approval: true`) route through `nominee.run()`. If a human settles the approval inline within the request, the tool runs right away. If the approval outlives the request, `execute` throws `ActionPendingError` with a durable `actionId` instead of hanging — the tool never runs. Catch it, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume later with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. An Eve-native `eveApproval` gate is independent of this portable path and still applies on top of it. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
+---
+
 ## `withNominee` — Shared Defaults
 
 ```ts

@@ -1,4 +1,5 @@
 import {
+  ActionPendingError,
   AuthorizationInputChangedError,
   Memory,
   Nominee,
@@ -225,6 +226,71 @@ describe('nominee-ai', () => {
     expect(readDoc).toHaveBeenCalledOnce()
     await expect(exec(tools['doc.read'], { id: 43 })).rejects.toBeInstanceOf(PolicyDeniedError)
     expect(readDoc).toHaveBeenCalledTimes(1)
+  })
+
+  it('guardTools accepts a static tenant value (no resolver)', async () => {
+    const nominee = makeNominee({
+      policy: {
+        rules: [allow('search', { when: ({ tenant }) => tenant === 'acme' })],
+        fallback: 'deny',
+      },
+    })
+    const search = vi.fn(async () => 'hits')
+    const tools = guardTools(nominee, { search: { execute: search } } as never, {
+      user: 'u1',
+      tenant: 'acme',
+    }) as { search: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.search, { q: 'anything' })).resolves.toBe('hits')
+    expect(search).toHaveBeenCalledOnce()
+  })
+
+  it('guardTools accepts a static resource value (no resolver)', async () => {
+    const nominee = makeNominee({
+      policy: {
+        rules: [allow('doc.read', { when: ({ resource }) => resource === 'doc:42' })],
+        fallback: 'deny',
+      },
+    })
+    const readDoc = vi.fn(async () => 'content')
+    const tools = guardTools(nominee, { 'doc.read': { execute: readDoc } } as never, {
+      user: 'u1',
+      resource: 'doc:42',
+    }) as { 'doc.read': { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools['doc.read'], { id: 1 })).resolves.toBe('content')
+    expect(readDoc).toHaveBeenCalledOnce()
+  })
+
+  it('guardTools surfaces ActionPendingError when an ask outlives the request', async () => {
+    const nominee = makeNominee({ policy: [ask('close_issue')] })
+    const closeIssue = vi.fn(async () => 'done')
+    const tools = guardTools(nominee, { close_issue: { execute: closeIssue } } as never, {
+      user: 'u1',
+    }) as { close_issue: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.close_issue, { issue: 1 })).rejects.toBeInstanceOf(ActionPendingError)
+    expect(closeIssue).not.toHaveBeenCalled()
+  })
+
+  it('guardTools aborts execute when input changes after approval', async () => {
+    const input = { issue: 1 }
+    const closeIssue = vi.fn(async () => 'done')
+    const nominee = makeNominee({
+      policy: [ask('close_issue')],
+      onApprovalRequest: (req) => {
+        input.issue = 999
+        req.approve()
+      },
+    })
+    const tools = guardTools(nominee, { close_issue: { execute: closeIssue } } as never, {
+      user: 'u1',
+    }) as { close_issue: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.close_issue, input)).rejects.toBeInstanceOf(
+      AuthorizationInputChangedError,
+    )
+    expect(closeIssue).not.toHaveBeenCalled()
   })
 
   it('guardTools forwards connection and scopes to the tokens strategy', async () => {

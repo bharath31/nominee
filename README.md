@@ -162,6 +162,8 @@ The result is literal:
 - `deny`: throw before the tool function runs.
 - Every outcome leaves a receipt.
 
+When the approval outlives the request, the call throws `ActionPendingError` immediately and you resume the durable action later — see [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
 The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents, Mastra, Cloudflare Agents, and MCP tools.
 
 ## 4. Make it durable

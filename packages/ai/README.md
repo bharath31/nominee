@@ -110,9 +110,18 @@ const tools = guardTools(
 // allow('email.forward', { when: ({ tenant }) => tenant === 'acme' })
 ```
 
+> **Note:** `connection` / `scopes` on `guardTools` authorize a fresh token
+> through your strategy (policy `when` clauses, external authorization, and
+> the receipt log all see it), but the wrapped tool's plain AI SDK `execute`
+> receives only `(input, options)` — it never sees the token. When the tool
+> itself must call the third-party API, use `nomineeTool`, whose `execute`
+> receives the fresh token in `ctx.token`. And because resolving a token
+> requires a configured strategy, a `connection` on a policy-only nominee
+> fails closed at call time.
+
 ### Which path to use when
 
-- **`guardTools`** — wrap your whole existing tools object with one shared context: `user`, `resource`, `tenant`, `connection`, `scopes` for every tool. Your tools keep their plain AI SDK `execute` signature.
+- **`guardTools`** — wrap your whole existing tools object with one shared context: `user`, `resource`, `tenant`, `connection`, `scopes` for every tool. Your tools keep their plain AI SDK `execute` signature — they do **not** receive `ctx.token`; `connection` / `scopes` there are for authorization and audit, not for handing the tool a secret.
 - **`nomineeTool`** — per-tool config: a different `connection` / `scopes` / `approval` / policy `action` per tool, and the fresh token injected into `ctx.token` where your `execute` actually consumes it.
 
 ---
@@ -171,6 +180,12 @@ const deleteRepo = nomineeTool({
 ```
 
 For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditions, `max` budgets), put it in the policy instead — the decision and its resolution are sealed into the receipt chain either way.
+
+---
+
+## What happens on `ask`
+
+`ask` rules (and `approval: true`) route through `nominee.run()`. If a human settles the approval inline — e.g. your `onApprovalRequest` calls `req.approve()` within the same request — the tool runs right away. If the approval outlives the request (the callback only notifies, a CIBA push is still pending, or the process goes away first), the tool's `execute` throws `ActionPendingError` with a durable `actionId` instead of hanging — and the tool never runs. Catch it where the call is made, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume later with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
 
 ---
 

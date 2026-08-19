@@ -17,8 +17,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - run: node brand/check-surfaces.mjs
       - run: pnpm -r build
+      - run: node brand/check-surfaces.mjs
       - run: pnpm typecheck
       - run: pnpm -r test
       - run: node --test scripts/*.test.mjs
