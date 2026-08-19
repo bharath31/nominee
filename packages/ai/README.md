@@ -87,13 +87,39 @@ const { text } = await generateText({
 })
 ```
 
-Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.run({ tool, input, user })`, and only then runs the original. Client-executed tools (no `execute`) pass through untouched. `user` can also be an async resolver of the tool-call options: `(options) => session.userId`.
+Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.run()` with the call's full context, and only then runs the original. Client-executed tools (no `execute`) pass through untouched.
+
+### Full context, still one line
+
+The third argument carries the same per-call context as `nomineeTool`. `user` can be an async resolver of the tool-call options: `(options) => session.userId`. `resource` and `tenant` can be static values or resolvers of `(input, options)`, and `connection` / `scopes` feed your tokens strategy. Every resolved value reaches `nominee.run()`, so tenant- and resource-scoped policy rules, external authorization, and token strategies all see it:
+
+```ts
+const tools = guardTools(
+  nominee,
+  { searchEmail, forwardEmail, deleteRepo },
+  {
+    user: 'alice',
+    tenant: 'acme', // or (input, options) => session.tenant
+    resource: (input) => input.to?.mailbox, // only this mailbox, per call
+    connection: 'google', // fresh token for this connection at call time
+    scopes: ['gmail.send'],
+  },
+)
+
+// Policy can then scope on the context the one-liner carries:
+// allow('email.forward', { when: ({ tenant }) => tenant === 'acme' })
+```
+
+### Which path to use when
+
+- **`guardTools`** — wrap your whole existing tools object with one shared context: `user`, `resource`, `tenant`, `connection`, `scopes` for every tool. Your tools keep their plain AI SDK `execute` signature.
+- **`nomineeTool`** — per-tool config: a different `connection` / `scopes` / `approval` / policy `action` per tool, and the fresh token injected into `ctx.token` where your `execute` actually consumes it.
 
 ---
 
 ## `nomineeTool` — Per-Tool Config
 
-When a tool also needs a fresh third-party token, a forced approval, or its own policy action name, build it with `nomineeTool`:
+When each tool needs its own `connection` / `scopes`, a forced approval, its own policy action name, or the fresh token inside `ctx.token`, build it with `nomineeTool`:
 
 ```ts
 import { nomineeTool } from 'nominee-ai'
