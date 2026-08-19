@@ -7,32 +7,51 @@ consumption time, and seals every outcome into the receipt chain. When an
 approval outlives the request, adapters surface `ActionPendingError` with a
 durable action id for `resumeAction()`.
 
-## Support refund demo — start here
+## [`token-refresh-correctness`](./token-refresh-correctness) — the lead proof
 
-The same refund tool gets three outcomes from policy: $25 runs, $200 waits for
-approval, and $2,000 is blocked before the refund function runs. Start with the
-10-second proof:
+The token-freshness proof, and the first thing to run. A mock OAuth server with
+rotating refresh tokens and real latency; an agent that pauses for approval and
+then fires eight tool calls at once. Naive rotating refresh fails **7/8** under
+concurrency; nominee gets **8/8** with the same agent code. No mocks that cheat:
 
 ```bash
-npx nominee-cli
+node examples/token-refresh-correctness/run.mjs
 ```
 
-Then open [`support-refund-agent`](./support-refund-agent) for durable production
-wiring: Vercel AI SDK tools, approvals that survive the request, authenticated
-approve/deny endpoints, and PostgreSQL stores under `production: true`.
+```text
+A) naive (hold access token across pause):       resource → 401 token_expired
+B) nominee (refresh at call time):               before → 200 OK | after pause → 200 OK
+C) nominee + 8 concurrent calls:                 network refreshes = 1 (single-flight) | 8/8
+D) refresh WITHOUT single-flight (8 concurrent): network refreshes = 8 | invalid_grant = 7/8
+```
 
-Or use the [live playground](https://nominee.dev/playground/) to edit the rules,
-approve the $200 call yourself, and inspect the real receipt chain in the browser.
+Read the four rows as one argument: **A and D are the natural-but-wrong first
+attempts** — grab the token up front and it dies across the pause (A); "just
+refresh" without single-flight and rotation makes concurrency actively corrupt
+state (D). **B and C are nominee**: resolve at call time, coalesce refreshes,
+persist rotation atomically. The agent code does not change.
 
 ## [`support-refund-agent`](./support-refund-agent) — durable production wiring
+
+The same refund tool gets three outcomes from policy: $25 runs, $200 waits for
+approval, and $2,000 is blocked before the refund function runs. Open
+[`support-refund-agent`](./support-refund-agent) for durable production wiring:
+Vercel AI SDK tools, approvals that survive the request, authenticated
+approve/deny endpoints, and PostgreSQL stores under `production: true`. Or run
+the zero-install proof: `npx nominee-cli`. Or use the
+[live playground](https://nominee.dev/playground/) to edit the rules, approve
+the $200 call yourself, and inspect the real receipt chain in the browser.
 
 ## [`prompt-injection-blocked`](./prompt-injection-blocked) — supporting security proof
 
 A prompt-injected agent tries to exfiltrate your email — and physically can't.
 The tools are wrapped with `nominee.guard()`; the deny rule fires **before the
 tool runs**, the delete-the-evidence step is escalated to (and denied by) a
-human, and every attempt is sealed into a signed, tamper-evident receipt chain.
-Doctoring the log is detected. No API keys, no network, one command:
+human, and every attempt — including the refusals — is sealed into a
+hash-chained receipt log, tamper-evident against a downstream log editor.
+Doctoring the log is detected. Blast-radius containment, not detection; the
+half nobody else has is that the refusal is **on the record**. No API keys, no
+network, one command:
 
 ```bash
 cd examples/prompt-injection-blocked
@@ -45,11 +64,6 @@ Drop nominee into Vercel AI SDK tools — policy + fresh token + approval + audi
 in one `nomineeTool` wrapper (or `guardTools` for a whole tools object). Both
 route through `nominee.run()` internally; see each README for `ActionPendingError`
 when an approval outlives the request.
-
-## [`token-refresh-correctness`](./token-refresh-correctness)
-
-The token-freshness proof: naive concurrent + rotating OAuth refresh fails 7/8;
-nominee gets 8/8 with the same agent code. `node run.mjs`, no mocks that cheat.
 
 ## [`github-agent`](./github-agent) — the golden Eve example
 

@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Your AI agent's OAuth token refresh is probably broken — nominee</title>
-    <meta name="description" content="Short-lived access tokens break grab-up-front across an approval pause. Rotating refresh tokens break naive refresh under concurrency — 7/8 calls fail with invalid_grant. A runnable proof, and the tiny no-SaaS fix." />
+    <meta name="description" content="The token is one of four things that go stale across the approval pause. Short-lived access tokens break grab-up-front; rotating refresh tokens break naive refresh under concurrency — 7/8 calls fail with invalid_grant. A runnable proof, and the tiny no-SaaS fix." />
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://nominee.dev/blog/oauth-refresh-is-probably-broken/" />
     <meta property="og:title" content="Your AI agent's OAuth token refresh is probably broken" />
-    <meta property="og:description" content="Rotating refresh tokens + concurrency make naive refresh fail 7/8 with invalid_grant. Here's the runnable proof and the tiny no-SaaS fix." />
+    <meta property="og:description" content="The token is one of four things that go stale across the approval pause. Rotating refresh tokens + concurrency make naive refresh fail 7/8 — here's the runnable proof and the tiny no-SaaS fix." />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://nominee.dev/blog/oauth-refresh-is-probably-broken/" />
     <meta property="og:image" content="https://nominee.dev/assets/og-blog-token.png" />
@@ -18,7 +18,7 @@
     <meta property="article:author" content="Bharath" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Your AI agent's OAuth token refresh is probably broken" />
-    <meta name="twitter:description" content="Rotating refresh tokens + concurrency make naive refresh fail 7/8 with invalid_grant. Here's the runnable proof and the tiny no-SaaS fix." />
+    <meta name="twitter:description" content="The token is one of four things that go stale across the approval pause. Rotating refresh tokens + concurrency make naive refresh fail 7/8 — here's the runnable proof and the tiny no-SaaS fix." />
     <meta name="twitter:image" content="https://nominee.dev/assets/og-blog-token.png" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
@@ -77,6 +77,8 @@
         </div>
 
         <div class="post-body">
+
+          <p>The token is one of <strong>four things that go stale while your agent waits for a human to approve</strong>. Your framework can already pause a tool call; it cannot tell you the token expired during the pause, the arguments drifted, the permission changed, or the approval got spent twice. This post is the token half of that story — the same gap nominee exists for.</p>
 
           <p>"Just refresh the token" looks like a five-line problem. For a lot of agents it quietly isn't — and the failure only shows up in production, under load, after a human took a few seconds to click approve.</p>
 

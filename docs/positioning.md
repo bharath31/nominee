@@ -7,14 +7,30 @@ Nominee is not primarily an approval library, a connector catalog, an agent fram
 
 Its defensible claim is **turning an allowed agent tool call into a short-lived, one-shot, exact-input-bound execution capability, with a fresh least-privilege credential and verifiable evidence.**
 
-## Ideal Customer Profile (ICP)
-1. **Primary**: TypeScript product teams adding write-capable, multi-tenant agents to an existing SaaS application. They already own their app authorization (Auth0, Okta, WorkOS, Clerk, custom) and tools, but do not want every agent tool to reimplement authorization, approval, token freshness, and audit handling.
-2. **Secondary**: Teams building governed MCP servers for internal enterprise actions.
+## Ideal Customer Profile (beachhead)
+
+The moment, not the who: **a TypeScript team whose agent takes a write action on a
+third-party API on a user's behalf, where a human approves out of band (Slack /
+email / push), not inside the originating request.**
+
+The originating request returns before the human decides; the tool call resumes
+later. That gap is where nominee's four staleness modes live (token, arguments,
+permission, replay) — and where the library's claim is strongest. Teams without
+that pause have no gap to close.
+
+Teams already building governed MCP servers for internal enterprise actions fit
+the same pattern (the human approves the action outside the MCP request).
 
 ### Non-ICP
+
 Consumers wiring a generic assistant to hundreds of SaaS APIs. Products like Arcade or Composio are better suited for that use case; Nominee should compose beneath or alongside them when application authorization matters.
 
 ## When NOT to use Nominee
+
+The disqualifier, in one line: **does your approval come back in the same HTTP
+request that asked for it? Then you don't need nominee.** No pause, no staleness,
+no gap to close.
+
 - **You need a massive catalog of SaaS integrations.** Use Arcade or Composio.
 - **Your agent is read-only** and has no authority worth guarding.
 - **Your platform's native permission system covers you end-to-end** and you don't need evidence trails or fresh credentials.
@@ -41,3 +57,4 @@ honest "not a replacement for" line): [Auth0](partner-kits/auth0.md),
 ## Prohibited Claims
 - "Stops prompt injection" (Nominee mitigates the *blast radius* of a hijacked agent but does not magically detect prompt injection).
 - "Tamper-proof / compliance-ready" without caveats (Receipts are evidence primitives, but require proper key management and external log anchoring for true compliance). **"Tamper-evident" is an approved, materially narrower claim** when describing the hash-chained receipt log.
+- "Signed receipts" (Receipts are hash-chained with an optional HMAC key — tamper-evident against a downstream log editor, **not** non-repudiation. Anyone who can verify could forge a consistent rewrite. Say "hash-chained (HMAC)" and state the trust boundary).

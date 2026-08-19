@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>nominee — find out what your agent can actually do</title>
+    <title>nominee — your agent got approval at 2:14. It executed at 2:31 with a dead token.</title>
     <meta
       name="description"
-      content="Find out what your agent can actually do. One command, no policy. Then your rules decide what runs — open-source TypeScript allow, ask, and deny checks before every AI tool call."
+      content="Your framework can already pause a tool call. It cannot tell you the token expired during the pause, the arguments drifted, the permission changed, or the approval got spent twice. nominee makes the moment after 'approve' correct — open-source TypeScript."
     />
     <link rel="canonical" href="https://nominee.dev/" />
     <meta name="theme-color" content="#faf9f5" />
-    <meta property="og:title" content="Your agent calls tools. Your rules decide what runs." />
+    <meta property="og:title" content="Your agent got approval at 2:14. It executed at 2:31 with a dead token." />
     <meta
       property="og:description"
-      content="A $25 refund runs. A $200 refund waits for your approval. A $2,000 refund never reaches the tool."
+      content="Approval is the easy part. nominee makes the moment after it correct: token minted at execution, bound to the args a human saw, spendable once."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nominee.dev/" />
@@ -21,10 +21,10 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Your agent calls tools. Your rules decide what runs." />
+    <meta name="twitter:title" content="Your agent got approval at 2:14. It executed at 2:31 with a dead token." />
     <meta
       name="twitter:description"
-      content="Open-source TypeScript rules checked before every AI tool call."
+      content="Approval is the easy part. nominee makes the moment after it correct — open-source TypeScript."
     />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -38,6 +38,30 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/home.css" />
+    <style>
+      /* Landing-only bits (home.css is shared; keep additions here). */
+      .breaks-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px;
+        max-width: var(--maxw); margin: 22px auto 0;
+      }
+      .breaks-card {
+        border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--surface);
+      }
+      .breaks-card h3 { font-family: var(--display); font-size: 15px; letter-spacing: -0.01em; margin-bottom: 6px; }
+      .breaks-card h3 code { color: var(--seal); }
+      .breaks-card p { color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
+      .breaks-card p code { color: var(--ink); font-size: 12px; }
+      .snippet {
+        background: var(--code-bg); border: 1px solid var(--code-line); border-radius: 10px;
+        padding: 14px 16px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+        color: var(--code-text); overflow-x: auto;
+      }
+      .snippet .k { color: #9db4ff; }
+      .snippet .fn { color: #e0a96d; }
+      .snippet .c { color: var(--code-dim); }
+      .proof-link { margin-top: 12px; font-size: 15px; color: var(--ink-soft); line-height: 1.6; }
+      .proof-link a { color: var(--seal); border-bottom: 1px solid var(--seal-line); }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -45,7 +69,7 @@
         "name": "nominee",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Node.js, Cloudflare Workers, any JS runtime",
-        "description": "Open-source TypeScript allow, ask, and deny rules checked before every AI agent tool call.",
+        "description": "Open-source TypeScript library that gets the moment after an agent approval correct: fresh token minted at execution, arguments bound to what a human saw, spendable once, on the record.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "url": "https://nominee.dev/",
         "license": "https://opensource.org/licenses/MIT",
@@ -71,6 +95,14 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Add ask('refund.issue') or another ask rule. The call pauses for your approval UI, and the approval applies only to the arguments the person reviewed."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What happens to the token while an approval is pending?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nominee resolves credentials at execution time, inside the run() callback, after the capability is consumed. A token never goes stale across the pause because it is minted after the pause, not before it."
             }
           },
           {
@@ -110,7 +142,7 @@
             "name": "Can receipts be forged?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Tamper-evident, not non-repudiation. Without a signing key the chain is publicly re-computable: anyone can verify it wasn't edited, but anyone with write access to the whole log could also rewrite it consistently. Pass an HMAC key and only key-holders can produce valid hashes."
+              "text": "Tamper-evident, not non-repudiation. The chain is hash-chained (HMAC): anyone with the key can verify nothing was edited, but anyone with write access to the whole log could also rewrite it consistently. The guarantee is evidence against a downstream log editor, not a legal signature."
             }
           },
           {
@@ -142,7 +174,7 @@
             "name": "When don't I need nominee?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "A read-only agent with no authority worth guarding. Your platform's native permission system already covers you end-to-end. Or you want one fully-managed vendor for tools, auth, and policy together — use Arcade or Composio directly."
+              "text": "Does your approval come back in the same HTTP request that asked for it? Then you don't need nominee. Also: a read-only agent with no authority worth guarding; your platform's native permission system covering you end-to-end; or one fully-managed vendor for tools, auth, and policy — use Arcade or Composio directly."
             }
           }
         ]
@@ -175,206 +207,154 @@
     </header>
 
     <main>
+      <!-- 1. Hero — concede → gap → proof. Exactly one lead: post-pause correctness. -->
       <section class="hero">
         <div class="hero-copy">
-          <p class="hero-tag">No policy required <span class="ref">· MIT</span></p>
-          <h1>Find out what your agent<br />can actually do.</h1>
+          <p class="hero-tag">Approval is the easy part <span class="ref">· MIT</span></p>
+          <h1>Your agent got approval at 2:14.<br />It executed at 2:31 with a dead token.</h1>
           <p class="lede">
-            One command. No premise to accept. Observe mode reports the tool callbacks that
-            actually start — then <strong>your rules decide what runs.</strong>
+            Your framework can already pause a tool call — that part is solved. It cannot tell you
+            the token expired during the pause, the arguments drifted, the permission changed, or
+            the approval got spent twice. <strong>nominee makes the moment after "approve"
+            correct</strong>, and leaves a receipt.
           </p>
-          <div class="hero-outcomes" aria-label="Support agent refund example">
-            <span><strong>$25</strong> runs</span>
-            <span><strong>$200</strong> waits for you</span>
-            <span><strong>$2,000</strong> blocked</span>
+          <div class="hero-outcomes" aria-label="What nominee guarantees across the pause">
+            <span>token minted at execution</span>
+            <span>bound to the args a human saw</span>
+            <span>spendable once</span>
           </div>
           <div class="hero-actions">
-            <a class="btn btn-seal" href="#observe">Start with observe →</a>
-            <button class="copy" data-copy="npx nominee-cli observe" aria-label="Copy observe command">
-              <span class="prompt">›</span><span class="cmd">npx nominee-cli observe</span><span class="copy-hint">copy</span>
+            <a class="btn btn-seal" href="#proof">Run the proof →</a>
+            <button class="copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy the token-refresh correctness proof command">
+              <span class="prompt">›</span><span class="cmd">node examples/token-refresh-correctness/run.mjs</span><span class="copy-hint">copy</span>
             </button>
-            <a class="btn" href="#how">Injection proof</a>
+            <a class="btn" href="#install">Add it to your agent</a>
           </div>
           <p class="hero-note">
-            <strong>Like GitHub branch protection for agent tools.</strong> Your rules let routine
-            calls run, hold risky calls for review, and block forbidden calls before the tool runs.
-            Open-source TypeScript · no signup or API key.
+            Does your approval come back in the same HTTP request that asked for it?
+            Then you don't need nominee. Open-source TypeScript · no signup or API key.
           </p>
         </div>
 
-        <div class="policy-demo" data-policy-demo aria-label="Interactive refund policy example">
-          <div class="policy-demo-top">
-            <span>support-agent</span>
-            <code>refund.issue</code>
-          </div>
-          <div class="policy-rules" aria-label="Refund rules">
-            <div class="policy-rule" data-rule="allow"><span class="rule-effect">allow</span><span>amount ≤ $50</span></div>
-            <div class="policy-rule active" data-rule="ask"><span class="rule-effect">ask</span><span>amount ≤ $500</span></div>
-            <div class="policy-rule" data-rule="deny"><span class="rule-effect">deny</span><span>everything else</span></div>
-          </div>
-          <div class="policy-request">
-            <p>The agent tries to call the refund tool</p>
-            <div class="refund-choices" role="group" aria-label="Choose a refund amount">
-              <button type="button" data-amount="25" aria-pressed="false">$25</button>
-              <button type="button" data-amount="200" aria-pressed="true">$200</button>
-              <button type="button" data-amount="2000" aria-pressed="false">$2,000</button>
-            </div>
-            <pre><code>refund.issue({ orderId: <span>'ord_42'</span>, amount: <strong data-amount-value>200</strong> })</code></pre>
-          </div>
-          <div class="policy-result ask" data-policy-result aria-live="polite">
-            <span class="result-effect" data-result-effect>ask</span>
-            <div>
-              <strong data-result-title>The agent is waiting for you</strong>
-              <p data-result-copy><code>refund.issue</code> has not run. Approve or deny it.</p>
-            </div>
-            <button type="button" class="result-approve" data-approve>Approve $200</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="section how" id="how">
-        <div class="section-head">
-          <p class="eyebrow">How it works</p>
-          <h2>Nominee sits between the agent and your tools.</h2>
-          <p>
-            Your agent still chooses which tool to request. Nominee checks the user, action, and
-            arguments before your tool function receives control.
-          </p>
-        </div>
-        <div class="how-grid">
-          <figure class="how-video" aria-label="nominee in action">
-            <video
-              src="/assets/nominee-blocked.mp4"
-              poster="/assets/nominee-blocked-poster.png"
-              autoplay
-              muted
-              loop
-              playsinline
-              preload="metadata"
-            ></video>
-            <figcaption>
-              Lead proof: untrusted email tells the agent to leak the inbox. The model follows
-              the instruction; the denied tool never runs. Blast-radius containment, not detection.
-              <a href="/docs/mcp/">Same boundary on an MCP server →</a>
-            </figcaption>
-          </figure>
-          <ul class="how-points">
-            <li>
-              <span class="hp-mark">¶</span>
-              <div>
-                <h3>Write the rules in code</h3>
-                <p>Use <code>allow</code>, <code>ask</code>, and <code>deny</code> with the same user, tenant, resource, and arguments your application already knows.</p>
-              </div>
-            </li>
-            <li>
-              <span class="hp-mark">⏸</span>
-              <div>
-                <h3>Approve the call you saw</h3>
-                <p>A $200 approval cannot become a $2,000 refund. The approved arguments execute once, then expire.</p>
-              </div>
-            </li>
-            <li>
-              <span class="hp-mark">§</span>
-              <div>
-                <h3>Keep the outcome</h3>
-                <p>Allowed, denied, approved, failed, and completed calls all leave receipts you can verify later.</p>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="logos" aria-label="Works with your stack">
-        <p class="logos-label">Works with the stack you already run</p>
-        <ul class="logos-row">
-          <li>
-            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 22.525H0l12-21.05 12 21.05z"/></svg><span class="logos-name">Vercel</span></span>
-            <span class="logos-sub">AI SDK &amp; Eve</span>
-          </li>
-          <li>
-            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg><span class="logos-name">Cloudflare</span></span>
-            <span class="logos-sub">Agents &amp; Workers</span>
-          </li>
-          <li>
-            <span class="logos-mark"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M76.598 219.534c81.954-13.469 146.22-77.719 159.673-159.672l6.609-39.875c1.219-7.75-5.063-14.516-12.89-13.953-62.391 4.812-121.188 25.531-153.72 38.812a42.042 42.042 0 00-26.094 38.907v125.984c0 7.422 6.61 13.047 13.938 11.828l12.484-2.03zM275.74 59.862c13.453 81.953 77.703 146.203 159.672 159.656l12.468 2.047c7.344 1.22 13.938-4.406 13.938-11.828V83.753c0-17.047-10.344-32.375-26.094-38.907-32.453-13.375-91.328-34-153.703-38.812-7.844-.578-14.203 6.203-12.891 13.937l6.61 39.89zM435.474 259.081c-81.953 13.453-146.219 77.719-159.672 159.672l-8.156 77.797c-.735 7.016 7.015 11.985 12.89 8.078 0 0 .078 0 .157-.078 51.375-34.672 168.64-125.422 180.219-238.781.578-5.547-4.407-10.11-9.86-9.22l-15.5 2.532h-.078zM236.24 418.722c-13.47-81.953-77.72-146.22-159.673-159.672l-16.719-2.781c-4.89-.813-9.296 3.265-8.812 8.25 11.016 114 129.906 205.328 181.688 239.984 5.39 3.594 12.484-.734 11.828-7.172l-8.235-78.687-.078.078z"/></svg><span class="logos-name">Auth0</span></span>
-            <span class="logos-sub">Token Vault &amp; CIBA</span>
-          </li>
-          <li>
-            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z"/></svg><span class="logos-name">Supabase</span></span>
-            <span class="logos-sub">Token store</span>
-          </li>
-        </ul>
-      </section>
-
-      <section class="section" id="observe">
-        <div class="section-head">
-          <p class="eyebrow">No rules yet?</p>
-          <h2>Watch what your agent already does.</h2>
-          <p>
-            Observe mode wraps your existing tools with no policy and records authorization
-            decisions without enforcing them. It reports callbacks that actually start, their
-            argument shapes and numeric ranges, and where nothing bounds the agent's authority.
-            Runtime and integrity failures still fail closed.
-          </p>
-        </div>
-        <div class="run" aria-label="Output of nominee observe mode">
+        <div
+          class="run"
+          data-term-demo
+          aria-label="Pause narrative terminal: approval requested, request returns, token expires mid-pause, approval comes back out of band, fresh token minted at execution"
+        >
           <div class="run-top">
             <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="run-title">$ npx nominee-cli observe</span>
+            <span class="run-title">pause-narrative — out-of-band approval</span>
           </div>
           <div class="run-body">
-            <p class="tl bad"><span>!</span> ENFORCEMENT WAS OFF: callbacks reached the tools.</p>
-            <p class="tl"><span class="hl">refund.issue</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 calls · mutate</p>
-            <p class="tl dim">&nbsp;&nbsp;↳ amount: number, observed 5–2000&nbsp;&nbsp;[unbounded]</p>
-            <p class="tl"><span class="hl">orders.read</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3 calls · read</p>
-            <p class="tl"><span class="hl">customers.export</span>&nbsp;1 call&nbsp; · unknown</p>
+            <p class="tl dim">$ agent run --task "refund ord_42"</p>
+            <p class="tl"><span class="str">→</span> refund.issue({ orderId: <span class="str">'ord_42'</span>, amount: <span class="acc">200</span> })</p>
+            <p class="tl"><span class="acc">⏸</span> ask rule: approval requested</p>
+            <p class="tl">→ request returns — <span class="hl">ActionPendingError</span> (2:14)</p>
+            <p class="tl dim">… Slack card to alice · access-token TTL: 10 min</p>
+            <p class="tl dim" data-d="2400">⏳ the gap — 17 minutes with nothing happening</p>
+            <p class="tl bad"><span>✗</span> token expired during the pause (2:31)</p>
+            <p class="tl"><span class="ok">✓</span> alice approves out of band — Slack (2:29)</p>
+            <p class="tl">→ <span class="hl">resumeAction()</span> → single-use capability issued</p>
+            <p class="tl"><span class="ok">✓</span> fresh token minted at execution — not the dead one</p>
+            <p class="tl bad"><span>✗</span> mutated args bounce — <span class="hl">AuthorizationInputChangedError</span></p>
+            <p class="tl"><span class="ok">✓</span> executed once · receipt sealed</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. The proof — the number a skeptic cannot argue with. -->
+      <section class="section" id="proof">
+        <div class="section-head">
+          <p class="eyebrow">The lead proof</p>
+          <h2>Naive refresh fails 7/8. nominee gets 8/8. Same agent code.</h2>
+          <p>
+            A mock OAuth server with rotating refresh tokens and real latency. The agent pauses
+            for approval, then fires eight tool calls at once. The natural-but-wrong first
+            attempts (A and D) break; nominee (B and C) does not.
+          </p>
+        </div>
+        <div class="run" aria-label="Output of the token-refresh correctness proof">
+          <div class="run-top">
+            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
+            <span class="run-title">$ node examples/token-refresh-correctness/run.mjs</span>
+          </div>
+          <div class="run-body">
+            <p class="tl dim">A) naive — hold the access token across the pause</p>
+            <p class="tl bad">&nbsp;&nbsp;resource → <span class="bad">401 token_expired</span></p>
+            <p class="tl dim">B) nominee — fresh token at call time</p>
+            <p class="tl"><span class="ok">✓</span>&nbsp;&nbsp;before → 200 OK | after pause → <span class="ok">200 OK</span></p>
+            <p class="tl dim">C) nominee + 8 concurrent calls</p>
+            <p class="tl"><span class="ok">✓</span>&nbsp;&nbsp;network refreshes = 1 (single-flight) | resource 200s = <span class="ok">8/8</span></p>
+            <p class="tl dim">D) refresh WITHOUT single-flight (8 concurrent)</p>
+            <p class="tl bad"><span>✗</span>&nbsp;&nbsp;network refreshes = 8 | invalid_grant failures = <span class="bad">7/8</span></p>
           </div>
         </div>
         <div class="proof-actions">
-          <button class="copy" data-copy="npx nominee-cli observe" aria-label="Copy observe command">
-            <span class="prompt">›</span><span class="cmd">npx nominee-cli observe</span><span class="copy-hint">copy</span>
+          <button class="copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy the token-refresh correctness proof command">
+            <span class="prompt">›</span><span class="cmd">node examples/token-refresh-correctness/run.mjs</span><span class="copy-hint">copy</span>
           </button>
-          <span>Discovery only · not a security control · <a href="/docs/#observe">read the guide</a></span>
+          <span>No API keys · runs offline · <a href="https://github.com/bharath31/nominee/tree/main/examples/token-refresh-correctness">the example on GitHub</a></span>
         </div>
         <p class="proof-link">
-          Save the report and open it with <code>npx nominee-cli console --report …</code>, or run
-          <code>npx nominee-cli generate</code> directly for an editable, evidence-backed starter policy.
-          Observed thresholds are not security recommendations.
+          Secondary proof: an approved $300 refund is replayed as $999,999 — the mutated
+          arguments bounce with <code>AuthorizationInputChangedError</code>, and the attempt
+          stays on the receipt chain. Try it: <code>npx nominee-cli</code>.
         </p>
       </section>
 
-      <section class="section" id="try">
-        <div class="section-head">
-          <p class="eyebrow">Try it in your terminal</p>
-          <h2>See exactly which tool calls run.</h2>
+      <!-- 3. What breaks after "approve" — the four staleness modes. -->
+      <section class="section approval" id="breaks">
+        <div class="section-head center">
+          <p class="eyebrow">What breaks after "approve"</p>
+          <h2>The pause is the easy part. The moment after is not.</h2>
           <p>
-            This offline demo runs a support agent against the real <code>nominee</code> package.
-            It proves which refund calls reached the tool, then verifies the receipt log.
+            Once a human approves out of band — Slack, email, push — four things can still go
+            wrong before the tool runs. nominee was built for exactly these four.
           </p>
         </div>
-        <div class="run" aria-label="Output of the nominee CLI support-agent proof">
-          <div class="run-top">
-            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="run-title">$ npx nominee-cli</span>
-          </div>
-          <div class="run-body">
-            <p class="tl"><span class="ok">✓</span> $25 refund&nbsp;&nbsp;&nbsp; allowed → refund.issue ran</p>
-            <p class="tl"><span class="acc">?</span> $200 refund&nbsp; agent paused → waiting for your approval</p>
-            <p class="tl"><span class="ok">✓</span> $200 refund&nbsp; approved once → refund.issue ran</p>
-            <p class="tl bad"><span>✗</span> $2,000 refund blocked before refund.issue ran</p>
-            <p class="tl bad"><span>✗</span> customer export blocked before customers.export ran</p>
-            <p class="tl"><span class="ok">✓</span> receipt chain verifies</p>
-            <p class="tl"><span class="ok">✓</span> removed denial detected in the log</p>
-          </div>
+        <div class="approval-card" role="status">
+          <div class="ac-head"><span class="ac-dot"></span> Approved out of band · 2:29</div>
+          <h3>refund.issue</h3>
+          <p>Refund <strong>$200</strong> for order <strong>ord_42</strong></p>
+          <div class="ac-foot">alice approved via Slack · approved once · resumes as a fresh capability</div>
         </div>
-        <div class="proof-actions">
-          <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
-            <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
-          </button>
-          <span>No signup · no API key · proof runs offline</span>
+        <div class="breaks-grid">
+          <div class="breaks-card">
+            <h3>Token <code>expired</code></h3>
+            <p>
+              The credential minted before the pause died while a human deliberated. nominee
+              resolves tokens <em>at execution</em>, inside the <code>run()</code> callback —
+              a token is never older than the call it serves.
+            </p>
+          </div>
+          <div class="breaks-card">
+            <h3>Arguments <code>drifted</code></h3>
+            <p>
+              The agent reworded the input while you approved. Every approval is bound to a
+              canonical hash of the exact input, so drifted arguments throw
+              <code>AuthorizationInputChangedError</code> instead of executing.
+            </p>
+          </div>
+          <div class="breaks-card">
+            <h3>Permission <code>changed</code></h3>
+            <p>
+              The user lost access while you deliberated. When an action names a resource, the
+              authorizer is consulted while planning <em>and</em> again after the capability is
+              consumed — a permission revoked mid-approval fails closed.
+            </p>
+          </div>
+          <div class="breaks-card">
+            <h3>Approval <code>replayed</code></h3>
+            <p>
+              The approved call runs twice. The capability is single-use and expires;
+              <code>resumeAction()</code> rotates it and invalidates the old value. One approval,
+              one execution.
+            </p>
+          </div>
         </div>
       </section>
 
+      <!-- 4. Add it to your agent. -->
       <section class="section" id="install">
         <div class="section-head">
           <p class="eyebrow">Add it to your agent</p>
@@ -434,65 +414,171 @@
 })</code></pre>
         </div>
         <p class="swap-foot">
-          Need durable approvals? <a href="https://github.com/bharath31/nominee/tree/main/examples/support-refund-agent">See the Vercel AI SDK + PostgreSQL wiring →</a>
+          Approval comes back in Slack, email, or a push — not in this request? The call throws
+          <code>ActionPendingError</code> with a durable action id; persist it and resume later.
+          <a href="/docs/approvals/">When the approval outlives the request →</a>
         </p>
-      </section>
-
-      <section class="section approval" id="approval">
-        <div class="section-head center">
-          <p class="eyebrow">Human approval</p>
-          <h2>Approve the $200 refund. Nothing else.</h2>
-          <p>
-            Nominee binds the approval to the order, amount, user, and current permissions. Changing the amount or replaying the approval stops the call.
-          </p>
-        </div>
-        <div class="approval-card" role="status">
-          <div class="ac-head"><span class="ac-dot"></span> Waiting for you</div>
-          <h3>refund.issue</h3>
-          <p>Refund <strong>$200</strong> for order <strong>ord_42</strong></p>
-          <div class="ac-actions"><span class="deny">Deny</span><span class="approve">Approve</span></div>
-          <div class="ac-foot">alice · support-agent · one use · expires in 10m</div>
-        </div>
-      </section>
-
-      <section class="section" id="why">
-        <div class="section-head">
-          <p class="eyebrow">Why add nominee</p>
-          <h2>Your framework runs the agent. Nominee checks what may run.</h2>
-          <p>
-            Keep your framework, approval UI, database, and identity provider. Put the same rules
-            in front of tools wherever the agent runs.
-          </p>
-        </div>
         <div class="layers" role="img" aria-label="Three layers: your agent or framework on top, nominee in the middle, your tools and vault at the bottom.">
           <div class="layer">
             <span class="layer-tag">your agent / framework</span>
-            <strong>asks to run a tool</strong>
+            <strong>pauses a tool call for approval</strong>
             <span class="layer-eg">Vercel AI SDK · Eve · OpenAI Agents · Mastra · Cloudflare Agents · MCP</span>
           </div>
           <div class="layer-arrow"><span>▼</span> <code>run({ user, tenant, action, resource, input }, execute)</code></div>
           <div class="layer layer-mid">
             <span class="layer-tag">nominee</span>
-            <strong>checks your allow · ask · deny rules</strong>
-            <span class="layer-eg">user · tenant · resource · arguments · budget · approval</span>
+            <strong>makes the moment after "approve" correct</strong>
+            <span class="layer-eg">token minted at execution · args a human saw · exact-input binding · receipt</span>
           </div>
           <div class="layer-arrow"><span>▼</span> <code>execute(input)</code></div>
           <div class="layer">
             <span class="layer-tag">your tools &amp; vault</span>
-            <strong>runs only the action your rules allow</strong>
+            <strong>runs once, fresh scoped credential, on the record</strong>
             <span class="layer-eg">env · DB · OAuth2 · Auth0 Token Vault · Supabase</span>
           </div>
         </div>
+      </section>
+
+      <!-- 5. Works with the stack you already run. -->
+      <section class="logos" aria-label="Works with your stack">
+        <p class="logos-label">Works with the stack you already run</p>
+        <ul class="logos-row">
+          <li>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 22.525H0l12-21.05 12 21.05z"/></svg><span class="logos-name">Vercel</span></span>
+            <span class="logos-sub">AI SDK &amp; Eve</span>
+          </li>
+          <li>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg><span class="logos-name">Cloudflare</span></span>
+            <span class="logos-sub">Agents &amp; Workers</span>
+          </li>
+          <li>
+            <span class="logos-mark"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M76.598 219.534c81.954-13.469 146.22-77.719 159.673-159.672l6.609-39.875c1.219-7.75-5.063-14.516-12.89-13.953-62.391 4.812-121.188 25.531-153.72 38.812a42.042 42.042 0 00-26.094 38.907v125.984c0 7.422 6.61 13.047 13.938 11.828l12.484-2.03zM275.74 59.862c13.453 81.953 77.703 146.203 159.672 159.656l12.468 2.047c7.344 1.22 13.938-4.406 13.938-11.828V83.753c0-17.047-10.344-32.375-26.094-38.907-32.453-13.375-91.328-34-153.703-38.812-7.844-.578-14.203 6.203-12.891 13.937l6.61 39.89zM435.474 259.081c-81.953 13.453-146.219 77.719-159.672 159.672l-8.156 77.797c-.735 7.016 7.015 11.985 12.89 8.078 0 0 .078 0 .157-.078 51.375-34.672 168.64-125.422 180.219-238.781.578-5.547-4.407-10.11-9.86-9.22l-15.5 2.532h-.078zM236.24 418.722c-13.47-81.953-77.72-146.22-159.673-159.672l-16.719-2.781c-4.89-.813-9.296 3.265-8.812 8.25 11.016 114 129.906 205.328 181.688 239.984 5.39 3.594 12.484-.734 11.828-7.172l-8.235-78.687-.078.078z"/></svg><span class="logos-name">Auth0</span></span>
+            <span class="logos-sub">Token Vault &amp; CIBA</span>
+          </li>
+          <li>
+            <span class="logos-mark"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z"/></svg><span class="logos-name">Supabase</span></span>
+            <span class="logos-sub">Token store</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 6. Observe mode — demoted, clearly a sample report from a demo agent. -->
+      <section class="section" id="observe">
+        <div class="section-head">
+          <p class="eyebrow">No rules yet? (a section, not the lead)</p>
+          <h2>Discover what your agent already does.</h2>
+          <p>
+            Two lines wrap your existing tools, report-only: it records which tool callbacks
+            actually start, their argument shapes and numeric ranges, and where nothing bounds
+            the agent's authority. The report below is a <strong>sample report from a hard-coded demo agent</strong> —
+            run it on your own agent to see yours.
+          </p>
+        </div>
+        <div class="snippet">
+          <span class="k">const</span> nominee = <span class="k">new</span> Nominee({ mode: <span class="s">'observe'</span> })<br />
+          <span class="k">const</span> tools = nominee.<span class="fn">observe</span>(yourTools) <span class="c">// report-only — deny/ask gates stay off</span>
+        </div>
+        <div class="run" style="margin-top: 14px" aria-label="Sample report output of nominee observe mode">
+          <div class="run-top">
+            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
+            <span class="run-title">$ npx nominee-cli observe — sample report, demo agent</span>
+          </div>
+          <div class="run-body">
+            <p class="tl bad"><span>!</span> ENFORCEMENT WAS OFF: callbacks reached the tools.</p>
+            <p class="tl"><span class="hl">refund.issue</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 calls · mutate</p>
+            <p class="tl dim">&nbsp;&nbsp;↳ amount: number, observed 5–2000&nbsp;&nbsp;[unbounded]</p>
+            <p class="tl"><span class="hl">orders.read</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3 calls · read</p>
+            <p class="tl"><span class="hl">customers.export</span>&nbsp;1 call&nbsp; · unknown</p>
+          </div>
+        </div>
+        <div class="proof-actions">
+          <button class="copy" data-copy="npx nominee-cli observe" aria-label="Copy observe command">
+            <span class="prompt">›</span><span class="cmd">npx nominee-cli observe</span><span class="copy-hint">copy</span>
+          </button>
+          <span>Sample output from a demo agent · discovery only, not a security control · <a href="/docs/#observe">read the guide</a></span>
+        </div>
+        <p class="proof-link">
+          The same report feeds <code>npx nominee-cli generate</code> for an editable, evidence-backed
+          starter policy. Observed thresholds are not security recommendations.
+        </p>
+      </section>
+
+      <!-- 7. Injection proof — supporting evidence, captioned. -->
+      <section class="section how" id="injection">
+        <div class="section-head">
+          <p class="eyebrow">Supporting proof · prompt injection</p>
+          <h2>The model was hijacked. The tool still did not run.</h2>
+          <p>
+            And the refusal is on the record: sealed into the hash-chained receipt log,
+            tamper-evident against a downstream log editor (anyone with the key can verify —
+            that is not a legal signature). This is blast-radius containment, not detection.
+          </p>
+        </div>
+        <div class="how-grid">
+          <figure class="how-video" aria-label="nominee denying an injected tool call">
+            <video
+              src="/assets/nominee-blocked.mp4"
+              poster="/assets/nominee-blocked-poster.png"
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="metadata"
+            ></video>
+            <figcaption>
+              An untrusted email tells the agent to leak the inbox. The model follows the
+              instruction; the denied tool never runs — and the denial is on the record.
+              <a href="/docs/mcp/">Same boundary on an MCP server →</a>
+            </figcaption>
+          </figure>
+          <ul class="how-points">
+            <li>
+              <span class="hp-mark">✗</span>
+              <div>
+                <h3>Denied before the tool runs</h3>
+                <p><code>deny</code> throws <code>PolicyDeniedError</code> before your tool function receives control — the hijacked model cannot talk its way past it.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">§</span>
+              <div>
+                <h3>Refused on the record</h3>
+                <p>Refusals are receipted as faithfully as approvals. The half nobody else has: when nominee says no, there is a hash-chained record that it said no, and why.</p>
+              </div>
+            </li>
+            <li>
+              <span class="hp-mark">⏸</span>
+              <div>
+                <h3>Escalation still goes to a human</h3>
+                <p>The delete-the-evidence step is escalated to, and denied by, a human — the same out-of-band approval path, sealed into the same chain.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 8. When you don't need nominee — honest list, below the proof. -->
+      <section class="section" id="why">
+        <div class="section-head">
+          <p class="eyebrow">Honest about scope</p>
+          <h2>Does your approval return in the same request? Then you don't need nominee.</h2>
+          <p>
+            The self-selection test: if the human's answer comes back inside the HTTP request
+            that asked for it, the pause never happened, and neither did the staleness. The full
+            list, in the open, below the proof:
+          </p>
+        </div>
         <div class="when-not">
-          <p class="when-not-head">When you <em>don't</em> need nominee</p>
           <ul>
+            <li><strong>Your approval comes back in the same request</strong> that asked for it — no pause, no staleness.</li>
             <li><strong>Your agent only reads</strong> public or low-risk data.</li>
             <li><strong>Your framework already enforces</strong> every permission your application needs.</li>
             <li><strong>A few local if-statements cover your tools</strong> and you do not need durable approvals or shared limits.</li>
           </ul>
           <p class="when-not-foot">
-            Use nominee when an agent can change data, spend money, send messages, or act across
-            several workers and frameworks.
+            Use nominee when a human approves out of band (Slack / email / push) and the agent
+            takes a write action on a third-party API — and you want that moment after "approve"
+            to be correct, and on the record.
           </p>
         </div>
       </section>
@@ -516,6 +602,116 @@
         </div>
       </section>
 
+      <section class="section" id="faq">
+        <div class="section-head center">
+          <p class="eyebrow">FAQ</p>
+          <h2>The questions people actually ask.</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary><span>How do I restrict what my AI agent can do?</span></summary>
+            <p>
+              Write ordered <code>allow</code>, <code>ask</code>, and <code>deny</code> rules,
+              then wrap your tools with <code>nominee.guard()</code> or a framework adapter.
+              Nominee checks each call before the tool function runs.
+            </p>
+          </details>
+          <details>
+            <summary><span>How do I require human approval before an agent issues a refund?</span></summary>
+            <p>
+              Add <code>ask('refund.issue')</code> or another <code>ask</code> rule. The call
+              pauses for your approval UI, and the approval applies only to the arguments the
+              person reviewed.
+            </p>
+          </details>
+          <details>
+            <summary><span>What happens to the token while an approval is pending?</span></summary>
+            <p>
+              Nothing — and that's the point. Nominee resolves credentials inside the
+              <code>run()</code> callback, at execution time, after the capability is consumed.
+              A token never goes stale across the pause because it is minted after the pause,
+              not before it.
+            </p>
+          </details>
+          <details>
+            <summary><span>How do I add permissions to AI tool calls?</span></summary>
+            <p>
+              Keep your agent framework and tools. Put Nominee around the tools that can change
+              data, spend money, or send messages; its rules decide which calls run.
+            </p>
+          </details>
+          <details>
+            <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
+            <p>
+              For one low-risk tool, an if-statement may be enough. Nominee is useful when
+              approvals outlive a request, workers share limits, permissions can change during
+              a pause, or several frameworks need the same rules and receipts.
+            </p>
+          </details>
+          <details>
+            <summary><span>Can the model talk its way past a <code>deny</code>?</span></summary>
+            <p>
+              Not if the call routes through Nominee: a <code>deny</code> throws
+              <code>PolicyDeniedError</code> before your tool code runs. Keep raw tools and
+              credentials outside model-controlled code so the wrapper cannot be bypassed.
+            </p>
+          </details>
+          <details>
+            <summary><span>Do receipts store my data?</span></summary>
+            <p>
+              Not by default. Tool inputs are recorded as <code>inputHash</code> — a SHA-256 of
+              the canonical JSON — so you can prove what an approver saw without writing user
+              data into the log. Pass <code>receipts: { input: 'raw' }</code> if you want the
+              full input on the record instead, or <code>'none'</code> to skip it entirely.
+            </p>
+          </details>
+          <details>
+            <summary><span>Can receipts be forged?</span></summary>
+            <p>
+              Tamper-evident, not non-repudiation — say that plainly. The chain is hash-chained
+              (HMAC): anyone with the key can verify nothing was edited, but anyone with write
+              access to the whole log could also rewrite it consistently. The guarantee is
+              evidence against a downstream log editor, not a legal signature.
+            </p>
+          </details>
+          <details>
+            <summary><span>How is this different from Arcade, Composio, or Vercel Connect?</span></summary>
+            <p>
+              Those products can manage connections and tools. nominee is the open-source
+              enforcement layer that binds your application policy to the exact tool action.
+              It can use a managed platform, your IAM, or your own token store underneath.
+            </p>
+          </details>
+          <details>
+            <summary><span>Does nominee replace my auth provider (Auth0, Clerk, WorkOS)?</span></summary>
+            <p>
+              No — authentication (who is the user) is a separate, solved problem. nominee is
+              the layer above it, deciding what an already-authenticated agent may
+              <em>do</em> as that user. It composes with whatever you already use; Auth0 is
+              one optional strategy among several, not a requirement.
+            </p>
+          </details>
+          <details>
+            <summary><span>What happens if I don't configure a policy?</span></summary>
+            <p>
+              Everything is allowed — and still receipted. nominee doesn't restrict anything
+              until you add rules, so you can adopt it incrementally: wrap your tools first,
+              watch the receipt chain to see what your agent actually does, then tighten the
+              policy once you know.
+            </p>
+          </details>
+          <details>
+            <summary><span>When don't I need nominee?</span></summary>
+            <p>
+              Does your approval come back in the same HTTP request that asked for it? Then you
+              don't need nominee. Also: a read-only agent with no authority worth guarding, your
+              platform's native permission system covering you end-to-end, or one fully-managed
+              vendor for tools, auth, and policy — use Arcade or Composio directly.
+            </p>
+          </details>
+        </div>
+      </section>
+
       <section class="section" id="packages">
         <div class="section-head">
           <p class="eyebrow">Packages</p>
@@ -533,7 +729,7 @@
           <div class="package-card">
             <span class="pc-tag">Zero install</span>
             <h3><a href="https://www.npmjs.com/package/nominee-cli">nominee-cli</a></h3>
-            <p>Run the support-agent refund proof with no clone, build, or API key. The proof itself is offline. Also verify receipts and check policy files.</p>
+            <p>Run the offline refund + replay-proof demo with no clone, build, or API key. Also verify receipts and check policy files.</p>
             <button class="copy pkg-install" data-copy="npx nominee-cli" aria-label="Copy: npx nominee-cli">
               <span class="prompt">$</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
             </button>
@@ -613,119 +809,18 @@
         </div>
       </section>
 
-      <section class="section" id="faq">
-        <div class="section-head center">
-          <p class="eyebrow">FAQ</p>
-          <h2>The questions people actually ask.</h2>
-        </div>
-        <div class="faq">
-          <details>
-            <summary><span>How do I restrict what my AI agent can do?</span></summary>
-            <p>
-              Write ordered <code>allow</code>, <code>ask</code>, and <code>deny</code> rules,
-              then wrap your tools with <code>nominee.guard()</code> or a framework adapter.
-              Nominee checks each call before the tool function runs.
-            </p>
-          </details>
-          <details>
-            <summary><span>How do I require human approval before an agent issues a refund?</span></summary>
-            <p>
-              Add <code>ask('refund.issue')</code> or another <code>ask</code> rule. The call
-              pauses for your approval UI, and the approval applies only to the arguments the
-              person reviewed.
-            </p>
-          </details>
-          <details>
-            <summary><span>How do I add permissions to AI tool calls?</span></summary>
-            <p>
-              Keep your agent framework and tools. Put Nominee around the tools that can change
-              data, spend money, or send messages; its rules decide which calls run.
-            </p>
-          </details>
-          <details>
-            <summary><span>Isn't this just an if-statement with extra steps?</span></summary>
-            <p>
-              For one low-risk tool, an if-statement may be enough. Nominee is useful when
-              approvals outlive a request, workers share limits, permissions can change during
-              a pause, or several frameworks need the same rules and receipts.
-            </p>
-          </details>
-          <details>
-            <summary><span>Can the model talk its way past a <code>deny</code>?</span></summary>
-            <p>
-              Not if the call routes through Nominee: a <code>deny</code> throws
-              <code>PolicyDeniedError</code> before your tool code runs. Keep raw tools and
-              credentials outside model-controlled code so the wrapper cannot be bypassed.
-            </p>
-          </details>
-          <details>
-            <summary><span>Do receipts store my data?</span></summary>
-            <p>
-              Not by default. Tool inputs are recorded as <code>inputHash</code> — a SHA-256 of
-              the canonical JSON — so you can prove what an approver saw without writing user
-              data into the log. Pass <code>receipts: { input: 'raw' }</code> if you want the
-              full input on the record instead, or <code>'none'</code> to skip it entirely.
-            </p>
-          </details>
-          <details>
-            <summary><span>Can receipts be forged?</span></summary>
-            <p>
-              Tamper-evident, not non-repudiation — say that plainly. Without a signing key,
-              the chain is publicly re-computable: anyone can verify it wasn't edited, but
-              anyone with write access to the whole log could also rewrite it consistently.
-              Pass an HMAC <code>key</code> and only key-holders can produce valid hashes —
-              that's the guarantee to reach for once receipts leave your own process.
-            </p>
-          </details>
-          <details>
-            <summary><span>How is this different from Arcade, Composio, or Vercel Connect?</span></summary>
-            <p>
-              Those products can manage connections and tools. nominee is the open-source
-              enforcement layer that binds your application policy to the exact tool action.
-              It can use a managed platform, your IAM, or your own token store underneath.
-            </p>
-          </details>
-          <details>
-            <summary><span>Does nominee replace my auth provider (Auth0, Clerk, WorkOS)?</span></summary>
-            <p>
-              No — authentication (who is the user) is a separate, solved problem. nominee is
-              the layer above it, deciding what an already-authenticated agent may
-              <em>do</em> as that user. It composes with whatever you already use; Auth0 is
-              one optional strategy among several, not a requirement.
-            </p>
-          </details>
-          <details>
-            <summary><span>What happens if I don't configure a policy?</span></summary>
-            <p>
-              Everything is allowed — and still receipted. nominee doesn't restrict anything
-              until you add rules, so you can adopt it incrementally: wrap your tools first,
-              watch the receipt chain to see what your agent actually does, then tighten the
-              policy once you know.
-            </p>
-          </details>
-          <details>
-            <summary><span>When don't I need nominee?</span></summary>
-            <p>
-              A read-only agent with no authority worth guarding. Your platform's native
-              permission system already covers you end-to-end. Or you want one fully-managed
-              vendor for tools, auth, and policy together — use Arcade or Composio directly.
-            </p>
-          </details>
-        </div>
-      </section>
-
       <section class="cta">
         <div class="cta-inner">
-          <h2>Try the support agent yourself.</h2>
-          <p>Edit the rules, run a refund call, and approve or deny it in your browser.</p>
+          <h2>Make the moment after "approve" correct.</h2>
+          <p>Run the 7/8 → 8/8 proof, then wrap one of your own tools. Same agent code, no signup, no API key.</p>
           <div class="cta-row">
-            <a class="btn btn-seal" href="/playground/">Open live playground →</a>
-            <button class="copy" data-copy="npx nominee-cli" aria-label="Copy demo command">
-              <span class="prompt">›</span><span class="cmd">npx nominee-cli</span><span class="copy-hint">copy</span>
+            <a class="btn btn-seal" href="/docs/">Read the docs →</a>
+            <button class="copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy proof command">
+              <span class="prompt">›</span><span class="cmd">node examples/token-refresh-correctness/run.mjs</span><span class="copy-hint">copy</span>
             </button>
             <a class="star-cta" href="https://github.com/bharath31/nominee">★ Star on GitHub</a>
           </div>
-          <p class="cta-live"><a href="/docs/">Then protect one of your own tools →</a></p>
+          <p class="cta-live"><a href="/playground/">Or try the live playground →</a></p>
         </div>
       </section>
     </main>
@@ -808,7 +903,34 @@
           try { await navigator.clipboard.writeText(activePanel().innerText.trim()); flash(copyBtn) } catch {}
         })
       }
+      // Hero pause-narrative terminal: reveals lines one at a time, holds the
+      // gap, loops. No JS / reduced motion → all lines stay visible.
+      const term = document.querySelector('[data-term-demo]')
+      if (term && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const lines = Array.from(term.querySelectorAll('.tl'))
+        if (lines.length) {
+          term.classList.add('anim')
+          let i = 0
+          let timer
+          const tick = () => {
+            if (i < lines.length) {
+              const line = lines[i]
+              line.classList.add('shown')
+              const delay = Number(line.dataset.d) || 500
+              i += 1
+              timer = setTimeout(tick, delay)
+            } else {
+              timer = setTimeout(restart, 4000)
+            }
+          }
+          const restart = () => {
+            for (const l of lines) l.classList.remove('shown')
+            i = 0
+            tick()
+          }
+          timer = setTimeout(tick, 500)
+        }
+      }
     </script>
-    <script src="/assets/policy-demo.js" defer></script>
   </body>
 </html>
