@@ -191,7 +191,7 @@ try {
   if (!(err instanceof ActionPendingError)) throw err
   pending = err
   console.log(green(`  ✓ payments_read ran (${reads} read)`))
-  console.log(green(`  ✓ ActionPendingError surfaced out of invoke():`))
+  console.log(green('  ✓ ActionPendingError surfaced out of invoke():'))
   console.log(dim(`    ${err.message.slice(0, 120)}…`))
   console.log(`    actionId:   ${pending.actionId}`)
   console.log(`    approvalId: ${pending.approvalId}`)
@@ -222,8 +222,7 @@ const resolved = await nominee.resolveActionApproval(workflowState.actionId, {
 })
 console.log(`  action status: ${resolved.status}`)
 console.log(
-  `  record stores: inputHash = ${resolved.inputHash.slice(0, 16)}…` +
-    dim('  (still no raw input)'),
+  `  record stores: inputHash = ${resolved.inputHash.slice(0, 16)}… ${dim('(still no raw input)')}`,
 )
 
 console.log(bold('\n4. resumeAction() — issues a capability, executes nothing\n'))
