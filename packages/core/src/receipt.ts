@@ -117,9 +117,12 @@ export interface ReceiptOptions {
    */
   onReceipt?: (receipt: Receipt) => unknown
   /**
-   * `'strict'` makes Nominee's async authorization/token methods wait for
-   * `onReceipt` before returning. Default `'buffered'`; call
-   * `nominee.flushReceipts()` at checkpoint/shutdown boundaries.
+   * `'strict'` (the default) makes Nominee's async authorization/token/action
+   * methods wait for `onReceipt` before returning, and a sink that throws or
+   * rejects fails the call — the tool does not run with its audit lost.
+   * `'buffered'` is an explicit best-effort opt-in: a failing sink defers the
+   * error to `nominee.flushReceipts()`, so call that at checkpoint/shutdown
+   * boundaries and treat a rejecting flush as lost audit evidence.
    */
   delivery?: 'buffered' | 'strict'
   /**
@@ -269,7 +272,7 @@ export class ReceiptLedger {
     this.atomicStore = options.store
     this.stream = options.stream ?? 'default'
     this.inputMode = options.input ?? 'hash'
-    this.delivery = options.delivery ?? 'buffered'
+    this.delivery = options.delivery ?? 'strict'
     this.onReceipt = options.onReceipt
     this.baseSeq = options.resume?.seq ?? 0
     this.nextSeq = this.baseSeq
@@ -375,6 +378,11 @@ export class ReceiptLedger {
     return this.retainedBaseSeq > this.baseSeq
   }
 
+  /** True when receipts are sequenced through an atomic cross-process store. */
+  get hasAtomicStore(): boolean {
+    return this.atomicStore !== undefined
+  }
+
   get durable(): boolean {
     return this.atomicStore?.durable === true
   }
@@ -394,9 +402,13 @@ export class ReceiptLedger {
   }
 
   /**
-   * Re-verify the receipts this ledger instance appended (hashes, links,
-   * sequence). If constructed with `resume`, this verifies the segment
-   * starting at that checkpoint — use {@link verifyReceipts} directly on the
+   * Re-verify the in-process receipts this ledger instance appended (hashes,
+   * links, sequence) — the chain written through {@link append}. Receipts
+   * written through an atomic store are a separate chain: verify them with
+   * {@link verifyAtomic} (or, on a Nominee instance, the async
+   * `verifyReceipts()` which covers both). If constructed with `resume`, this
+   * verifies the segment starting at that checkpoint — use
+   * {@link verifyReceipts} directly on the
    * full persisted history to verify the chain from genesis.
    */
   verify(): VerifyResult {

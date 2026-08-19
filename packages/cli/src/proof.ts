@@ -115,7 +115,7 @@ export async function runProof(): Promise<ProofResult> {
     console.log(green(`  ✓ blocked before customers.export ran → ${(error as Error).message}`))
   }
 
-  const verified = nominee.verifyReceipts()
+  const verified = await nominee.verifyReceipts()
   console.log(
     `\n  receipt chain: ${
       verified.ok ? green(`✓ ${verified.checked} receipts verify`) : red('BROKEN')

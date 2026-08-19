@@ -28,7 +28,7 @@ const nominee = new Nominee({
     rules: [
       allow('refund.create', {
         when: ({ input }) => input.cents <= 5_000,
-        max: 20,
+        maxCalls: 20,  // lifetime call count, no time window, never resets; escalates to ask
       }),
       deny('refund.create', { reason: 'outside automatic refund policy' }),
     ],
@@ -110,8 +110,19 @@ was pending therefore fails closed without running the tool.
 
 For export schemas, OpenTelemetry attributes, evidence bundles, and alert recipes, see [Evidence export and observability](observability.md).
 
+- `verifyReceipts()` is async and, under an atomic receipt store, verifies the
+  durable stream together with the in-process window — it cannot silently
+  return `{ ok: true, checked: 0 }`. It returns a `Promise`; `await` it.
+- Receipts written by `record()` (approve/can/exchange/invalidate/authorize/token)
+  and by `recordAction()` (the decision-bound action lifecycle) are two chains
+  with independent sequence numbers. `verifyReceipts()` verifies each chain
+  separately and merges the results; keep per-tenant streams and reconcile the
+  action journal against the receipt chain after incidents.
+- `production: true` blocks `authorize()` and `token()`; it does not block
+  `approve()`, `can()`, `exchange()`, or `invalidate()` — gate those with the
+  application authorizer where they are exposed.
 - Run `verifyDurableReceipts()` continuously or on a schedule.
-- Export or anchor signed receipt-stream tips outside the primary database.
+- Export or anchor hash-chained (HMAC) receipt-stream tips outside the primary database.
   The transactional stream checkpoint detects accidental truncation, but an
   administrator who can roll back both receipts and their checkpoint requires
   an external checkpoint or write-once sink to detect.

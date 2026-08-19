@@ -45,7 +45,7 @@ try {
 console.log(bold('\n3. the receipt chain — the FGA decision reason travels with each entry\n'))
 console.log(formatReceipts(nominee.receipts))
 
-const ok = nominee.verifyReceipts()
+const ok = await nominee.verifyReceipts()
 console.log(
   `\n  chain verifies: ${ok.ok ? green(`✓ ${ok.checked} receipts intact`) : red('BROKEN')}`,
 )

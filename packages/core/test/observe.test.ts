@@ -139,7 +139,7 @@ describe('observe mode', () => {
     await enforcing.guard({ 'orders.read': read }, { user: 'alice' })['orders.read']({ id: 1 })
 
     expect(observing.receipts.map((r) => r.type)).toEqual(enforcing.receipts.map((r) => r.type))
-    expect(observing.verifyReceipts().ok).toBe(true)
+    expect((await observing.verifyReceipts()).ok).toBe(true)
     expect(verifyReceipts([...observing.receipts]).ok).toBe(true)
     // Every receipt from an observe session says so.
     expect(observing.receipts.every((r) => r.enforcement === 'observe')).toBe(true)

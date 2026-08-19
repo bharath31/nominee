@@ -179,7 +179,7 @@ describe('Observe Mode Contract', () => {
     // …and no reader can mistake it for a record of enforcement.
     expect(decision?.enforcement).toBe('observe')
     expect(observing.receipts.every((r) => r.enforcement === 'observe')).toBe(true)
-    expect(observing.verifyReceipts().ok).toBe(true)
+    expect((await observing.verifyReceipts()).ok).toBe(true)
     expect(verifyReceipts([...observing.receipts]).ok).toBe(true)
   })
 

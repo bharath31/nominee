@@ -91,7 +91,7 @@ for (const r of nominee.receipts) {
     `  #${r.seq} ${r.type}${r.tool ? ` ${r.tool}` : ''} ${outcome} ${r.hash.slice(0, 12)}`,
   )
 }
-const verify = nominee.verifyReceipts()
+const verify = await nominee.verifyReceipts()
 console.log(
   `chain verifies: ${verify.ok ? `✓ ${verify.checked} receipts intact` : `✕ broken at #${verify.brokenAt}`}`,
 )

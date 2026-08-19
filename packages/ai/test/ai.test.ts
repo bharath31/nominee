@@ -186,6 +186,6 @@ describe('nominee-ai', () => {
     expect(exfiltrate).not.toHaveBeenCalled()
     // Refusal is on the receipt chain.
     expect(nominee.receipts.at(-1)?.effect).toBe('deny')
-    expect(nominee.verifyReceipts().ok).toBe(true)
+    expect((await nominee.verifyReceipts()).ok).toBe(true)
   })
 })

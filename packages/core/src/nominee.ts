@@ -18,6 +18,7 @@ import {
   PolicyEngine,
   type Rule,
   matchTool,
+  normalizeRuleBudget,
 } from './policy.js'
 import {
   type Receipt,
@@ -395,7 +396,7 @@ export class Nominee {
       ].filter(Boolean)
       if (problems.length) {
         throw new Error(
-          `nominee: production mode requires ${problems.join(', ')}. Use fallback: 'deny', a durable actionStore, nominee-postgres for an atomic durable receipt store, and receipts.delivery: 'strict'. See https://nominee.dev/docs/production`,
+          `nominee: production mode requires ${problems.join(', ')}. Use fallback: 'deny' with nominee-postgres for the durable action store and atomic durable receipt store; receipts.delivery is strict by default (an explicit 'buffered' is refused in production mode). See https://nominee.dev/docs/production`,
         )
       }
     } else if (this.modeValue === 'enforce') {
@@ -426,10 +427,21 @@ export class Nominee {
     return this.ledger?.all ?? []
   }
 
-  /** Re-verify the receipt chain (hashes, links, sequence). */
-  verifyReceipts(): VerifyResult {
+  /**
+   * Verify the receipts this instance wrote. Always async: when an atomic
+   * receipt store is configured, the full durable stream is read back and
+   * verified (the same data `verifyDurableReceipts()` covers) together with
+   * the in-process window, so a production instance never gets a vacuous
+   * `{ ok: true, checked: 0 }`. Without a store, this verifies the in-process
+   * chain. Each chain verifies independently — see the receipts docs for the
+   * two-chain layout under an atomic store.
+   */
+  async verifyReceipts(): Promise<VerifyResult> {
     if (!this.ledger) return { ok: true, checked: 0 }
-    return this.ledger.verify()
+    if (!this.ledger.hasAtomicStore) return this.ledger.verify()
+    const durable = await this.ledger.verifyAtomic()
+    const inMemory = this.ledger.verify()
+    return mergeVerifyResults(durable, inMemory)
   }
 
   /** Verify the complete atomically-sequenced receipt stream. */
@@ -1879,8 +1891,29 @@ function announceObserveMode(): void {
   console.warn(lines.join('\n'))
 }
 
+/** Combine two per-chain verification results into one summary. */
+function mergeVerifyResults(durable: VerifyResult, inMemory: VerifyResult): VerifyResult {
+  const checked = durable.checked + inMemory.checked
+  if (durable.ok && inMemory.ok) {
+    return {
+      ok: true,
+      checked,
+      ...(inMemory.retainedWindow ? { retainedWindow: true } : {}),
+    }
+  }
+  const failed = !durable.ok ? durable : inMemory
+  return {
+    ok: false,
+    checked,
+    ...(failed.brokenAt !== undefined ? { brokenAt: failed.brokenAt } : {}),
+    reason: failed.reason ?? 'receipt chain verification failed',
+    ...(inMemory.retainedWindow ? { retainedWindow: true } : {}),
+  }
+}
+
 function normalizePolicy(policy: Policy | Rule[]): Policy {
-  return Array.isArray(policy) ? { rules: policy } : policy
+  const normalized = Array.isArray(policy) ? { rules: policy } : policy
+  return { ...normalized, rules: normalized.rules.map(normalizeRuleBudget) }
 }
 
 function normalizeScopes(scopes: readonly string[] | undefined): string[] {

@@ -54,7 +54,19 @@ export type {
   ToolObservation,
 } from './observe.js'
 
-export { allow, deny, ask, and, or, not, lte, inList, matchTool, PolicyEngine } from './policy.js'
+export {
+  allow,
+  deny,
+  ask,
+  and,
+  or,
+  not,
+  lte,
+  inList,
+  matchTool,
+  normalizeRuleBudget,
+  PolicyEngine,
+} from './policy.js'
 export type {
   Policy,
   Rule,

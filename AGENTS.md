@@ -79,7 +79,7 @@ const nominee = new Nominee({
       allow('email.forward', { when: ({ input }) => input.to.endsWith('@acme.com') }),
       deny('email.forward', { reason: 'external forwarding is exfiltration' }),
       ask('email.delete'),
-      allow('search.*', { max: 20 }), // budget: call #21 escalates to a human
+      allow('search.*', { maxCalls: 20 }), // lifetime call count, no time window; call #21 escalates to a human
     ],
     fallback: 'deny', // default is 'ask'
   },
