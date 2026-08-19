@@ -30,6 +30,28 @@ export type UserResolver =
   | string
   | ((options: NomineeAiToolCallOptions) => string | Promise<string>)
 
+/**
+ * Resolves the resource or tenant a {@link guardTools} call protects. A fixed
+ * value, or a function of the tool's input and the AI SDK tool-call options.
+ */
+export type CallContextResolver =
+  | string
+  | ((input: unknown, options: NomineeAiToolCallOptions) => string | Promise<string>)
+
+/** Shared context for every tool wrapped by {@link guardTools}. */
+export interface GuardToolsOptions {
+  /** Who the agent acts for. */
+  user: UserResolver
+  /** Application resource checked by Nominee's authorizer / strategy.can(). */
+  resource?: CallContextResolver
+  /** Tenant boundary checked and recorded for the action. */
+  tenant?: CallContextResolver
+  /** Fetch a fresh token for this connection (e.g. `"github"`) before execute. */
+  connection?: string
+  /** Optional scopes to request for the token. */
+  scopes?: string[]
+}
+
 /** Augmented context passed to your `execute`, on top of the AI SDK's options. */
 export interface NomineeAiContext {
   /** A fresh token for `connection`, fetched via your nominee strategy. */
@@ -151,15 +173,21 @@ export function nomineeTool<TSchema extends z.ZodType, TOutput>(
  * })
  * ```
  *
- * The key in the object is the tool name your policy matches on. Denied calls
- * throw `PolicyDeniedError` before the tool runs; `ask` calls block until a
- * human decides. Tools without an `execute` (client-executed tools) pass
- * through untouched.
+ * The key in the object is the tool name your policy matches on. The shared
+ * context mirrors `nomineeTool`'s: besides `user`, pass `resource` and
+ * `tenant` (static values or resolvers of `(input, options)`) and `connection`
+ * / `scopes` for your tokens strategy — every resolved value reaches
+ * `nominee.run()`, so policy `when` clauses, tenant scoping, and external
+ * authorization all see it.
+ *
+ * Denied calls throw `PolicyDeniedError` before the tool runs; `ask` calls
+ * block until a human decides. Tools without an `execute` (client-executed
+ * tools) pass through untouched.
  */
 export function guardTools<T extends Record<string, object>>(
   nominee: Nominee,
   tools: T,
-  opts: { user: UserResolver },
+  opts: GuardToolsOptions,
 ): T {
   const out: Record<string, object> = {}
   for (const [name, t] of Object.entries(tools)) {
@@ -174,7 +202,22 @@ export function guardTools<T extends Record<string, object>>(
       ...t,
       async execute(input: unknown, options: NomineeAiToolCallOptions) {
         const user = typeof opts.user === 'function' ? await opts.user(options) : opts.user
-        return nominee.run({ tool: name, input, user }, () => execute.call(t, input, options))
+        const resource =
+          typeof opts.resource === 'function' ? await opts.resource(input, options) : opts.resource
+        const tenant =
+          typeof opts.tenant === 'function' ? await opts.tenant(input, options) : opts.tenant
+        return nominee.run(
+          {
+            tool: name,
+            input,
+            user,
+            resource,
+            tenant,
+            connection: opts.connection,
+            scopes: opts.scopes,
+          },
+          () => execute.call(t, input, options),
+        )
       },
     }
   }
