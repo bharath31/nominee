@@ -262,6 +262,18 @@ describe('nominee-ai', () => {
     expect(readDoc).toHaveBeenCalledOnce()
   })
 
+  it('guardTools fails closed when connection needs a strategy that is absent', async () => {
+    const nominee = makeNominee({ strategy: undefined })
+    const search = vi.fn(async () => 'hits')
+    const tools = guardTools(nominee, { search: { execute: search } } as never, {
+      user: 'u1',
+      connection: 'github',
+    }) as { search: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.search, { q: 'anything' })).rejects.toThrow(/needs a strategy/)
+    expect(search).not.toHaveBeenCalled()
+  })
+
   it('guardTools surfaces ActionPendingError when an ask outlives the request', async () => {
     const nominee = makeNominee({ policy: [ask('close_issue')] })
     const closeIssue = vi.fn(async () => 'done')

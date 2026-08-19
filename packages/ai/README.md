@@ -110,14 +110,15 @@ const tools = guardTools(
 // allow('email.forward', { when: ({ tenant }) => tenant === 'acme' })
 ```
 
-> **Note:** `connection` / `scopes` on `guardTools` authorize a fresh token
-> through your strategy (policy `when` clauses, external authorization, and
-> the receipt log all see it), but the wrapped tool's plain AI SDK `execute`
-> receives only `(input, options)` — it never sees the token. When the tool
-> itself must call the third-party API, use `nomineeTool`, whose `execute`
-> receives the fresh token in `ctx.token`. And because resolving a token
-> requires a configured strategy, a `connection` on a policy-only nominee
-> fails closed at call time.
+> **Note:** `connection` / `scopes` on `guardTools` are forwarded to the strategy's
+> `getToken` (a fresh token is authorized for the call), stored on the action, and
+> recorded on the receipt chain — but the wrapped tool's plain AI SDK `execute`
+> receives only `(input, options)` and never sees the token. Policy `when`
+> clauses and the external authorizer see only `{ user, resource, tenant }`
+> context. When the tool itself must call the third-party API, use
+> `nomineeTool`, whose `execute` receives the fresh token in `ctx.token`. And
+> because resolving a token requires a configured strategy, a `connection` on a
+> policy-only nominee fails closed at call time.
 
 ### Which path to use when
 

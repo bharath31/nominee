@@ -12,9 +12,9 @@ Post-merge review fixes for the Wave-1 credibility PRs:
   reintroduced phantom method like `nominee.onGovernedAction()` fails the
   pipeline, as the README audit intended.
 - **`guardTools` documents its token boundary.** `connection` / `scopes`
-  on the one-liner authorize a fresh token through your strategy (policy,
-  external authorization, receipt log), but the wrapped tool's plain
-  `execute` never receives it — use `nomineeTool` when the tool itself
+  on the one-liner are forwarded to the strategy's `getToken`, stored on the
+  action, and recorded on the receipt chain — but the wrapped tool's plain
+  `execute` never receives the token; use `nomineeTool` when the tool itself
   must call the third-party API, and note that `connection` on a
   policy-only nominee fails closed at call time.
 - **`guardTools` gets coverage for static `tenant` / `resource` values,

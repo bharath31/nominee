@@ -347,6 +347,13 @@ if (!existsSync(coreDistEntry)) {
         }
       }
     }
+  } else {
+    const msg = 'packages/core/dist does not export Nominee — API surface check cannot run'
+    if (process.env.CI) {
+      errors.push(msg)
+    } else {
+      console.log(`! ${msg} — skipping (rebuild with pnpm -r build)`)
+    }
   }
 }
 
