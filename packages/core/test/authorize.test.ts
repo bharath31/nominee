@@ -39,7 +39,7 @@ describe('Nominee.authorize', () => {
     expect(err.receipt?.effect).toBe('deny')
     // The refusal itself is on the receipt chain.
     expect(n.receipts.at(-1)?.type).toBe('policy.decision')
-    expect(n.verifyReceipts().ok).toBe(true)
+    expect((await n.verifyReceipts()).ok).toBe(true)
   })
 
   it('escalates ask rules to the approval engine, passing input as detail', async () => {
@@ -126,7 +126,7 @@ describe('Nominee.authorize', () => {
     // Input is hashed onto the decision receipt, not stored.
     expect(n.receipts[0]?.inputHash).toMatch(/^[0-9a-f]{64}$/)
     expect(n.receipts[0]?.input).toBeUndefined()
-    expect(n.verifyReceipts().ok).toBe(true)
+    expect((await n.verifyReceipts()).ok).toBe(true)
   })
 
   it('waits for strict receipt delivery before authorization returns', async () => {
@@ -339,7 +339,7 @@ describe('delegation narrowing', () => {
     const chains = orchestrator.receipts.map((r) => r.chain)
     expect(chains[0]).toEqual(['orchestrator'])
     expect(chains[1]).toEqual(['orchestrator', 'researcher'])
-    expect(orchestrator.verifyReceipts().ok).toBe(true)
+    expect((await orchestrator.verifyReceipts()).ok).toBe(true)
     expect(orchestrator.receipts.length).toBe(4)
   })
 })

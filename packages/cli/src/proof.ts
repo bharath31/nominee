@@ -271,7 +271,7 @@ export async function runProof(): Promise<ProofResult> {
   // 6. Every step above is sealed into the receipt chain — including the
   //    rejected $2,000 attempt. Delete the approval from a copy and the
   //    chain breaks where it should.
-  const verified = nominee.verifyReceipts()
+  const verified = await nominee.verifyReceipts()
   const approvalReceipt = nominee.receipts.find(
     (receipt) => receipt.type === 'approval.resolved' && receipt.decision === 'approved',
   )

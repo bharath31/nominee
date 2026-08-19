@@ -209,7 +209,7 @@ export async function runScenario({ log = () => {} } = {}) {
   )
   assert.ok(mutationReceipt, 'the refused mutation must be sealed into the chain')
 
-  const chain = nominee.verifyReceipts()
+  const chain = await nominee.verifyReceipts()
   assert.ok(chain.ok, 'the receipt chain must verify')
 
   log(green('  ✓ dana@acme.com approves by email (resolveActionApproval, via=email)'))

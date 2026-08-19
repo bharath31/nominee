@@ -104,7 +104,7 @@ for (const summary of formatReceipts(nominee.receipts).split('\n')) {
   console.log(denied ? red(line) : line)
 }
 
-const ok = nominee.verifyReceipts()
+const ok = await nominee.verifyReceipts()
 console.log(
   `\n  chain verifies: ${ok.ok ? green(`✓ ${ok.checked} receipts intact`) : red('BROKEN')}`,
 )

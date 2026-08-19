@@ -10,9 +10,11 @@
  *     the chain is evaluated and the STRICTEST outcome wins
  *     (deny > ask > allow). A sub-agent can only ever narrow authority,
  *     never widen it.
- *   - An `allow` rule with `max` is a budget: once it has allowed `max` calls
- *     for a user, further matches escalate to `'ask'` instead of failing —
- *     the human, not the model, decides whether the run keeps going.
+ *   - An `allow` rule with `maxCalls` is a budget: a lifetime call count per
+ *     (policy version, rule, tenant, user) — no time window, never resets.
+ *     Once it has allowed that many calls for a user, further matches
+ *     escalate to `'ask'` instead of failing — the human, not the model,
+ *     decides whether the run keeps going.
  */
 import type { BudgetRequirement } from './action.js'
 
@@ -49,8 +51,18 @@ export interface RuleOptions<TInput = any> {
    */
   when?: WhenPredicate<TInput>
   /**
-   * Budget for `allow` rules: after this rule has allowed `max` calls for a
-   * given user, further matches escalate to `'ask'`. Ignored on deny/ask.
+   * Budget for `allow` rules: a LIFETIME call count per (policy version,
+   * rule position, tenant, user) — no time window, never resets. After this
+   * many allowed calls, further matches escalate to `'ask'` (not deny). This
+   * counts calls, not spend: it is not a cost or rate control. Ignored on
+   * deny/ask.
+   */
+  maxCalls?: number
+  /**
+   * @deprecated Renamed to `maxCalls` — identical semantics (lifetime call
+   * count, no time window, never resets, escalates to `'ask'` on
+   * exhaustion). First use in a process warns once; setting both `max` and
+   * `maxCalls` throws. Durable budget counters are unaffected by the rename.
    */
   max?: number
   /** Human-readable reason, recorded on the receipt and shown to approvers. */
@@ -65,22 +77,78 @@ export interface Rule extends RuleOptions {
   tools: string[]
 }
 
+let maxDeprecationWarned = false
+
+/**
+ * Resolve a rule's budget: `maxCalls` is the current name; `max` is a
+ * deprecated alias kept so existing policies keep working. Setting both
+ * fails closed at rule construction. The durable budget key does not depend
+ * on the option name, so counters stay valid across the rename.
+ */
+function resolveMaxCalls(opts: { max?: number; maxCalls?: number }): number | undefined {
+  if (opts.max !== undefined && opts.maxCalls !== undefined) {
+    throw new Error(
+      'nominee: a rule cannot set both max (deprecated) and maxCalls — keep maxCalls only',
+    )
+  }
+  if (opts.max !== undefined) {
+    if (!maxDeprecationWarned) {
+      maxDeprecationWarned = true
+      console.warn(
+        'nominee: rule option `max` is deprecated — use `maxCalls` (same semantics: ' +
+          "lifetime call count, no time window, never resets, escalates to 'ask' on exhaustion).",
+      )
+    }
+    return opts.max
+  }
+  return opts.maxCalls
+}
+
+function buildRule<TInput>(
+  effect: Effect,
+  tools: string | string[],
+  opts: RuleOptions<TInput> = {},
+): Rule {
+  const { max, maxCalls, ...rest } = opts
+  const limit = resolveMaxCalls({ max, maxCalls })
+  return {
+    effect,
+    tools: Array.isArray(tools) ? tools : [tools],
+    ...rest,
+    ...(limit !== undefined ? { maxCalls: limit } : {}),
+  }
+}
+
+/**
+ * Migrate one rule's budget option in place: `max` → `maxCalls` (deprecated
+ * alias, one warning per process) and fail closed when both are set. Rules
+ * built via `allow()`/`deny()`/`ask()` are already normalized; this covers
+ * policy rules written as plain objects, so a raw rule cannot silently lose
+ * its budget. Idempotent.
+ */
+export function normalizeRuleBudget(rule: Rule): Rule {
+  if (rule.max === undefined && rule.maxCalls === undefined) return rule
+  const { max, maxCalls, ...rest } = rule
+  const limit = resolveMaxCalls({ max, maxCalls })
+  return { ...rest, ...(limit !== undefined ? { maxCalls: limit } : {}) }
+}
+
 /** Allow matching calls to run without a human in the loop. */
 export function allow<TInput = any>(
   tools: string | string[],
   opts: RuleOptions<TInput> = {},
 ): Rule {
-  return { effect: 'allow', tools: Array.isArray(tools) ? tools : [tools], ...opts }
+  return buildRule('allow', tools, opts)
 }
 
 /** Refuse matching calls outright — the model cannot talk its way past this. */
 export function deny<TInput = any>(tools: string | string[], opts: RuleOptions<TInput> = {}): Rule {
-  return { effect: 'deny', tools: Array.isArray(tools) ? tools : [tools], ...opts }
+  return buildRule('deny', tools, opts)
 }
 
 /** Pause matching calls until a human approves (via the approval engine). */
 export function ask<TInput = any>(tools: string | string[], opts: RuleOptions<TInput> = {}): Rule {
-  return { effect: 'ask', tools: Array.isArray(tools) ? tools : [tools], ...opts }
+  return buildRule('ask', tools, opts)
 }
 
 /**
@@ -159,7 +227,7 @@ export interface PolicyDecision {
   ruleId?: string
   /** Reason from the deciding rule, if any. */
   reason?: string
-  /** Set when an exhausted `max` budget escalated an allow to ask. */
+  /** Set when an exhausted `maxCalls` budget escalated an allow to ask. */
   escalated?: 'budget'
   /** Index into the policy chain of the strictest (deciding) policy. */
   policyIndex?: number
@@ -309,7 +377,7 @@ export class PolicyEngine {
 
   private hasBudgets(): boolean {
     return this.policies.some((policy) =>
-      policy.rules.some((rule) => rule.effect === 'allow' && rule.max !== undefined),
+      policy.rules.some((rule) => rule.effect === 'allow' && rule.maxCalls !== undefined),
     )
   }
 
@@ -326,7 +394,7 @@ export class PolicyEngine {
       if (!matchesName) continue
       if (rule.when && !(await rule.when(call))) continue
 
-      if (rule.effect === 'allow' && rule.max !== undefined) {
+      if (rule.effect === 'allow' && rule.maxCalls !== undefined) {
         const budgetKey = JSON.stringify([
           opts.namespace ?? 'local',
           policyIndex,
@@ -334,12 +402,12 @@ export class PolicyEngine {
           call.tenant ?? null,
           call.user,
         ])
-        if (!opts.deferBudget && (this.budgets.used.get(budgetKey) ?? 0) >= rule.max) {
+        if (!opts.deferBudget && (this.budgets.used.get(budgetKey) ?? 0) >= rule.maxCalls) {
           return {
             effect: 'ask',
             rule,
             ruleId: ruleId(rule),
-            reason: rule.reason ?? `budget of ${rule.max} calls exhausted`,
+            reason: rule.reason ?? `budget of ${rule.maxCalls} calls exhausted`,
             escalated: 'budget',
             policyIndex,
           }
@@ -351,7 +419,7 @@ export class PolicyEngine {
           reason: rule.reason,
           policyIndex,
           budgetKey,
-          budget: { key: budgetKey, limit: rule.max },
+          budget: { key: budgetKey, limit: rule.maxCalls },
         }
       }
 

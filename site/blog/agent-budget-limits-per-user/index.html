@@ -64,7 +64,7 @@
           </div>
           <h1>A per-user agent budget is a counter on tool calls, not a max-tokens slider.</h1>
           <p class="post-byline">By <a href="https://bharath.sh">Bharath</a> · 5 min read</p>
-          <p class="post-disclosure">I work at Auth0. You can ship this counter with a Map and a mutex. nominee's <code>allow(..., { max })</code> is one implementation that escalates to a human instead of hard-failing.</p>
+          <p class="post-disclosure">I work at Auth0. You can ship this counter with a Map and a mutex. nominee's <code>allow(..., { maxCalls })</code> (renamed from <code>max</code>) is one implementation that escalates to a human instead of hard-failing.</p>
         </div>
         <div class="post-body">
           <p>If the search was “agent budget limits per user,” you want this: <strong>after this principal has been allowed to attempt a class of tools N times, the next match does not run until a human says so</strong> (or you deny it). Count in <em>your</em> process, keyed by <code>user</code> (and tenant, if you have one), and reserve the slot atomically before execution. An allowed call whose tool later throws still consumed an attempt; that fail-closed accounting prevents concurrent calls from both spending the last slot. Provider rate limits, output-token caps, and “please only search twice” in the prompt are not that counter.</p>
@@ -91,12 +91,12 @@
           </ul>
           <hr class="post-rule" />
           <h2>When nominee is a fit (and when it is not)</h2>
-          <p><code>allow('search.*', { max: 20 })</code> is that counter: call 21 for the same policy version, rule position, tenant, and user escalates to <code>ask</code> (receipt <code>escalated: 'budget'</code>), it does not silently deny. Agents that share those fields and an action store share the budget; give independently budgeted agents distinct <code>policyVersion</code> namespaces. Under <code>production: true</code> the reservation lives on the action store so two replicas cannot both spend the last slot.</p>
+          <p><code>allow('search.*', { maxCalls: 20 })</code> is that counter: call 21 for the same policy version, rule position, tenant, and user escalates to <code>ask</code> (receipt <code>escalated: 'budget'</code>), it does not silently deny. Agents that share those fields and an action store share the budget; give independently budgeted agents distinct <code>policyVersion</code> namespaces. Under <code>production: true</code> the reservation lives on the action store so two replicas cannot both spend the last slot.</p>
           <pre><code>allow(<span class="s">'orders.read'</span>)
-allow(<span class="s">'search.*'</span>, { max: 20 })
+allow(<span class="s">'search.*'</span>, { maxCalls: 20 })
 ask(<span class="s">'refund.issue'</span>, { when: ({ input }) => input.amount &lt;= 500 })
 deny(<span class="s">'refund.issue'</span>)</code></pre>
-          <p>Skip nominee when a platform quota already stops the dangerous calls, or when the agent only reads public, non-sensitive data through APIs that already enforce suitable quotas. “Read-only” alone is not safe: private-data reads can still exfiltrate information and costly reads can still exhaust a budget. If you only need to cap aggregate LLM spend, use cumulative usage accounting or a provider spend quota. OpenFGA should answer live resource entitlement through nominee's <code>authorizer</code> while the action names a <code>resource</code>; that path is rechecked after an approval pause. Keep <code>when</code> predicates for argument matching and a local <code>max</code> for loop containment. Deeper: <a href="/blog/native-approval-vs-action-authorization/">Native approval vs action authorization.</a></p>
+          <p>Skip nominee when a platform quota already stops the dangerous calls, or when the agent only reads public, non-sensitive data through APIs that already enforce suitable quotas. “Read-only” alone is not safe: private-data reads can still exfiltrate information and costly reads can still exhaust a budget. If you only need to cap aggregate LLM spend, use cumulative usage accounting or a provider spend quota. OpenFGA should answer live resource entitlement through nominee's <code>authorizer</code> while the action names a <code>resource</code>; that path is rechecked after an approval pause. Keep <code>when</code> predicates for argument matching and a local <code>maxCalls</code> for loop containment. Deeper: <a href="/blog/native-approval-vs-action-authorization/">Native approval vs action authorization.</a></p>
           <div class="post-cta-block">
             <p class="eyebrow">See it for yourself</p>
             <p class="cta-head">Allow, ask, deny — then the chain verifies.</p>

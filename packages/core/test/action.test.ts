@@ -331,7 +331,9 @@ describe('decision-bound actions', () => {
           production: true,
           policy: { rules: [allow('read')], fallback: 'deny' },
         }),
-    ).toThrow(/durable actionStore.*atomic durable receipt store.*strict.*nominee-postgres/)
+    ).toThrow(
+      /nominee: production mode requires .*durable actionStore.*atomic durable receipt store/,
+    )
 
     const actionStore = durableProxy<ActionStore>(new MemoryActionStore())
     const receiptStore = durableProxy<AtomicReceiptStore>(new MemoryAtomicReceiptStore())

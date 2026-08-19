@@ -157,7 +157,7 @@ approver reviewed. Full walkthrough:
 - **First match wins** within a policy; rules are checked in order.
 - **No match → `fallback`** (default `'ask'`; set `'deny'` for default-deny).
 - **`when` predicates** see `{ tool, input, user, tenant, resource, chain }`.
-- **Budgets**: `allow('search.*', { max: 20 })` — the 21st call escalates to a human.
+- **Budgets**: `allow('search.*', { maxCalls: 20 })` — a lifetime call count (no time window, never resets) for that policy version/rule/tenant/user; the 21st call escalates to a human (`ask`), not a deny. `max` is a deprecated alias.
 - **Delegation can only narrow**: across `delegate()` chains the strictest outcome wins (deny > ask > allow).
 
 ```ts
@@ -179,13 +179,13 @@ const nominee = new Nominee({
   policy,
   receipts: {
     key: process.env.RECEIPT_KEY,          // optional HMAC signing
-    delivery: 'strict',                    // fail closed if the async sink fails
+    delivery: 'strict',                    // default — fail closed if the async sink fails
     onReceipt: (r) => auditLog.write(r),   // may return a Promise
   },
 })
 
-nominee.receipts          // the chain so far
-nominee.verifyReceipts()  // { ok: true, checked: 128 }
+nominee.receipts          // the chain so far (getter, not a method)
+await nominee.verifyReceipts()  // { ok: true, checked: 128 } — async; with an atomic store it verifies the durable stream too
 await nominee.flushReceipts()
 
 // Later, offline, from your exported log:
