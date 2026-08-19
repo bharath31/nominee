@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Your agent logs in as you. It shouldn't get to be you. — nominee</title>
-    <meta name="description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't: the deny rule fires before the tool runs, and a signed, tamper-evident receipt of the attempt is on the chain. Why authorization, not authentication, is the open problem for AI agents." />
+    <meta name="description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't: the deny rule fires before the tool runs, and a hash-chained (HMAC), tamper-evident receipt of the attempt is on the chain. Why authorization, not authentication, is the open problem for AI agents." />
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://nominee.dev/blog/your-agent-logs-in-as-you/" />
     <meta property="og:title" content="Your agent logs in as you. It shouldn't get to be you." />
-    <meta property="og:description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't. The deny rule fires before the tool runs, with a signed receipt of the attempt." />
+    <meta property="og:description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't. The deny rule fires before the tool runs, with a hash-chained (HMAC) receipt of the attempt." />
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://nominee.dev/blog/your-agent-logs-in-as-you/" />
     <meta property="og:image" content="https://nominee.dev/assets/og.png" />
@@ -18,7 +18,7 @@
     <meta property="article:author" content="Bharath" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Your agent logs in as you. It shouldn't get to be you." />
-    <meta name="twitter:description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't. The deny rule fires before the tool runs, with a signed receipt of the attempt." />
+    <meta name="twitter:description" content="A prompt-injected agent tries to exfiltrate your email — and physically can't. The deny rule fires before the tool runs, with a hash-chained (HMAC) receipt of the attempt." />
     <meta name="twitter:image" content="https://nominee.dev/assets/og.png" />
     <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
@@ -31,7 +31,7 @@
       "@context": "https://schema.org",
       "@type": "BlogPosting",
       "headline": "Your agent logs in as you. It shouldn't get to be you.",
-      "description": "A prompt-injected agent tries to exfiltrate your email — and physically can't: the deny rule fires before the tool runs, and a signed, tamper-evident receipt of the attempt is on the chain.",
+      "description": "A prompt-injected agent tries to exfiltrate your email — and physically can't: the deny rule fires before the tool runs, and a hash-chained (HMAC), tamper-evident receipt of the attempt is on the chain.",
       "datePublished": "2026-07-05",
       "author": { "@type": "Person", "name": "Bharath", "url": "https://bharath.sh" },
       "publisher": { "@type": "Organization", "name": "nominee", "url": "https://nominee.dev" },
@@ -98,7 +98,7 @@
   <span class="ok">✓ BLOCKED before the tool ran</span>: nominee: policy denied "email.forward" for alice
     (rule <span class="bad">deny:email.forward</span>) — external forwarding is exfiltration
 
-5. the receipt chain (signed, tamper-evident)
+5. the receipt chain (hash-chained, optionally HMAC-signed, tamper-evident)
   #0 policy.decision email.read       allow    5493c2c54cd5
   #1 policy.decision email.forward    <span class="bad">deny</span>     ca6a069febdb
   #2 policy.decision email.delete     ask      d2fe628a5202
@@ -107,7 +107,7 @@
   <span class="ok">chain verifies: ✓ 6 receipts intact</span>
   doctored log (deny receipts removed): <span class="ok">✓ detected — broken at #1</span></code></pre>
 
-          <p>the exfiltration throws <code>PolicyDeniedError</code> before the tool's own code runs. the model never sees the policy — it only ever gets the guarded tools, so there's no prompt to argue with. the call physically doesn't happen. and the attempt is on the receipt chain, signed, next to the legitimate <code>@acme.com</code> forward that <em>did</em> go through. try to quietly drop the deny from the log and verification breaks at the exact record you touched.</p>
+          <p>the exfiltration throws <code>PolicyDeniedError</code> before the tool's own code runs. the model never sees the policy — it only ever gets the guarded tools, so there's no prompt to argue with. the call physically doesn't happen. and the attempt is on the hash-chained receipt chain, next to the legitimate <code>@acme.com</code> forward that <em>did</em> go through. try to quietly drop the deny from the log and verification breaks at the exact record you touched.</p>
 
           <p><code>npm i nominee</code>, then <code>node examples/prompt-injection-blocked/run.mjs</code>. the model was fully compromised. the policy didn't care.</p>
 

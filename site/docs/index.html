@@ -383,7 +383,10 @@ nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
             hash covers its content plus the previous hash, so editing, reordering, or deleting a
             record from the middle breaks verification downstream. Tail truncation requires a
             trusted external checkpoint for detection. With a signing key, hashes become HMACs,
-            so forging a replacement chain requires the key.
+            so forging a replacement chain requires the key. That makes receipts tamper-evident
+            against a downstream log editor — <strong>not</strong> non-repudiation against the
+            agent host: the key is held by the same process that writes the receipts, so anyone
+            who can verify a chain can forge a consistent rewrite of it.
           </p>
           <pre><code>const nominee = new Nominee({
   policy,
@@ -432,7 +435,7 @@ const nominee = new Nominee({
           <p>
             The action store also persists budgets, approvals, capabilities, outcomes, and an
             immutable transition journal. In-memory stores remain available for local work.
-            Anchor signed stream tips outside the primary database when the threat model
+            Anchor HMAC stream tips outside the primary database when the threat model
             includes rollback of both receipts and their internal checkpoint.
           </p>
         </section>
@@ -654,6 +657,7 @@ const nominee = new Nominee({
           <ul>
             <li><strong>Use the decision-bound path.</strong> <code>run()</code> or prepare/resume/execute binds the exact call through outcome; legacy <code>authorize()</code> and unbound <code>token()</code> are disabled in production mode.</li>
             <li><strong>Use durable stores.</strong> <code>nominee-postgres</code> makes budgets and capability consumption atomic and sequences receipts across replicas.</li>
+            <li><strong>Receipts are tamper-evident, not non-repudiable.</strong> The optional HMAC key lives in the same process that writes receipts, so hash-chaining proves nothing was silently edited after the fact — it does not prove who wrote a given entry against an agent host that holds the key.</li>
             <li><strong>Keep root authority outside the runtime.</strong> Only the execution callback receives the resolved credential after capability consumption.</li>
             <li><strong>Make downstream writes idempotent.</strong> Use the action id as the third-party API idempotency key.</li>
             <li><strong>Attribute delegated actions.</strong> Use <code>delegate()</code> / <code>exchange()</code> so a sub-agent's actions carry the full identity chain.</li>

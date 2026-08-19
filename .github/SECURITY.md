@@ -55,10 +55,14 @@ version in your report.
   it fails, execution fails closed, but operators may need to reconcile the
   action journal and receipt stream after an infrastructure incident.
 - Hash-chained receipts are an evidence primitive, not durable storage or a
-  compliance certification. Protect the signing key and persist receipts in an
-  access-controlled append-only system. Anchor signed stream tips outside the
-  primary database when the threat model includes an administrator rolling
-  back both receipts and their checkpoint.
+  compliance certification. They are tamper-evident against a downstream log
+  editor — deleting or editing a record breaks verification of everything
+  after it — **not** non-repudiation against the agent host: an optional HMAC
+  key is held by the same process that writes the receipts, so anyone who can
+  verify a chain can forge a consistent rewrite of it. Protect the signing key
+  and persist receipts in an access-controlled append-only system. Anchor
+  HMAC stream tips outside the primary database when the threat model
+  includes an administrator rolling back both receipts and their checkpoint.
 - Prefer `run()` or `prepareAction()` → `executeCapability()`; they bind the
   policy, resource check, approval, capability, credential, exact input, and
   outcome. Legacy code that calls `authorize()` manually must call

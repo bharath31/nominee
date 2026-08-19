@@ -8,7 +8,8 @@ The scripted "model" obeys it — models do. It doesn't matter: the tools are
 wrapped with `nominee.guard()`, and the policy only allows forwarding inside
 `@acme.com`. The exfiltration throws `PolicyDeniedError` **before the tool
 runs**, the delete-the-evidence step is escalated to (and denied by) a human,
-and every attempt is sealed into a signed, tamper-evident receipt chain.
+and every attempt is sealed into a hash-chained (HMAC), tamper-evident receipt
+chain.
 
 **No API keys. No network.** The "model" is scripted on purpose — the point is
 what the *tools* will and won't do. Enforcement is identical with a real LLM
