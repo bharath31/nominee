@@ -4,8 +4,9 @@ A runnable proof that `nominee-openai` bridges the OpenAI Agents SDK's **native
 tool approval** into nominee's approval evidence and receipt chain.
 
 A support agent closes GitHub issues on a user's behalf. Its tools are wrapped
-with `nomineeTool()`, so policy (`allow` / `ask` / `deny`) and a signed receipt
-chain sit in front of the backend — not scattered if-checks in tool code.
+with `nomineeTool()`, so policy (`allow` / `ask` / `deny`) and a hash-chained
+(HMAC) receipt chain sit in front of the backend — not scattered if-checks in
+tool code.
 
 **No API keys. No network.** The "model" is scripted on purpose (see
 [`src/scripted-model.mjs`](./src/scripted-model.mjs) for why that is honest) —

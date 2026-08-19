@@ -97,7 +97,7 @@ console.log(bold('\n4. Legitimate work still flows\n'))
 console.log(dim(`  ${await tools['email.forward']({ to: 'boss@acme.com', ids: [3] })}`))
 
 // ── The receipts: who tried what, as whom, and what stopped it ──────────────
-console.log(bold('\n5. The receipt chain (signed, tamper-evident)\n'))
+console.log(bold('\n5. The receipt chain (hash-chained, optionally HMAC-signed, tamper-evident)\n'))
 for (const summary of formatReceipts(nominee.receipts).split('\n')) {
   const line = `  ${summary}`
   const denied = summary.includes(' deny ') || summary.includes(' denied ')

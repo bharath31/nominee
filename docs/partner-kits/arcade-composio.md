@@ -4,8 +4,8 @@
 SDK, hundreds of pre-built SaaS tools, hosted OAuth for each. What they don't
 give you is your *own* application's authorization model on top: which of
 your tenants' users can invoke which of those tools against which resources,
-whether a given call should pause for a human, and a signed record of what
-was decided. Nominee is not a competing connector catalog — see
+whether a given call should pause for a human, and a hash-chained record of
+what was decided. Nominee is not a competing connector catalog — see
 [`docs/positioning.md`](../positioning.md), which names Arcade/Composio as
 the better choice when you need a large SaaS tool catalog. Nominee composes
 underneath either one: your policy runs first, and only an allowed (or

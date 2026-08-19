@@ -1,6 +1,15 @@
 # Evidence export and observability
 
-Nominee receipts are tamper-evident evidence records. Observability pipelines should make them searchable and alertable without weakening that evidence boundary: keep raw receipt JSON in durable storage, export a redacted projection to telemetry, and keep signed stream tips outside the primary database.
+Nominee receipts are tamper-evident evidence records: hash-chained, and
+optionally HMAC-signed with a key held by the same process that writes them.
+That is tamper-evident against a downstream log editor — deleting or editing
+any record breaks verification of everything after it — **not**
+non-repudiation against the agent host; anyone who can verify a chain holds
+the key needed to forge a consistent rewrite of it. Observability pipelines
+should make receipts searchable and alertable without weakening that evidence
+boundary: keep raw receipt JSON in durable storage, export a redacted
+projection to telemetry, and keep HMAC stream tips outside the primary
+database.
 
 ## Export model
 

@@ -234,7 +234,9 @@ export async function runScenario({ log = () => {} } = {}) {
 const main = async () => {
   const scenario = await runScenario({ log: console.log })
 
-  console.log(bold('\n5. The receipt chain (signed, tamper-evident)\n'))
+  console.log(
+    bold('\n5. The receipt chain (hash-chained, optionally HMAC-signed, tamper-evident)\n'),
+  )
   for (const line of formatReceipts(scenario.nominee.receipts, { verbose: true }).split('\n')) {
     const denied = line.includes(' deny ')
     console.log(denied ? red(`  ${line}`) : `  ${line}`)
