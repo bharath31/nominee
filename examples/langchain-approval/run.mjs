@@ -1,3 +1,5 @@
+import { BaseChatModel } from '@langchain/core/language_models/chat_models'
+import { AIMessage, HumanMessage } from '@langchain/core/messages'
 // A LangGraph agent asks for a refund, and the ask survives the process that started it.
 //
 // LangChain JS has no resumable tool-approval primitive: when a nominee `ask`
@@ -26,8 +28,6 @@
 //   node run.mjs
 import { Annotation, START, StateGraph } from '@langchain/langgraph'
 import { ToolNode, toolsCondition } from '@langchain/langgraph/prebuilt'
-import { BaseChatModel } from '@langchain/core/language_models/chat_models'
-import { AIMessage, HumanMessage } from '@langchain/core/messages'
 import {
   ActionPendingError,
   AuthorizationInputChangedError,
@@ -113,7 +113,12 @@ class ScriptedModel extends BaseChatModel {
             message: new AIMessage({
               content: '',
               tool_calls: [
-                { name: 'payments_read', args: { transactionId: 'tx-1' }, id: 'call_lc_1', type: 'tool_call' },
+                {
+                  name: 'payments_read',
+                  args: { transactionId: 'tx-1' },
+                  id: 'call_lc_1',
+                  type: 'tool_call',
+                },
               ],
             }),
             text: '',
@@ -216,33 +221,48 @@ const resolved = await nominee.resolveActionApproval(workflowState.actionId, {
   via: 'slack',
 })
 console.log(`  action status: ${resolved.status}`)
-console.log(`  record stores: inputHash = ${resolved.inputHash.slice(0, 16)}…` + dim('  (still no raw input)'))
+console.log(
+  `  record stores: inputHash = ${resolved.inputHash.slice(0, 16)}…` +
+    dim('  (still no raw input)'),
+)
 
 console.log(bold('\n4. resumeAction() — issues a capability, executes nothing\n'))
 const prepared = await nominee.resumeAction(workflowState.actionId)
-console.log(`  → { status: ${JSON.stringify(prepared.status)}, capability: "${prepared.capability.slice(0, 14)}…" }`)
+console.log(
+  `  → { status: ${JSON.stringify(prepared.status)}, capability: "${prepared.capability.slice(0, 14)}…" }`,
+)
 console.log(yellow(`  ⚠ refunds executed so far: ${refunds} — resuming did NOT run the tool`))
 
 console.log(bold('\n5. executeCapability() with the persisted original input\n'))
-const result = await nominee.executeCapability(prepared.capability, workflowState.input, ({ input }) => {
-  refunds++
-  return `Refunded ${input.transactionId} for ${input.cents} cents`
-})
+const result = await nominee.executeCapability(
+  prepared.capability,
+  workflowState.input,
+  ({ input }) => {
+    refunds++
+    return `Refunded ${input.transactionId} for ${input.cents} cents`
+  },
+)
 console.log(green(`  ✓ ${result}  (refunds executed: ${refunds})`))
 
 console.log(bold('\n6. The same capability, mutated input → rejected\n'))
 try {
-  await nominee.executeCapability(prepared.capability, { transactionId: 'tx-1', cents: 50000 }, () => {
-    refunds++
-    return 'MUTATED REFUND RAN'
-  })
+  await nominee.executeCapability(
+    prepared.capability,
+    { transactionId: 'tx-1', cents: 50000 },
+    () => {
+      refunds++
+      return 'MUTATED REFUND RAN'
+    },
+  )
   console.log(red('  ✗ UNEXPECTED — the mutated input executed'))
   process.exit(1)
 } catch (err) {
   if (!(err instanceof AuthorizationInputChangedError)) throw err
   console.log(green(`  ✓ rejected: ${err.constructor.name}`))
   console.log(dim(`    ${err.message.slice(0, 110)}…`))
-  console.log(`    (the capability was bound to the APPROVED arguments — refunds executed: ${refunds})`)
+  console.log(
+    `    (the capability was bound to the APPROVED arguments — refunds executed: ${refunds})`,
+  )
 }
 
 console.log(bold('\n7. …and the capability is single-use\n'))

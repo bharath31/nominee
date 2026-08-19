@@ -1,10 +1,10 @@
+import { Mastra } from '@mastra/core'
 // Mastra approval demo: what nominee adds over the framework's own
 // suspend/approve primitives — approve + decline paths, nativeApprovals OFF
 // behavior, and a direct tool call that throws ActionPendingError.
 //
 // No keys. No network. A scripted model drives a real Mastra Agent loop.
 import { Agent } from '@mastra/core/agent'
-import { Mastra } from '@mastra/core'
 import { InMemoryStore } from '@mastra/core/storage'
 import { ActionPendingError, Nominee, allow, ask } from 'nominee'
 import { nomineeTool } from 'nominee-mastra'
@@ -87,7 +87,12 @@ const out = await agent.generate('Send a wire of 500 cents')
 console.log('finishReason:', out.finishReason, '| runId:', out.runId)
 console.log('suspendPayload:', JSON.stringify(out.suspendPayload, null, 1))
 const receiptsBeforeResume = nominee.receipts.length
-console.log('receipts while suspended:', receiptsBeforeResume, '→', nominee.receipts.map((r) => r.type).join(', ') || '(none)')
+console.log(
+  'receipts while suspended:',
+  receiptsBeforeResume,
+  '→',
+  nominee.receipts.map((r) => r.type).join(', ') || '(none)',
+)
 
 console.log('\n── A2: approveToolCallGenerate')
 const resumed = await agent.approveToolCallGenerate({
@@ -173,7 +178,11 @@ const offAgent = new Agent({
   instructions: 'You send wires when asked.',
   tools: { 'wire-send-off': offSend },
 })
-const mastra2 = new Mastra({ storage: new InMemoryStore(), logger: false, agents: { 'wire-agent-off': offAgent } })
+const mastra2 = new Mastra({
+  storage: new InMemoryStore(),
+  logger: false,
+  agents: { 'wire-agent-off': offAgent },
+})
 try {
   const out3 = await offAgent.generate('Send a wire of 500 cents')
   console.log('NO THROW. finishReason:', out3.finishReason)
@@ -189,7 +198,12 @@ try {
   await offSend.execute({ cents: 500 }, { requestContext: {} })
   console.log('UNEXPECTED: direct call executed')
 } catch (err) {
-  console.log('THREW:', err.constructor.name, '| is ActionPendingError:', err instanceof ActionPendingError)
+  console.log(
+    'THREW:',
+    err.constructor.name,
+    '| is ActionPendingError:',
+    err instanceof ActionPendingError,
+  )
   console.log('actionId:', err.actionId)
 }
 console.log('receipt types:', nominee.receipts.map((r) => r.type).join(', '))
