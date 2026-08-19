@@ -89,7 +89,7 @@ The policy must default-export a non-empty `Rule[]` or `Policy`. The receipt
 file must be the complete, intact JSON array from the governed application and
 must contain an enforced `policy.decision` plus `execution.succeeded` for a tool
 matched by at least one supplied rule. Observe-mode executions do not qualify.
-If the chain was HMAC-signed, set `NOMINEE_RECEIPT_KEY` just as for `verify`.
+If the chain was sealed with an HMAC key, set `NOMINEE_RECEIPT_KEY` just as for `verify`.
 
 Policy and receipt contents never leave the process. After the local proof, an
 interactive terminal shows the exact optional payload before asking: only
@@ -195,10 +195,10 @@ $ npx nominee-cli verify tampered.json
 ✗ broken at #3 (content does not match hash)
 ```
 
-- If the chain was sealed with an HMAC signing key (`receipts: { key }`), set
+- If the chain was sealed with an HMAC seal key (`receipts: { key }`), set
   `NOMINEE_RECEIPT_KEY` in the environment before verifying — the same
-  variable name the reference examples already use. Unsigned (plain SHA-256)
-  chains verify with no key at all.
+  variable name the reference examples already use. Not sealed (plain
+  SHA-256) chains verify with no key at all.
 - Exit code `0` when the chain is intact, `1` if it's broken, unreadable, or
   not valid JSON.
 

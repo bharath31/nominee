@@ -1,7 +1,7 @@
 {
   "name": "nominee-cli",
   "version": "2.8.0",
-  "description": "Try nominee policies, verify receipts, check and generate policy files, report developer activation, and run the local console for live reports and approvals",
+  "description": "A terminal proof that approval is the easy part: pause a refund, watch the token expire, resume fresh, see the arg-swap bounce.",
   "type": "module",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",

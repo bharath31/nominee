@@ -1,7 +1,7 @@
 {
   "name": "nominee-mcp",
   "version": "2.5.0",
-  "description": "Decision-bound Model Context Protocol tool handlers for governed AI agents",
+  "description": "A connected MCP server can still exfiltrate if the model asks — registerNomineeTool checks allow/ask/deny before the handler runs.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

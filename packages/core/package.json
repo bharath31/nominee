@@ -1,7 +1,7 @@
 {
   "name": "nominee",
   "version": "2.8.0",
-  "description": "The authorization layer for AI agents — allow/deny/ask policy on every tool call, human approvals, and tamper-evident receipts. Framework-neutral, zero dependencies",
+  "description": "The pause is where tools break: token minted at execution, bound to the args a human saw, spendable once, sealed in a hash-chained receipt.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

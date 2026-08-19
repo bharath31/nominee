@@ -1,7 +1,7 @@
 {
   "name": "nominee-ai",
   "version": "2.4.0",
-  "description": "Nominee for the Vercel AI SDK — policy, approvals, receipts, and fresh tokens on every tool call, full context (guardTools / nomineeTool)",
+  "description": "One-line guardTools for Vercel AI SDK and Cloudflare Agents — user, tenant, resource, connection, scopes flow into policy and fresh tokens.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

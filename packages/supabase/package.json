@@ -1,7 +1,7 @@
 {
   "name": "nominee-supabase",
   "version": "2.2.1",
-  "description": "Supabase strategy for nominee — read and refresh provider tokens stored in Supabase for AI agents",
+  "description": "Keeps provider tokens fresh at execution — without it, a paused agent resumes on the token that expired while a human approved.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

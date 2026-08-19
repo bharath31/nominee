@@ -1,7 +1,7 @@
 {
   "name": "nominee-auth0",
   "version": "2.2.1",
-  "description": "Auth0 strategy for nominee — Token Vault tokens and CIBA human-in-the-loop approval for AI agents",
+  "description": "Auth0 strategy for Token Vault and push approvals — without it, a resumed action runs the credential held when the pause started.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

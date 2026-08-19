@@ -6,10 +6,17 @@
 </p>
 
 <p align="center">
-  <strong>Find out what your agent can actually do.</strong><br />
-  Then: Your agent calls tools. Your rules decide what runs.<br />
-  Open-source TypeScript checks before every AI tool call.<br />
-  Zero dependencies, framework-neutral, no SaaS.
+  <strong>Approval is the easy part.</strong><br />
+  Your agent got approval at 2:14. It executed at 2:31 with a dead token.<br />
+  Token minted at execution · bound to the args a human saw · spendable once.
+</p>
+
+<p align="center">
+  Does your approval come back in the same HTTP request that asked for it?
+  Then you don't need nominee. But the moment a run pauses while a human
+  answers, you need the token minted at execution (not the stale one), the
+  arguments bound to exactly what the approver reviewed, and every decision
+  sealed into a hash-chained, tamper-evident receipt.
 </p>
 
 ---
@@ -32,7 +39,7 @@ nominee sits between the model and your tools, in-process, and gives every tool 
 
 1. **Policy** — declarative `allow` / `deny` / `ask` rules: glob patterns, argument-level conditions, call budgets. The model cannot talk its way past a `deny`.
 2. **Approvals** — `ask` pauses the call until a human decides, with the full arguments in front of them.
-3. **Receipts** — every decision (including refusals) sealed into a hash-chained, optionally HMAC-signed, tamper-evident log. Inputs hashed, never stored.
+3. **Receipts** — every decision (including refusals) sealed into a hash-chained (HMAC), tamper-evident log — tamper-evident against a downstream log editor, not non-repudiation against the agent host. Inputs hashed, never stored.
 
 ---
 
@@ -178,7 +185,7 @@ await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'de
 const nominee = new Nominee({
   policy,
   receipts: {
-    key: process.env.RECEIPT_KEY,          // optional HMAC signing
+    key: process.env.RECEIPT_KEY,          // optional HMAC seal
     delivery: 'strict',                    // default — fail closed if the async sink fails
     onReceipt: (r) => auditLog.write(r),   // may return a Promise
   },
@@ -198,9 +205,9 @@ verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 
 Each receipt's hash covers its content plus the previous hash — editing or deleting *any* record breaks verification of everything after it. New receipts include `v: 1` (the receipt schema version) in that hashed content. `verifyReceipts` still accepts unversioned records sealed before this field existed, including mixed chains; an unknown `v` fails closed. This is not `policyVersion`, which versions the policy set. A mixed chain cannot hide tampering by stripping `v`: that changes the record's hash, so the next receipt's `prev` no longer matches. Inputs are recorded as `inputHash` by default: you can prove what an approver saw without writing user data into logs.
 
-For a threat model that includes whole-database rollback, anchor the signed
-stream tip in an external append-only system; a valid older chain is still a
-valid chain without that checkpoint.
+For a threat model that includes whole-database rollback, anchor the
+hash-chained stream tip in an external append-only system; a valid older
+chain is still a valid chain without that checkpoint.
 
 A durable or hibernating agent that reconstructs its `Nominee` instance across restarts can persist receipts itself and pass `receipts: { resume: { seq, prev } }` — the sequence number and hash to continue from — so the new ledger picks up the same chain instead of starting a second genesis.
 
