@@ -1,6 +1,6 @@
 {
   "name": "nominee-eve",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Eve agent tools with policy, approvals, and receipts — without it, the args you pause can change while the token dies out of band.",
   "type": "module",
   "module": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "nominee-supabase",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "description": "Keeps provider tokens fresh at execution — without it, a paused agent resumes on the token that expired while a human approved.",
   "type": "module",
   "main": "./dist/index.cjs",

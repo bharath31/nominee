@@ -1,6 +1,6 @@
 {
   "name": "nominee-openai",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Bridges OpenAI Agents' native approval into nominee's one-shot evidence: an approved call cannot change before the resumed token is minted.",
   "type": "module",
   "main": "./dist/index.cjs",

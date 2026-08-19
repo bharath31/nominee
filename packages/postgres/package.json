@@ -1,6 +1,6 @@
 {
   "name": "nominee-postgres",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Transactional action and receipt stores for production — without it, a restart loses the capability and evidence chain mid-pause.",
   "type": "module",
   "main": "./dist/index.cjs",

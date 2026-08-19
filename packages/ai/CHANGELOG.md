@@ -1,5 +1,58 @@
 # nominee-ai
 
+## 3.0.0
+
+### Minor Changes
+
+- eb5b290: `guardTools` now accepts the full per-call context of `nomineeTool`: `resource` and `tenant` (static values or resolvers of the tool's input and tool-call options), `connection`, and `scopes`. Every resolved value is forwarded to `nominee.run()`, so tenant- and resource-scoped policy rules and token strategies work through the whole-object one-liner. Existing `guardTools(nominee, tools, { user })` calls are unchanged.
+
+### Patch Changes
+
+- f67b49a: Post-merge review fixes for the Wave-1 credibility PRs:
+
+  - **CI actually runs the API-surface gate now.** `ci.yml` builds before
+    `brand/check-surfaces.mjs`, and the check fails in CI when
+    `packages/core/dist` is absent instead of silently skipping — so a
+    reintroduced phantom method like `nominee.onGovernedAction()` fails the
+    pipeline, as the README audit intended.
+  - **`guardTools` documents its token boundary.** `connection` / `scopes`
+    on the one-liner authorize a fresh token through your strategy (policy,
+    external authorization, receipt log), but the wrapped tool's plain
+    `execute` never receives it — use `nomineeTool` when the tool itself
+    must call the third-party API, and note that `connection` on a
+    policy-only nominee fails closed at call time.
+  - **`guardTools` gets coverage for static `tenant` / `resource` values,
+    `ActionPendingError` when an ask outlives the request, and
+    `AuthorizationInputChangedError` when input mutates after approval.**
+  - **The CLI pause proof tightens its arg-swap criterion** to count only
+    `AuthorizationInputChangedError` — proof that the approval is bound to
+    the exact approved input, not a looser consumed-capability error.
+  - **`packages/core/README.md` Full API block gains `assertUnchanged`,
+    `observe()`, and `observations()`.**
+
+- 833a7af: Document the out-of-band approval path — the approval that outlives the request. New
+  site page at `nominee.dev/docs/approvals` with the four-step flow (catch
+  `ActionPendingError` and persist the action id and the original input,
+  `resolveActionApproval()`, `resumeAction()`, `executeCapability()`); a compressed
+  four-step section in the core README quickstart; a "What happens on `ask`"
+  subsection in every adapter README; and `examples/support-refund-agent` named as the
+  canonical reference implementation.
+- c53fc13: Repositioned the package surfaces around the pause narrative: npm package
+  descriptions now lead with the consequence of approvals that outlive the
+  request — a token minted at execution, bound to the arguments a human
+  reviewed, spendable once, sealed into a hash-chained receipt — instead of a
+  capability list. The core and adapter READMEs align with the same story,
+  budget examples use `maxCalls` (lifetime call count, no time window, never
+  resets, escalates to `ask` on exhaustion), and every tamper-evidence claim
+  now carries its trust boundary (tamper-evident against a downstream log
+  editor, not non-repudiation against the agent host).
+- Updated dependencies [486f59d]
+- Updated dependencies [f67b49a]
+- Updated dependencies [833a7af]
+- Updated dependencies [c53fc13]
+- Updated dependencies [136561f]
+  - nominee@3.0.0
+
 ## 2.4.0
 
 ### Patch Changes

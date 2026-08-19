@@ -1,6 +1,6 @@
 {
   "name": "nominee-mastra",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Maps nominee ask rules into Mastra's native pause/resume (default off); otherwise ask throws ActionPendingError for durable resume.",
   "type": "module",
   "main": "./dist/index.cjs",

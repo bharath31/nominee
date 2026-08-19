@@ -1,6 +1,6 @@
 {
   "name": "nominee-ai",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "description": "One-line guardTools for Vercel AI SDK and Cloudflare Agents — user, tenant, resource, connection, scopes flow into policy and fresh tokens.",
   "type": "module",
   "main": "./dist/index.cjs",

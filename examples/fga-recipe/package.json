@@ -1,6 +1,6 @@
 {
   "name": "fga-recipe",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "description": "nominee policy rule whose `when` calls a mocked OpenFGA/WorkOS-FGA-shaped relationship check; the decision's reason lands on the receipt unchanged. Swap in a real FGA store with one call.",
