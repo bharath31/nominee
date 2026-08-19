@@ -98,6 +98,18 @@ to a real OPA instance or FGA store.
 approval, the approved call id is sealed into the nominee receipt chain as
 framework evidence, and a replay with a mutated input is refused on the spot.
 
+## [`langchain-approval`](./langchain-approval) / [`mastra-approval`](./mastra-approval)
+
+The `ask` path, end to end, for the two adapters with no reference
+implementation. LangChain JS has no approval bridge — `invoke()` throws
+`ActionPendingError`, and this example shows the full recover loop
+(`resolveActionApproval` → `resumeAction` → `executeCapability`) including the
+"you must persist the input yourself" requirement. Mastra's native approval
+bridge works through its suspend/approve primitives, but `nativeApprovals` is
+off by default — the example shows both the bridge working and the
+off-by-default `ActionPendingError` you get otherwise. One file each, no keys,
+no network.
+
 ## See also
 
 - [`packages/auth0`](../packages/auth0) — the `auth0()` strategy (Token Vault +
