@@ -1,12 +1,11 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=4" alt="nominee — the authorization layer for AI agents. An injected email-forward call travels toward the tool and is denied at the policy gate before it runs." width="100%" />
+  <img src="https://raw.githubusercontent.com/bharath31/nominee/main/.github/media/banner-motion.gif?v=4" alt="nominee — approval is the easy part. The moment after it is correct: a fresh token minted at execution, arguments bound to what a human saw, spent once, receipted." width="100%" />
 </p>
 
 <p align="center">
-  Building an AI agent that can change real data?<br />
-  <strong>Find out what your agent can actually do.</strong><br />
-  One command, no policy, no premise to accept.<br />
-  Then your rules decide what runs.
+  Building an agent that writes to a third-party API on a user's behalf?<br />
+  <strong>Your agent got approval at 2:14. It executed at 2:31 with a dead token.</strong><br />
+  Approval is the easy part — nominee makes the moment after it correct.
 </p>
 
 <p align="center">
@@ -30,99 +29,54 @@
 
 ---
 
-## 1. See what your agent does
+Your framework can already pause a tool call — every framework with `needsApproval` or an
+equivalent can hold the call and ask a human. That part is solved.
 
-Observe mode wraps your existing tools and does not enforce deny, ask, or
-budget decisions. No policy is required: it records the tool callbacks that
-actually start and reports argument shapes, numeric ranges, and hashed
-cardinalities without enumerating string values. Runtime and integrity failures
-still fail closed.
+What it cannot tell you is what happens next: **the token expired during the pause, the
+arguments drifted, the permission changed, or the approval got spent twice.** The pause is
+not the problem; the moment after "approve" is.
+
+nominee makes the moment after "approve" correct, and leaves a receipt:
+
+> token minted at execution · bound to the args a human saw · spendable once
+
+## The proof — one command, no signup, no API key
 
 ```bash
-npx nominee-cli observe --out nominee.observations.json
+node examples/token-refresh-correctness/run.mjs
 ```
 
-That command prints a **sample** report from a hard-coded support agent.
-Observing your own agent means wrapping its tools with `nominee.observe()`.
+Naive rotating refresh fails **7/8** under concurrency. nominee gets **8/8** with the same
+agent code. A real mock OAuth server with rotating refresh tokens and real latency — no mocks
+that cheat.
 
 ```text
-nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
-ENFORCEMENT WAS OFF: every observed call reached its tool callback.
-
-  tool              calls  kind
-  refund.issue          5  mutate
-                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
-  orders.read           3  read
-  customers.export      1  unknown
+A) naive (hold access token across pause):     resource → 401 token_expired
+B) nominee (refresh at call time):             before → 200 OK | after pause → 200 OK
+C) nominee + 8 concurrent calls:               network refreshes = 1 (single-flight) | 8/8
+D) refresh WITHOUT single-flight (8 concurrent): network refreshes = 8 | invalid_grant = 7/8
 ```
 
-Two lines put it around your own tools:
+A and D are the natural-but-wrong first attempts. B and C are nominee. Secondary proof: an
+approved $300 refund replayed as $999,999 → `AuthorizationInputChangedError`; the attempt stays
+on the receipt chain. Try it with `npx nominee-cli`.
 
-```ts
-const nominee = new Nominee({ mode: 'observe' })
-const tools = nominee.observe(yourTools)   // …then run your agent as usual
+> **Self-selection test:** Does your approval come back in the same HTTP request that asked for
+> it? Then you don't need nominee. The full honest list is at the bottom of this file, below
+> the proof.
 
-console.log(formatObservations(nominee.observations()))
-```
+## What breaks after "approve"
 
-Open the local report, approval, and receipt surface:
+A human approves out of band — Slack, email, push — and then, before the tool runs:
 
-```bash
-npx nominee-cli console --report nominee.observations.json
-```
+| Staleness mode | What goes wrong | What nominee does |
+|---|---|---|
+| **Token** | The credential minted before the pause died while the human deliberated. | Resolves tokens **at execution**, inside the `run()` callback — a token is never older than the call it serves. |
+| **Arguments** | The agent reworded the input while you approved. | Binds the approval to a canonical hash of the exact input; drifted arguments throw `AuthorizationInputChangedError` instead of executing. |
+| **Permission** | The user lost access while you deliberated. | Re-consults the application authorizer while planning *and* after capability consumption — a permission revoked mid-approval fails closed. |
+| **Replay** | The approved call runs twice. | Single-use, expiring capability; `resumeAction()` rotates it and invalidates the old value. One approval, one execution. |
 
-The console binds to loopback, needs no account, and can write the editable
-starter policy for you. The same generation step is available directly:
-
-```bash
-npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
-npx nominee-cli check nominee.policy.ts
-```
-
-The generated file cites the calls, dates, and numeric ranges behind every
-rule. Its thresholds reflect observed traffic, not security recommendations;
-review them before switching enforcement on. The report also inventories
-callable tools that were available but never used, so the starter policy can
-deny that unused authority explicitly.
-
-The same deny boundary is how you govern an MCP server: OAuth lets the client
-connect; nominee decides which tool call may execute. Ten-minute quickstart:
-[nominee.dev/docs/mcp](https://nominee.dev/docs/mcp/).
-
-Observe mode is report-only and says so: it announces on startup that
-enforcement is off, marks every receipt `enforcement: 'observe'`, and refuses
-to be constructed with `production: true`. It is not a security control — it is
-how you find out what you need one for. See [docs/observe.md](docs/observe.md).
-
-## 2. Then enforce a policy that matches
-
-[Open the live support agent](https://nominee.dev/playground/) to edit the policy, run refund calls, approve the `$200` call yourself, and inspect the receipts.
-
-Or run the same proof in your terminal:
-
-```bash
-npx nominee-cli
-```
-
-No signup, API key, or clone. The command runs a support agent against the real package. The proof itself is offline; `npx` may first download it from npm. After a successful interactive run, the CLI separately offers one fully disclosed, optional **trial** report; `DO_NOT_TRACK=1` disables even that prompt. A sample proof is not counted as developer activation.
-
-```text
-✓ $25 refund    allowed → refund.issue ran
-? $200 refund   agent paused → waiting for your approval
-✓ $200 refund   approved once → refund.issue ran
-✗ $2,000 refund blocked before refund.issue ran
-✗ customer export blocked before customers.export ran
-✓ receipt chain verifies
-```
-
-Your agent calls tools. Your rules decide what runs. Nominee checks each call before your tool code executes.
-
-After your own policy has successfully governed one of your own tools,
-`npx nominee-cli activate ./nominee.policy.ts ./receipts.json` verifies both
-artifacts locally and offers a separate opt-in activation report. Neither
-artifact is uploaded; see the [CLI documentation](packages/cli/README.md).
-
-## 3. Add it to your agent
+## Add it to your agent
 
 ```bash
 npm i nominee
@@ -162,116 +116,35 @@ The result is literal:
 - `deny`: throw before the tool function runs.
 - Every outcome leaves a receipt.
 
-When the approval outlives the request, the call throws `ActionPendingError` immediately and you resume the durable action later — see [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+When the approval outlives the request, the call throws `ActionPendingError` immediately and
+you resume the durable action later — see
+[Approvals that outlive the request](https://nominee.dev/docs/approvals/).
 
-The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents, Mastra, Cloudflare Agents, and MCP tools.
+The core has zero runtime dependencies. Adapters wrap Vercel AI SDK, Eve, OpenAI Agents,
+Mastra, Cloudflare Agents, and MCP tools.
 
-## 4. Make it durable
+## Make it durable
 
-For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent): Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under `production: true`.
+For durable production wiring, see [`examples/support-refund-agent`](examples/support-refund-agent):
+Vercel AI SDK tools, approvals that survive the request, and PostgreSQL stores under
+`production: true`.
 
-> **Security Boundary Warning:** In-process wrapping only enforces actions that actually route through Nominee. For high-impact tools, raw credentials and the raw tool implementations must be entirely inaccessible to model-controlled code (e.g. by using an isolated action service), otherwise a compromised model could bypass the wrapper entirely.
-
-## Receipt transcript of the lead proof
-
-[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is the same run as the GIF above. An email tells the agent to forward the inbox to an attacker. The model follows the instruction; the deny rule still stops the tool before it runs.
-
-```
-2. The model obeys the injection and tries to exfiltrate
-
-  ✓ BLOCKED before the tool ran: nominee: policy denied "email.forward" for alice
-    (rule deny:email.forward) — external forwarding is exfiltration
-
-3. …then tries the delete it was told to do
-
-  ⏸  approval requested: email.delete {"id":2}
-  ✗  human denies (nobody asked for a deletion)
-  ✓ BLOCKED by the human: nominee: approval denied (id=apr_…)
-
-5. The receipt chain (signed, tamper-evident — decision-bound: plan → policy → capability → execute)
-
-  #0  action.planned       email.read                85ec42ce6f90
-  #1  policy.decision      email.read       allow     9085d0623e9b
-  #2  capability.issued    email.read                a66cd4224439
-  #3  capability.consumed  email.read                6032829a4e84
-  #4  execution.started    email.read                16e4cee522be
-  #5  execution.succeeded  email.read       succeeded 9453041b527a
-  #6  action.planned       email.forward             484cf3d44d24
-  #7  policy.decision      email.forward    deny      0772bf7ce862
-  #8  action.planned       email.delete              b2b3c0db07f5
-  #9  policy.decision      email.delete     ask       f819e42e6284
-  #10 approval.requested   email.delete              2f91d44acb4c
-  #11 approval.resolved    email.delete     denied    82a3b97d991d
-  #12 action.planned       email.forward             84819ea52ae1
-  #13 policy.decision      email.forward    allow     8e1eef0951b6
-  ...
-
-  chain verifies: ✓ 18 receipts intact
-  doctored log (deny receipts removed): ✓ detected — broken at #7
-```
-
-The support-agent refund CLI explains the product. The injection example is the hook — blast-radius containment, not a detector.
-
-## Policy semantics
-
-Small enough to hold in your head:
-
-- **First match wins** within a policy; rules are checked in order.
-- **No match → `fallback`** (default `'ask'` — unknown actions reach a human; set `'deny'` for default-deny).
-- **`when` predicates** see `{ tool, input, user, tenant, resource, chain }` —
-  gate on trusted application context and arguments, not just names.
-- **Budgets**: `allow('search.*', { max: 20 })` — the 21st call escalates to a human instead of failing.
-- **Delegation can only narrow**: across `nominee.delegate('sub-agent', { policy })` chains, the strictest outcome wins (deny > ask > allow). A sub-agent can never allow what its parent denies.
-
-```ts
-const researcher = nominee.delegate('researcher', {
-  policy: [deny('email.*'), deny('github.merge_*')],
-})
-// researcher's receipts carry chain: ['orchestrator', 'researcher']
-```
-
-Dry-run any call without consuming budgets or asking anyone:
-
-```ts
-await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'deny', ... }
-```
-
-## Approvals
-
-`ask` rules route through a portable approval engine when you need one approval policy or channel outside the agent runtime:
-
-```ts
-const nominee = new Nominee({
-  policy: [ask('github.merge_pr', { timeoutMs: 3600_000 })],
-  onApprovalRequest: async (req) => {
-    // req.action, req.detail (the full tool input), req.id
-    await slack.post(approvalCard(req))   // then req.approve() / req.deny(),
-  },                                      // or nominee.resolveApproval(req.id, …) from a webhook
-})
-```
-
-The legacy `approve()` API waits in-process. The decision-bound `run()` and
-adapter paths instead surface `ActionPendingError` when an approval outlives
-the current request; persist its action id, resolve or poll it, then call
-`resumeAction()`. Denied or expired actions never run, and the refusal is on
-the record. Strategies can carry native flows (Auth0 CIBA via
-[`nominee-auth0`](packages/auth0)).
-
-See it deployed: [nominee.dev/agent](https://nominee.dev/agent) — a real
-Cloudflare Durable Object agent that hibernates mid-session while it waits
-for your approval (email link or Auth0 Guardian push), then resumes the same
-hash-chained receipt log and fetches a fresh GitHub token only at that
-moment. [`site/agent-worker`](site/agent-worker) is the source.
+> **Security Boundary Warning:** In-process wrapping only enforces actions that actually route
+> through Nominee. For high-impact tools, raw credentials and the raw tool implementations must
+> be entirely inaccessible to model-controlled code (e.g. by using an isolated action service),
+> otherwise a compromised model could bypass the wrapper entirely.
 
 ## Receipts
 
-Every decision, approval, and token grant appends to a hash chain — each receipt's hash covers its content plus the previous hash, so editing or deleting *any* record breaks verification of everything after it:
+Every decision, approval, and token grant appends to a hash chain — each receipt's hash covers
+its content plus the previous hash, so editing or deleting *any* record breaks verification of
+everything after it:
 
 ```ts
 const nominee = new Nominee({
   policy,
   receipts: {
-    key: process.env.RECEIPT_KEY,          // optional HMAC signing
+    key: process.env.RECEIPT_KEY,          // optional HMAC key
     delivery: 'strict',                    // fail closed if the async sink fails
     onReceipt: (r) => auditLog.write(r),   // may return a Promise
   },
@@ -287,17 +160,24 @@ console.log(formatReceipts(nominee.receipts))
 verifyReceipts(exported, { key })  // { ok: false, brokenAt: 41, reason: '…' }
 ```
 
-By default inputs are recorded as `inputHash` — you can prove what an approver saw without writing user data into logs (`input: 'raw'` and `'none'` are available). New receipts seal `v: 1` (receipt schema version, distinct from `policyVersion`) into the hashed content; `verifyReceipts` still accepts unversioned records and mixed chains, and fails closed on an unknown `v`. If your compliance story needs "who authorized this agent action, seeing what, when" — this is that, as a data structure.
-In-memory receipts retain the latest 1,000 entries by default to keep development servers bounded; pass `receipts: { retain: 'all' }` or use `onReceipt` / `nominee-postgres` for an unbounded audit history.
+**The trust boundary, stated plainly:** the chain is hash-chained (HMAC), so the receipts are
+tamper-evident against a downstream log editor — anyone with the key can verify nothing was
+edited. That is not non-repudiation: anyone with write access to the whole log (and the key)
+could rewrite it consistently. Receipts are evidence primitives, not legal signatures; anchor
+the stream tip outside the primary database if whole-database rollback is in scope.
 
-Anchor the signed stream tip outside the primary database when whole-database
-rollback is in scope; a chain alone cannot distinguish a complete rollback to
-an older valid tip.
+By default inputs are recorded as `inputHash` — you can prove what an approver saw without
+writing user data into logs (`input: 'raw'` and `'none'` are available). New receipts seal
+`v: 1` (receipt schema version, distinct from `policyVersion`) into the hashed content;
+`verifyReceipts` still accepts unversioned records and mixed chains, and fails closed on an
+unknown `v`. In-memory receipts retain the latest 1,000 entries by default to keep development
+servers bounded; pass `receipts: { retain: 'all' }` or use `onReceipt` / `nominee-postgres`
+for an unbounded audit history.
 
-For multi-replica production, [`nominee-postgres`](packages/postgres) atomically
-sequences the receipt stream alongside durable action, approval, capability,
-budget, outcome, and transition-journal state. The in-memory stores remain
-useful conformance implementations, but deliberately fail `production: true`.
+For multi-replica production, [`nominee-postgres`](packages/postgres) atomically sequences the
+receipt stream alongside durable action, approval, capability, budget, outcome, and
+transition-journal state. The in-memory stores remain useful conformance implementations, but
+deliberately fail `production: true`.
 
 ## Framework adapters
 
@@ -324,7 +204,12 @@ const result = await generateText({
 
 ## Tokens (the supporting act)
 
-Tools that act on third-party APIs also need credentials — fresh ones, at call time, never in the model's context. nominee's strategy layer does that too: call-time resolution, single-flight refresh under concurrency, rotation persistence, and swappable backends (your DB → OAuth2 → Auth0 Token Vault → Supabase) without touching agent code. In the decision-bound path the credential resolver receives the action, resource, capability, input hash, and policy version as an authorization ceiling.
+Tools that act on third-party APIs also need credentials — fresh ones, at call time, never in
+the model's context. nominee's strategy layer does that too: call-time resolution, single-flight
+refresh under concurrency, rotation persistence, and swappable backends (your DB → OAuth2 →
+Auth0 Token Vault → Supabase) without touching agent code. In the decision-bound path the
+credential resolver receives the action, resource, capability, input hash, and policy version
+as an authorization ceiling.
 
 ```ts
 const nominee = new Nominee({
@@ -345,7 +230,160 @@ await nominee.run(
 )
 ```
 
-Runnable proof that naive refresh breaks under rotation + concurrency (7/8 fail; nominee 8/8): [`examples/token-refresh-correctness`](examples/token-refresh-correctness).
+## Observe mode (a discovery section, not the lead)
+
+Already using a framework's native approval? Then you may only need discovery, not enforcement
+— observe mode wraps your existing tools and does not enforce deny, ask, or budget decisions.
+No policy is required: it records the tool callbacks that actually start and reports argument
+shapes, numeric ranges, and hashed cardinalities without enumerating string values. Runtime and
+integrity failures still fail closed. The report below is a **sample report from a hard-coded demo agent** — run the command on your own agent to see yours:
+
+```bash
+npx nominee-cli observe --out nominee.observations.json
+```
+
+```text
+nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
+ENFORCEMENT WAS OFF: every observed call reached its tool callback.
+
+  tool              calls  kind
+  refund.issue          5  mutate
+                      ↳ amount: number, observed 5–2000 (median 40)  [unbounded]
+  orders.read           3  read
+  customers.export      1  unknown
+```
+
+Two lines put it around your own tools:
+
+```ts
+const nominee = new Nominee({ mode: 'observe' })
+const tools = nominee.observe(yourTools)   // …then run your agent as usual
+
+console.log(formatObservations(nominee.observations()))
+```
+
+Open the local report, approval, and receipt surface:
+
+```bash
+npx nominee-cli console --report nominee.observations.json
+```
+
+The console binds to loopback, needs no account, and can write the editable starter policy for
+you. The same generation step is available directly:
+
+```bash
+npx nominee-cli generate nominee.observations.json --out nominee.policy.ts
+npx nominee-cli check nominee.policy.ts
+```
+
+The generated file cites the calls, dates, and numeric ranges behind every rule. Its thresholds
+reflect observed traffic, not security recommendations; review them before switching enforcement
+on. The report also inventories callable tools that were available but never used, so the
+starter policy can deny that unused authority explicitly.
+
+The same deny boundary is how you govern an MCP server: OAuth lets the client connect; nominee
+decides which tool call may execute. Ten-minute quickstart:
+[nominee.dev/docs/mcp](https://nominee.dev/docs/mcp/).
+
+Observe mode is report-only and says so: it announces on startup that enforcement is off, marks
+every receipt `enforcement: 'observe'`, and refuses to be constructed with `production: true`.
+It is not a security control — it is how you find out what you need one for. See
+[docs/observe.md](docs/observe.md).
+
+## Supporting proof — the refusal is on the record
+
+[`examples/prompt-injection-blocked`](examples/prompt-injection-blocked) is the same run as the
+GIF above. An email tells the agent to forward the inbox to an attacker. The model follows the
+instruction; the deny rule still stops the tool before it runs — and the refusal is on the
+record, sealed into the hash-chained receipt log.
+
+```
+2. The model obeys the injection and tries to exfiltrate
+
+  ✓ BLOCKED before the tool ran: nominee: policy denied "email.forward" for alice
+    (rule deny:email.forward) — external forwarding is exfiltration
+
+3. …then tries the delete it was told to do
+
+  ⏸  approval requested: email.delete {"id":2}
+  ✗  human denies (nobody asked for a deletion)
+  ✓ BLOCKED by the human: nominee: approval denied (id=apr_…)
+
+5. The receipt chain (hash-chained, tamper-evident — decision-bound: plan → policy → capability → execute)
+
+  #0  action.planned       email.read                85ec42ce6f90
+  #1  policy.decision      email.read       allow     9085d0623e9b
+  #2  capability.issued    email.read                a66cd4224439
+  #3  capability.consumed  email.read                6032829a4e84
+  #4  execution.started    email.read                16e4cee522be
+  #5  execution.succeeded  email.read       succeeded 9453041b527a
+  #6  action.planned       email.forward             484cf3d44d24
+  #7  policy.decision      email.forward    deny      0772bf7ce862
+  #8  action.planned       email.delete              b2b3c0db07f5
+  #9  policy.decision      email.delete     ask       f819e42e6284
+  #10 approval.requested   email.delete              2f91d44acb4c
+  #11 approval.resolved    email.delete     denied    82a3b97d991d
+  #12 action.planned       email.forward             84819ea52ae1
+  #13 policy.decision      email.forward    allow     8e1eef0951b6
+  ...
+
+  chain verifies: ✓ 18 receipts intact
+  doctored log (deny receipts removed): ✓ detected — broken at #7
+```
+
+Blast-radius containment, not a detector — but when nominee says no, there is a receipt that
+says no, and why. The support-agent refund CLI (`npx nominee-cli`) explains the product; this
+example is the supporting proof.
+
+## Policy semantics
+
+Small enough to hold in your head:
+
+- **First match wins** within a policy; rules are checked in order.
+- **No match → `fallback`** (default `'ask'` — unknown actions reach a human; set `'deny'` for default-deny).
+- **`when` predicates** see `{ tool, input, user, tenant, resource, chain }` —
+  gate on trusted application context and arguments, not just names.
+- **Budgets**: `allow('search.*', { maxCalls: 20 })` — the 21st call escalates to a human instead of failing.
+- **Delegation can only narrow**: across `nominee.delegate('sub-agent', { policy })` chains, the strictest outcome wins (deny > ask > allow). A sub-agent can never allow what its parent denies.
+
+```ts
+const researcher = nominee.delegate('researcher', {
+  policy: [deny('email.*'), deny('github.merge_*')],
+})
+// researcher's receipts carry chain: ['orchestrator', 'researcher']
+```
+
+Dry-run any call without consuming budgets or asking anyone:
+
+```ts
+await nominee.check({ tool: 'repo.delete', user: 'alice' }) // → { effect: 'deny', ... }
+```
+
+## Approvals
+
+`ask` rules route through a portable approval engine when you need one approval policy or
+channel outside the agent runtime:
+
+```ts
+const nominee = new Nominee({
+  policy: [ask('github.merge_pr', { timeoutMs: 3600_000 })],
+  onApprovalRequest: async (req) => {
+    // req.action, req.detail (the full tool input), req.id
+    await slack.post(approvalCard(req))   // then req.approve() / req.deny(),
+  },                                      // or nominee.resolveApproval(req.id, …) from a webhook
+})
+```
+
+The legacy `approve()` API waits in-process. The decision-bound `run()` and adapter paths
+instead surface `ActionPendingError` when an approval outlives the current request; persist its
+action id, resolve or poll it, then call `resumeAction()`. Denied or expired actions never run,
+and the refusal is on the record. Strategies can carry native flows (Auth0 CIBA via
+[`nominee-auth0`](packages/auth0)).
+
+See it deployed: [nominee.dev/agent](https://nominee.dev/agent) — a real Cloudflare Durable
+Object agent that hibernates mid-session while it waits for your approval (email link or Auth0
+Guardian push), then resumes the same hash-chained receipt log and fetches a fresh GitHub token
+only at that moment. [`site/agent-worker`](site/agent-worker) is the source.
 
 ## API
 
@@ -403,16 +441,27 @@ const unsub = nominee.on((event) => log(event))
 
 ## Why add it instead of an `if`?
 
-For one low-risk tool, use an `if`. After an observe report has shown mutating calls you did not know about, the extra machinery earns its keep.
-
-Nominee becomes useful when an approval lasts longer than one request, two workers share a limit, a user's permission can change during the wait, or the same rules must cover several agent frameworks. It binds approval to one set of arguments, rechecks resource access after the pause, executes once, and records the result.
+For one low-risk tool, use an `if`. Nominee earns its keep when an approval lasts longer than
+one request, two workers share a limit, a user's permission can change during the wait, or the
+same rules must cover several agent frameworks. It binds approval to one set of arguments,
+mints credentials at execution, rechecks resource access after the pause, executes once, and
+records the result.
 
 ## Why not …?
 
-- **Framework-native approval** — the right choice for framework-local confirmation and durable run control. nominee is useful when the decision must also incorporate application entitlements, stay consistent across runtimes, control credential delivery, or feed one evidence stream. If native approval covers the whole boundary, do not add nominee.
-- **Credential vaults / proxies** — they stop the model *seeing* the key, but the agent can still do anything *through* them. Authorization is the missing half; nominee is that half (and composes fine with a vault as its strategy).
-- **Sandboxes** — contain the filesystem and network of the process. Your OAuth authority isn't in the sandbox; it's in the token. Use both.
-- **Hosted agent-auth platforms** (Arcade, Composio, Auth0 for AI, Vercel Connect) — useful connection and credential systems. Nominee can use them underneath its enforcement path when you need one portable application-authorization contract and evidence stream across providers and runtimes.
+- **Framework-native approval** — the right choice for framework-local confirmation and durable
+  run control. nominee is useful when the decision must also incorporate application
+  entitlements, stay consistent across runtimes, control credential delivery, or feed one
+  evidence stream. If native approval covers the whole boundary, do not add nominee.
+- **Credential vaults / proxies** — they stop the model *seeing* the key, but the agent can
+  still do anything *through* them. Authorization is the missing half; nominee is that half
+  (and composes fine with a vault as its strategy).
+- **Sandboxes** — contain the filesystem and network of the process. Your OAuth authority isn't
+  in the sandbox; it's in the token. Use both.
+- **Hosted agent-auth platforms** (Arcade, Composio, Auth0 for AI, Vercel Connect) — useful
+  connection and credential systems. Nominee can use them underneath its enforcement path when
+  you need one portable application-authorization contract and evidence stream across providers
+  and runtimes.
 
 Partner-specific integration kits: [Auth0](docs/partner-kits/auth0.md) ·
 [WorkOS FGA](docs/partner-kits/workos-fga.md) · [OPA](docs/partner-kits/opa.md) ·
@@ -423,25 +472,29 @@ Partner case studies (none published until numbers and written sign-off exist):
 
 ### When you *don't* need nominee
 
+- **Your approval comes back in the same HTTP request** that asked for it — no pause, no staleness.
 - A read-only agent with no authority worth guarding.
 - Your platform's native permission system already covers you end-to-end and you're happy inside it.
 - You want one fully-managed vendor for tools + auth + policy — use Arcade or Composio directly.
 
-For a high-impact path, enable `production: true`. Construction then fails
-unless a default-deny policy, durable action store, atomic durable receipt
-store, and strict receipt delivery are configured. The reference
-[`nominee-postgres`](packages/postgres) implementation supplies those stores;
-Auth0 CIBA production deployments must use `PostgresCibaStore` (or another
-durable implementation) for restart-safe, ID-token-verified approval polling.
-This is infrastructure, not a compliance certification—read
-[Security](.github/SECURITY.md) and the
+For a high-impact path, enable `production: true`. Construction then fails unless a default-deny
+policy, durable action store, atomic durable receipt store, and strict receipt delivery are
+configured. The reference [`nominee-postgres`](packages/postgres) implementation supplies those
+stores; Auth0 CIBA production deployments must use `PostgresCibaStore` (or another durable
+implementation) for restart-safe, ID-token-verified approval polling. This is infrastructure,
+not a compliance certification—read [Security](.github/SECURITY.md) and the
 [production runbook](docs/production.md).
 
 ## Contributing
 
-PRs for community strategies (Clerk, WorkOS, Firebase, …) and additional framework adapters are enthusiastically welcome — `nominee-auth0`, `nominee-supabase`, and the adapter packages show the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md). By participating you agree to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
+PRs for community strategies (Clerk, WorkOS, Firebase, …) and additional framework adapters are
+enthusiastically welcome — `nominee-auth0`, `nominee-supabase`, and the adapter packages show
+the shape. See [CONTRIBUTING.md](.github/CONTRIBUTING.md). By participating you agree to the
+[Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
-Questions belong in [Discussions](https://github.com/bharath31/nominee/discussions), not the issue tracker — see [SUPPORT.md](SUPPORT.md). Tightly scoped `good first issue`s are labelled in [Issues](https://github.com/bharath31/nominee/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+Questions belong in [Discussions](https://github.com/bharath31/nominee/discussions), not the
+issue tracker — see [SUPPORT.md](SUPPORT.md). Tightly scoped `good first issue`s are labelled
+in [Issues](https://github.com/bharath31/nominee/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 Found a security issue? Please report it privately — see [SECURITY.md](.github/SECURITY.md).
 

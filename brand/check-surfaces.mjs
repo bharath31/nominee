@@ -35,21 +35,20 @@ if (llmsRoot && llmsSite && sha256(llmsRoot) !== sha256(llmsSite)) {
   errors.push('llms.txt and site/llms.txt are out of sync — keep them identical')
 }
 
+// The landing hero must lead with post-pause correctness, not discovery or a
+// commoditised gate analogy ({ needsAffirm } can already pause a call; only
+// nominee makes the moment after "approve" correct). Kept as a hard FAIL so a
+// revert of the headline is caught.
 const landing = read('site/index.html')
 const landingHero = landing.match(/<h1>[\s\S]*?<\/h1>/)
 if (
   !landingHero ||
-  !/Find out what your agent\s*<br\s*\/?>\s*can actually do\./.test(landingHero[0])
+  !/got approval at 2:14/.test(landingHero[0]) ||
+  !/dead token/.test(landingHero[0])
 ) {
-  errors.push('site/index.html <h1> should lead with the discovery headline')
-}
-if (
-  landing &&
-  !landing.includes(
-    'Like GitHub branch protection for agent tools.</strong> Your rules let routine',
+  errors.push(
+    'site/index.html <h1> should lead with post-pause correctness (approval at 2:14 / dead token)',
   )
-) {
-  errors.push('site/index.html is missing the canonical GitHub branch-protection analogy')
 }
 
 // 2. llms.txt must mention decision-bound API and all adapter packages
@@ -62,22 +61,33 @@ const llmsRequired = [
   'nominee-mcp',
   'nominee-langchain',
   'nominee-postgres',
-  'Find out what your agent can actually do',
-  'Your agent calls tools. Your rules decide what runs',
+  'got approval at 2:14',
+  'dead token',
+  '7/8',
+  '8/8',
 ]
 
 const readme = read('README.md')
 if (readme && !readme.startsWith('<p align="center">')) {
   errors.push('README.md should still open with the banner')
 }
-const discoveryIdx = readme.indexOf('Find out what your agent can actually do')
-const proofIdx = readme.indexOf('npx nominee-cli\n')
-const ifIdx = readme.indexOf('Why add it instead of an `if`')
-if (discoveryIdx < 0) errors.push('README.md missing discovery lead')
-if (discoveryIdx > 0 && proofIdx > 0 && discoveryIdx > proofIdx) {
-  errors.push('README.md should lead with observe/discovery before the refund proof')
+// Post-pause correctness leads; observe mode is demoted below the proof; the
+// "why not" scope is a strength only once the claim has been made.
+const proofIdx = readme.indexOf('examples/token-refresh-correctness/run.mjs')
+const observeIdx = readme.indexOf('Observe mode')
+const whyIdx = readme.indexOf('Why add it instead of an `if`')
+if (readme && !readme.includes('dead token')) {
+  errors.push('README.md should lead with post-pause correctness (dead token across the pause)')
 }
-if (ifIdx > 0 && proofIdx > 0 && ifIdx < proofIdx) {
+if (proofIdx < 0) {
+  errors.push(
+    'README.md missing the token-refresh-correctness lead proof (node examples/token-refresh-correctness/run.mjs)',
+  )
+}
+if (observeIdx > 0 && proofIdx > 0 && observeIdx < proofIdx) {
+  errors.push('README.md should demote observe mode after the post-pause proof')
+}
+if (whyIdx > 0 && proofIdx > 0 && whyIdx < proofIdx) {
   errors.push('README.md should move "Why add it instead of an if" after the proof')
 }
 for (const needle of llmsRequired) {
