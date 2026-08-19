@@ -188,4 +188,69 @@ describe('nominee-ai', () => {
     expect(nominee.receipts.at(-1)?.effect).toBe('deny')
     expect((await nominee.verifyReceipts()).ok).toBe(true)
   })
+
+  it('guardTools passes a tenant resolver into policy when-clauses', async () => {
+    const nominee = makeNominee({
+      policy: {
+        rules: [allow('search', { when: ({ tenant }) => tenant === 'acme' })],
+        fallback: 'deny',
+      },
+    })
+    const search = vi.fn(async () => 'hits')
+    const tools = guardTools(nominee, { search: { execute: search } } as never, {
+      user: 'u1',
+      tenant: (input) => (input as { org: string }).org,
+    }) as { search: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.search, { org: 'acme' })).resolves.toBe('hits')
+    expect(search).toHaveBeenCalledOnce()
+    await expect(exec(tools.search, { org: 'globex' })).rejects.toBeInstanceOf(PolicyDeniedError)
+    expect(search).toHaveBeenCalledTimes(1)
+  })
+
+  it('guardTools passes a resource resolver into policy when-clauses', async () => {
+    const nominee = makeNominee({
+      policy: {
+        rules: [allow('doc.read', { when: ({ resource }) => resource === 'doc:42' })],
+        fallback: 'deny',
+      },
+    })
+    const readDoc = vi.fn(async () => 'content')
+    const tools = guardTools(nominee, { 'doc.read': { execute: readDoc } } as never, {
+      user: 'u1',
+      resource: (input) => `doc:${(input as { id: number }).id}`,
+    }) as { 'doc.read': { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools['doc.read'], { id: 42 })).resolves.toBe('content')
+    expect(readDoc).toHaveBeenCalledOnce()
+    await expect(exec(tools['doc.read'], { id: 43 })).rejects.toBeInstanceOf(PolicyDeniedError)
+    expect(readDoc).toHaveBeenCalledTimes(1)
+  })
+
+  it('guardTools forwards connection and scopes to the tokens strategy', async () => {
+    const getToken = vi.fn(
+      async (_params: { user: string; connection: string; scopes?: string[] }) => ({
+        token: 'gh_via_guard',
+      }),
+    )
+    const nominee = new Nominee({
+      strategy: { name: 'spy', getToken },
+      policy: { rules: [allow('search')], fallback: 'deny' },
+    })
+    const search = vi.fn(async () => 'hits')
+    const tools = guardTools(nominee, { search: { execute: search } } as never, {
+      user: 'u1',
+      connection: 'github',
+      scopes: ['repo'],
+    }) as { search: { execute: (...args: unknown[]) => unknown } }
+
+    await expect(exec(tools.search, {})).resolves.toBe('hits')
+    expect(search).toHaveBeenCalledOnce()
+    expect(getToken).toHaveBeenCalledOnce()
+    expect(getToken.mock.calls[0]?.[0]).toMatchObject({
+      user: 'u1',
+      connection: 'github',
+      scopes: ['repo'],
+    })
+  })
 })

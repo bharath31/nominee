@@ -255,6 +255,7 @@ await nominee.approve({ user, action, detail })
 nominee.resolveApproval(id, 'approved' | 'denied')
 
 // Receipts
+// `nominee.receipts` is a getter — read the property, don't call it
 nominee.receipts
 nominee.verifyReceipts()
 formatReceipts(nominee.receipts)
@@ -264,7 +265,8 @@ await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })
 
 // Observability
-nominee.onGovernedAction((event) => metrics.record(event))
+// `onGovernedAction` is a constructor option, not a method:
+//   new Nominee({ onGovernedAction: (event) => metrics.record(event) })
 // or: usageReporter() for opt-in measurement — see docs/measurement.md
 
 // Delegation (policies can only narrow; shared receipt chain)

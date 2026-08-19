@@ -373,7 +373,8 @@ await nominee.approve({ user, action, detail })  // block until a human decides
 nominee.resolveApproval(id, 'approved')          // settle from your webhook
 
 // Receipts
-nominee.receipts                                 // hash-chained record
+// `nominee.receipts` is a getter — read the property, don't call it
+nominee.receipts                                 // the hash-chained record
 nominee.verifyReceipts()                         // tamper check
 formatReceipts(nominee.receipts)                 // compact terminal printer
 await nominee.flushReceipts()                    // await buffered async sink writes
@@ -381,7 +382,8 @@ await nominee.verifyDurableReceipts()            // verify durable stream + chec
 verifyReceipts(receipts, { key })                // offline / exported verification
 
 // Observability
-nominee.onGovernedAction((event) => metrics.record(event))
+// `onGovernedAction` is a constructor option, not a method:
+//   new Nominee({ onGovernedAction: (event) => metrics.record(event) })
 // or: usageReporter() for opt-in measurement — see docs/measurement.md
 
 // Delegation
