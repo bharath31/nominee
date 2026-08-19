@@ -25,6 +25,16 @@ describe('nominee observe', () => {
     const output = logs.join('\n')
 
     expect(result.code).toBe(0)
+    // The demo label must be impossible to miss, above the report.
+    expect(output).toContain(
+      "Sample report from nominee's built-in demo agent — it never touches your code.",
+    )
+    expect(output).toContain('nominee.observe(yourTools) wraps the tools you pass it')
+    expect(output).toContain('it only sees')
+    // And it sits above the report, not below it.
+    expect(output.indexOf('Sample report from nominee')).toBeLessThan(
+      output.indexOf('ENFORCEMENT WAS OFF'),
+    )
     expect(output).toContain('ENFORCEMENT WAS OFF')
     expect(output).toContain('refund.issue')
     expect(output).toContain('customers.export')

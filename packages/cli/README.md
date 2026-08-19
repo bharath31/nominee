@@ -21,51 +21,43 @@ CLI, so always invoke it as `npx nominee-cli`.)
 
 ## `nominee-cli` (no args)
 
-Runs a support-agent policy proof against the real `nominee` package:
+Runs a pause-proof of the decision-bound lifecycle against the real `nominee`
+package:
 
-- a $25 refund runs immediately;
-- a $200 refund asks for approval, then runs once;
-- a $2,000 refund is blocked before the refund function runs;
-- exporting all customers is blocked too; and
+- a $200 refund pauses for a human, and the request returns immediately with
+  an `actionId` instead of holding the connection open;
+- while the human is away, the access token the agent was holding expires;
+- the out-of-band approval resumes the action, and a fresh token is minted
+  only at execution — after the single-use capability is consumed;
+- replaying the consumed approval is rejected, and the approved $200 cannot be
+  executed as a $2,000; and
 - the receipt chain verifies, while a doctored copy does not.
 
 The proof itself makes no network calls and needs no environment variables or
 API keys. (`npx` may first download the package from npm.) After a successful
 interactive run, the CLI separately offers one optional **trial** report, as
-described below. The proof exits `0` only when every policy and receipt
+described below. The proof exits `0` only when every pause and receipt
 invariant holds, and `1` if one regresses; reporting cannot change that result.
 
 ```
 $ npx nominee-cli
 
-A support agent wants to act for a customer.
+A support agent wants to issue a $200 refund.
 
-  allow  read an order
   allow  refunds up to $50
   ask   refunds up to $500
-  deny  larger refunds and customer exports
+  deny  larger refunds
+  the agent already holds an access token from the start of the request
 
-1. Read order ord_42
-  ✓ allowed → Acme Co., $240, delivered
+✓ approval requested   refund.issue $200 → sent out of band, request returns
+⏳ the pause           the access token expires while the human is away
+✓ approved             fresh token minted at execution, not at plan time
+✗ replay               same approval, second attempt → rejected
+✗ arg swap             approved $200, executed $2,000 → rejected
+✓ receipt chain verifies (and a doctored copy is detected)
 
-2. Issue a $25 refund
-  ✓ allowed → refunded $25 for ord_42
-
-3. Issue a $200 refund
-  ? agent paused — waiting for your approval of the $200 refund
-  ✓ demo approver approves this exact refund
-  ✓ approved once → refunded $200 for ord_42
-
-4. Issue a $2,000 refund
-  ✓ blocked before refund.issue ran
-
-5. Export all customer data
-  ✓ blocked before customers.export ran
-
-  receipt chain: ✓ receipts verify
-  denial removed from log: ✓ detected
-
-Your agent asked. Your rules decided what ran.
+The pause is the product: approval out of band, one fresh token at execution,
+and a log that shows if anyone edits it.
 
 Install: npm i nominee
 ```
@@ -116,6 +108,12 @@ the report before wrapping your own tools.
 
 ```
 $ npx nominee-cli observe
+
+Sample report from nominee's built-in demo agent — it never touches your code.
+  nominee.observe(yourTools) wraps the tools you pass it — it only sees
+  the tools handed to it, not the rest of your app.
+
+Running a support agent for one session. Nothing is enforced.
 
 nominee observe — 9 call(s) across 3 tool(s), 2026-08-14 → 2026-08-14
 ENFORCEMENT WAS OFF: every observed call reached its tool callback.
