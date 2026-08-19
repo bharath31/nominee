@@ -1,17 +1,17 @@
 # openai-support-agent — OpenAI Agents SDK + nominee
 
-A starter for wiring **OpenAI Agents SDK** tools through `nominee-openai`.
+A runnable proof that `nominee-openai` bridges the OpenAI Agents SDK's **native
+tool approval** into nominee's approval evidence and receipt chain.
 
-The support agent closes GitHub issues on a user's behalf. The sensitive write
-is meant to go through `nomineeTool()` so policy (`allow` / `ask` / `deny`),
-approvals, and receipts sit in front of the backend — not scattered if-checks
-in tool code.
+A support agent closes GitHub issues on a user's behalf. Its tools are wrapped
+with `nomineeTool()`, so policy (`allow` / `ask` / `deny`) and a signed receipt
+chain sit in front of the backend — not scattered if-checks in tool code.
 
-This package currently ships the **backend stub** (`src/backend.ts`) and a
-unit test that proves the close-issue helper. Use it alongside the pattern in
-[`packages/openai/README.md`](../../packages/openai/README.md): wrap
-`closeGitHubIssue` with `nomineeTool`, map `ask` to the SDK's native
-`needsApproval` hook, and let denials throw before the backend runs.
+**No API keys. No network.** The "model" is scripted on purpose (see
+[`src/scripted-model.mjs`](./src/scripted-model.mjs) for why that is honest) —
+the point is what the *tools* will and won't do. Enforcement is identical with
+a real LLM: the model only ever sees the guarded tools and can only *ask*; the
+policy and the human decide.
 
 ## Run it
 
@@ -19,42 +19,54 @@ unit test that proves the close-issue helper. Use it alongside the pattern in
 # from the repo root
 pnpm install
 cd examples/openai-support-agent
-pnpm test
+node run.mjs
+# or: pnpm test (runs the same scenario as assertions)
 ```
 
-There is no live agent entrypoint yet — the proof for this package is the
-test suite against the fake backend.
+### Environment variables
 
-## Environment variables
+None required. Optional:
 
-None for the current tests. A full agent loop would need whatever credentials
-your token strategy returns for the GitHub connection (for example
-`GITHUB_TOKEN` or an Auth0 Token Vault setup) plus an OpenAI API key for the
-Agents SDK runtime.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NOMINEE_RECEIPT_KEY` | `demo-signing-key` | HMAC key for receipt signing |
 
-## Expected output / proof
+## What it demonstrates
 
-```bash
-pnpm test
-```
+1. **Read runs free** — `github.issue.read` is `allow`; the tool executes with a
+   single-use capability, no approval.
+2. **The close pauses on the SDK's native approval flow** — `github.issue.close`
+   is `ask`, so `nomineeTool`'s `needsApproval` hook tells the OpenAI Agents
+   SDK to interrupt the run. Nothing in the backend runs before a human
+   approves (offline: `state.approve()`; in production: the OpenAI platform UI).
+3. **The approval is sealed as nominee evidence** — on resume, the SDK tells
+   the tool *which call* was approved (`isToolApproved({ toolName, callId })`);
+   nominee-openai passes that as `frameworkApproval: { id: callId, via:
+   'openai-agents' }` into the decision-bound `run()`, so the receipt chain
+   records who approved, through which framework, and for which exact call.
+4. **The credential is fetched at execution time** — the token strategy runs
+   only when the approved capability is consumed.
+5. **Input mutation is refused** — a second close is approved out-of-band
+   (`resolveActionApproval` with a named approver). Replaying the capability
+   with a *different* issue number throws `AuthorizationInputChangedError`;
+   the refusal is sealed into the receipt chain as a denial, and the chain
+   still verifies end to end.
 
-```
-# tests pass
-# closes an issue through the fake backend → "Issue #42 closed on acme/widgets"
-```
+## What it does NOT do
 
-When you compose the agent with `nomineeTool` (see `nominee-openai`):
-
-- an `ask('github.issue.close')` rule maps to OpenAI's approval pause
-- a deny never calls `closeGitHubIssue`
-- allowed/approved calls resolve a fresh token at execution time and seal a
-  receipt
+- It does not call OpenAI — the scripted model stands in for the LLM, and a
+  real deployment simply drops the `Runner({ model: ... })` override.
+- It does not use a durable store — receipts and actions live in memory. For
+  approvals that must survive restarts, see
+  [`support-refund-agent`](../support-refund-agent) for the durable wiring.
+- It does not model the OpenAI platform UI — `state.approve()` simulates the
+  human approving in the UI; the approval *evidence* is the same either way.
 
 ## Before enforcing an existing agent
 
-This starter is written for enforcement. To inventory existing OpenAI tool
-callbacks first, construct the same Nominee with `mode: 'observe'`: native
-approval gates from the adapter are suppressed, while `observations()` reports
-execution attempts and argument shapes. It retains no raw string/boolean values
-or user IDs; numeric aggregates may be sensitive. Remove the mode to enforce;
-observe mode is not a security control.
+To inventory an existing OpenAI agent's tool calls first, construct the same
+Nominee with `mode: 'observe'`: the adapter's native approval gate is
+suppressed, while `observations()` reports execution attempts and argument
+shapes. It retains no raw string/boolean values or user IDs; numeric
+aggregates may be sensitive. Remove the mode to enforce; observe mode is not
+a security control.
