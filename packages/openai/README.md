@@ -39,6 +39,10 @@ pauses the run, and on resume the adapter verifies the approved tool-call id
 from `RunContext` before recording approval evidence and executing. Denials
 remain exceptions and never call the underlying tool.
 
+## What happens on `ask`
+
+This adapter maps Nominee `ask` (and `needsApproval`) into the OpenAI Agents SDK's **native, resumable approval** flow: the run pauses for a human decision, and on resume the adapter verifies the approved tool-call id from `RunContext` and seals it as framework approval evidence on the action before `execute` runs. A denial remains an exception and never calls the tool. If `execute` runs without verifiable framework approval (e.g. a direct call that bypassed the SDK's pause), the portable path applies instead: the `ask` is settled inline when possible, or the call throws `ActionPendingError` with a durable `actionId` — persist that id and the original input, then resume with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
 ## Observe before enforcing
 
 Use the same tool with `new Nominee({ mode: 'observe' })` to inventory the

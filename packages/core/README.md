@@ -122,6 +122,34 @@ The supporting prompt-injection proof shows the same enforcement boundary
 against untrusted model input:
 [`examples/prompt-injection-blocked`](https://github.com/bharath31/nominee/tree/main/examples/prompt-injection-blocked).
 
+### When the approval outlives the request
+
+If the human cannot decide inside the current request, the call does not hang —
+it throws `ActionPendingError` immediately, and the pending action lives on in
+your action store. Resume it later, possibly from a different process:
+
+```ts
+try {
+  await tools['refund.issue']({ orderId: 'ord_1', amount: 200 })
+} catch (e) {
+  if (e instanceof ActionPendingError) {
+    // Persist BOTH: the action id and the exact input you called with.
+    await db.pending.save({ actionId: e.actionId, input: { orderId: 'ord_1', amount: 200 } })
+  }
+}
+
+// …minutes later, possibly in a different process:
+await nominee.resolveActionApproval(actionId, { decision: 'approved', approver: 'manager@acme.com' })
+const resumed = await nominee.resumeAction(actionId) // { status: 'ready', capability } — does NOT run the tool
+await nominee.executeCapability(resumed.capability, originalInput, (ctx) => issueRefund(ctx.input))
+```
+
+The durable action record stores the input's hash, not the input — persist the
+original arguments yourself, because `executeCapability` re-hashes what you
+supply and throws `AuthorizationInputChangedError` if it differs from what the
+approver reviewed. Full walkthrough:
+[Approvals that outlive the request](https://nominee.dev/docs/approvals/).
+
 ---
 
 ## Policy semantics

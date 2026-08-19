@@ -37,6 +37,10 @@ LangChain has no first-class resumable tool-approval primitive comparable
 to OpenAI Agents `needsApproval`. This adapter uses Nominee's portable
 approval path rather than inventing a second pause protocol.
 
+## What happens on `ask`
+
+There is no native pause primitive to bridge to, so `ask` uses Nominee's portable path: an `ask` that cannot be settled inline — e.g. no `onApprovalRequest` handler, or a handler that only notifies — makes `invoke()` reject with `ActionPendingError`, carrying the durable `actionId` and `approvalId`. Catch it, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume after the human decision with `resolveActionApproval()` → `resumeAction()` → `executeCapability()` — the full walkthrough is on the [Approvals that outlive the request](https://nominee.dev/docs/approvals/) page. Denied calls never reach `execute`, and the refusal lands on the receipt chain.
+
 ## Observe before enforcing
 
 Use the same tool with `new Nominee({ mode: 'observe' })` to inventory

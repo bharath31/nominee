@@ -3,13 +3,23 @@
 A small Express app that refunds orders through `nominee-ai`'s `nomineeTool`,
 with **PostgreSQL durable stores** under `production: true`.
 
+**This is the canonical reference implementation of the out-of-band approval
+path** — the approval that outlives the request: the call returns `202` with an
+`actionId`, a human approves on a later request, and the same original input is
+re-supplied through `resumeAction()` + `executeCapability()`. The step-by-step
+writeup is the
+[Approvals that outlive the request](https://nominee.dev/docs/approvals/) docs
+page.
+
 It shows how to carry the 10-second `npx nominee-cli` proof into durable
 production wiring:
 
 - **Policy by amount** — refunds ≤ $50 run, refunds ≤ $500 ask a human, and
   larger refunds are denied before the refund function runs.
 - **Durable approvals** — pending actions live in `PostgresControlStore`, so an
-  approval can arrive on a later request via `/approve` or `/deny`.
+  approval can arrive on a later request via `/approve` or `/deny`; the `202`
+  response echoes the original `input` back so the caller can re-supply it at
+  `/refund/resume`.
 - **Approver auth** — approval endpoints require a Bearer credential
   (`APPROVER_CREDENTIAL`); HTML escaping helpers keep the boundary safe.
 

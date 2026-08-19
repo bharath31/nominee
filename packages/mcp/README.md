@@ -57,3 +57,11 @@ Persist that `actionId` **and the original tool input**, resolve it through your
 approval UI, then call `resumeAction()` and `executeCapability()`. The standalone
 `nomineeMcpHandler()` still throws `ActionPendingError`. Denied calls never reach
 the MCP handler.
+
+## What happens on `ask`
+
+When the policy says `ask` and the approval outlives the request, that is what surfaces: `registerNomineeTool` converts the pending approval into the structured result above (use `isNomineePendingResult()` to recognize it), and the low-level `nomineeMcpHandler()` throws `ActionPendingError` directly at a custom transport. The recovery — persist the `actionId` and the original input, `resolveActionApproval()`, `resumeAction()`, `executeCapability()` with the original input — is the portable out-of-band path; the full walkthrough is on the [Approvals that outlive the request](https://nominee.dev/docs/approvals/) page. Denied calls never reach `execute`.
+
+More durable-approval notes for MCP, including Postgres wiring:
+[docs/integrations/mcp.md](../../docs/integrations/mcp.md) and
+[examples/mcp-action-server](../../examples/mcp-action-server).
