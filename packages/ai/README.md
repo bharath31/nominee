@@ -87,13 +87,48 @@ const { text } = await generateText({
 })
 ```
 
-Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.run({ tool, input, user })`, and only then runs the original. Client-executed tools (no `execute`) pass through untouched. `user` can also be an async resolver of the tool-call options: `(options) => session.userId`.
+Your tools are unchanged — `guardTools` intercepts each `execute`, calls `nominee.run()` with the call's full context, and only then runs the original. Client-executed tools (no `execute`) pass through untouched.
+
+### Full context, still one line
+
+The third argument carries the same per-call context as `nomineeTool`. `user` can be an async resolver of the tool-call options: `(options) => session.userId`. `resource` and `tenant` can be static values or resolvers of `(input, options)`, and `connection` / `scopes` feed your tokens strategy. Every resolved value reaches `nominee.run()`, so tenant- and resource-scoped policy rules, external authorization, and token strategies all see it:
+
+```ts
+const tools = guardTools(
+  nominee,
+  { searchEmail, forwardEmail, deleteRepo },
+  {
+    user: 'alice',
+    tenant: 'acme', // or (input, options) => session.tenant
+    resource: (input) => input.to?.mailbox, // only this mailbox, per call
+    connection: 'google', // fresh token for this connection at call time
+    scopes: ['gmail.send'],
+  },
+)
+
+// Policy can then scope on the context the one-liner carries:
+// allow('email.forward', { when: ({ tenant }) => tenant === 'acme' })
+```
+
+> **Note:** `connection` / `scopes` on `guardTools` authorize a fresh token
+> through your strategy (policy `when` clauses, external authorization, and
+> the receipt log all see it), but the wrapped tool's plain AI SDK `execute`
+> receives only `(input, options)` — it never sees the token. When the tool
+> itself must call the third-party API, use `nomineeTool`, whose `execute`
+> receives the fresh token in `ctx.token`. And because resolving a token
+> requires a configured strategy, a `connection` on a policy-only nominee
+> fails closed at call time.
+
+### Which path to use when
+
+- **`guardTools`** — wrap your whole existing tools object with one shared context: `user`, `resource`, `tenant`, `connection`, `scopes` for every tool. Your tools keep their plain AI SDK `execute` signature — they do **not** receive `ctx.token`; `connection` / `scopes` there are for authorization and audit, not for handing the tool a secret.
+- **`nomineeTool`** — per-tool config: a different `connection` / `scopes` / `approval` / policy `action` per tool, and the fresh token injected into `ctx.token` where your `execute` actually consumes it.
 
 ---
 
 ## `nomineeTool` — Per-Tool Config
 
-When a tool also needs a fresh third-party token, a forced approval, or its own policy action name, build it with `nomineeTool`:
+When each tool needs its own `connection` / `scopes`, a forced approval, its own policy action name, or the fresh token inside `ctx.token`, build it with `nomineeTool`:
 
 ```ts
 import { nomineeTool } from 'nominee-ai'
@@ -145,6 +180,12 @@ const deleteRepo = nomineeTool({
 ```
 
 For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditions, `max` budgets), put it in the policy instead — the decision and its resolution are sealed into the receipt chain either way.
+
+---
+
+## What happens on `ask`
+
+`ask` rules (and `approval: true`) route through `nominee.run()`. If a human settles the approval inline — e.g. your `onApprovalRequest` calls `req.approve()` within the same request — the tool runs right away. If the approval outlives the request (the callback only notifies, a CIBA push is still pending, or the process goes away first), the tool's `execute` throws `ActionPendingError` with a durable `actionId` instead of hanging — and the tool never runs. Catch it where the call is made, persist the `actionId` **and the original input** (the durable action record stores only an input hash), then resume later with `resolveActionApproval()` → `resumeAction()` → `executeCapability()`. Full walkthrough: [Approvals that outlive the request](https://nominee.dev/docs/approvals/).
 
 ---
 

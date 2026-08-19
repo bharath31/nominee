@@ -8,6 +8,7 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -282,6 +283,71 @@ if (mcpPage && !mcpPage.includes('MCP OAuth authorizes the connection')) {
 }
 if (mcpPage && /stops prompt injection/i.test(mcpPage)) {
   errors.push('site/docs/mcp/index.html must not claim nominee stops prompt injection')
+}
+
+// 8. README API blocks must match the built Nominee class surface.
+// A `nominee.foo(...)` call must be a real method; a bare `nominee.foo`
+// reference must be a real getter. CI builds packages/core before this
+// runs; in CI a missing dist is a hard failure (the check must actually
+// run), while local dev without a build warns and skips.
+const coreDistEntry = join(root, 'packages/core/dist/index.cjs')
+if (!existsSync(coreDistEntry)) {
+  const msg = 'packages/core/dist is absent — README API surface check cannot run'
+  if (process.env.CI) {
+    errors.push(`${msg} (build first: pnpm -r build)`)
+  } else {
+    console.log(`! ${msg} — skipping (run pnpm --filter nominee build)`)
+  }
+} else {
+  let Nominee = null
+  try {
+    Nominee = createRequire(import.meta.url)(coreDistEntry).Nominee
+  } catch (err) {
+    errors.push(`could not load packages/core/dist for the API surface check: ${err.message}`)
+  }
+  if (Nominee) {
+    const apiSurfaces = [
+      { rel: 'README.md', heading: /^## API[ \t]*\r?\n/m },
+      { rel: 'packages/core/README.md', heading: /^## Full API[ \t]*\r?\n/m },
+    ]
+    for (const { rel, heading } of apiSurfaces) {
+      const content = read(rel)
+      const match = heading.exec(content)
+      if (!match) {
+        errors.push(`${rel} is missing its API block — check-surfaces cannot verify it`)
+        continue
+      }
+      const start = match.index
+      const next = content.indexOf('\n## ', start + match[0].length)
+      const section = content.slice(start, next > 0 ? next : undefined)
+      const fences = [...section.matchAll(/```ts\n([\s\S]*?)```/g)].map((f) => f[1]).join('\n')
+      if (!fences.trim()) {
+        errors.push(`${rel} API section has no ts code block to verify`)
+        continue
+      }
+      const called = new Set()
+      const bare = new Set()
+      for (const m of fences.matchAll(/\bnominee\.([A-Za-z_$][\w$]*)\s*\(/g)) called.add(m[1])
+      for (const m of fences.matchAll(/\bnominee\.([A-Za-z_$][\w$]*)\b(?!\s*\()/g)) bare.add(m[1])
+      for (const name of called) {
+        const desc = Object.getOwnPropertyDescriptor(Nominee.prototype, name)
+        if (!desc || typeof desc.value !== 'function') {
+          errors.push(
+            `${rel} API block calls nominee.${name}() but Nominee has no such method — fix the docs or the class`,
+          )
+        }
+      }
+      for (const name of bare) {
+        if (called.has(name)) continue
+        const desc = Object.getOwnPropertyDescriptor(Nominee.prototype, name)
+        if (!desc || !desc.get) {
+          errors.push(
+            `${rel} API block references nominee.${name} as a property but Nominee exposes no such getter`,
+          )
+        }
+      }
+    }
+  }
 }
 
 if (errors.length > 0) {

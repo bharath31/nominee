@@ -37,6 +37,11 @@ export async function runObserve(out?: string): Promise<ObserveCommandResult> {
     'customers.export': async (_input: { format: string }) => 'exported customer data',
   })
 
+  console.log(
+    bold("Sample report from nominee's built-in demo agent — it never touches your code.\n"),
+  )
+  console.log('  nominee.observe(yourTools) wraps the tools you pass it — it only sees')
+  console.log('  the tools handed to it, not the rest of your app.')
   console.log(bold('\nRunning a support agent for one session. Nothing is enforced.\n'))
 
   for (const orderId of ['ord_42', 'ord_43', 'ord_44']) {

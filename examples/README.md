@@ -92,6 +92,12 @@ decision function; the decision's `reason` lands on the resulting receipt
 unchanged. No server, no network — each README documents the one-line swap
 to a real OPA instance or FGA store.
 
+## [`openai-support-agent`](./openai-support-agent) — OpenAI Agents SDK native approval bridge
+
+`node run.mjs`, no API keys: an `ask` rule becomes the SDK's native tool
+approval, the approved call id is sealed into the nominee receipt chain as
+framework evidence, and a replay with a mutated input is refused on the spot.
+
 ## [`langchain-approval`](./langchain-approval) / [`mastra-approval`](./mastra-approval)
 
 The `ask` path, end to end, for the two adapters with no reference
