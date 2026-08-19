@@ -1,0 +1,15 @@
+{
+  "name": "mastra-approval",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "node run.mjs"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.54.0",
+    "nominee": "workspace:*",
+    "nominee-mastra": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}
