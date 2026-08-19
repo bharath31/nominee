@@ -213,26 +213,22 @@
           <p class="hero-tag">Approval is the easy part <span class="ref">· MIT</span></p>
           <h1>Your agent got approval at 2:14.<br />It executed at 2:31 with a dead token.</h1>
           <p class="lede">
-            Your framework can pause a tool call. It cannot catch what changes while it waits:
-            tokens expire, arguments drift, permissions change, or approvals get replayed.
-            <strong>nominee makes the moment after "approve" correct</strong> and leaves a receipt.
+            Pausing for approval is the easy part. Tokens expire, arguments drift, and
+            permissions change while you wait. nominee checks all three the moment the call
+            actually runs, and writes a receipt.
           </p>
-          <div class="hero-outcomes" aria-label="What nominee guarantees across the pause">
-            <span>token minted at execution</span>
-            <span>bound to the args a human saw</span>
-            <span>spendable once</span>
-          </div>
+          <p class="hero-ledger" aria-label="What nominee guarantees across the pause">
+            token minted at execution · bound to the args a human saw · spendable once
+          </p>
           <div class="hero-actions">
             <a class="btn btn-seal" href="#proof">Run the proof →</a>
-            <button class="copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy the token-refresh correctness proof command">
-              <span class="prompt">›</span><span class="cmd">node examples/token-refresh-correctness/run.mjs</span><span class="copy-hint">copy</span>
-            </button>
-            <a class="btn" href="#install">Add it to your agent</a>
+            <a class="btn-text" href="#install">Add it to your agent →</a>
           </div>
-          <p class="hero-note">
-            Does your approval come back in the same HTTP request that asked for it?
-            Then you don't need nominee. Open-source TypeScript · no signup or API key.
-          </p>
+          <p class="hero-note">No signup · no API key · runs offline</p>
+          <a class="hero-next" href="#proof">
+            <span class="hero-next-arrow" aria-hidden="true">↓</span>
+            the proof: nominee 8/8, naive refresh 1/8
+          </a>
         </div>
 
         <div
@@ -243,6 +239,9 @@
           <div class="run-top">
             <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
             <span class="run-title">pause-narrative — out-of-band approval</span>
+            <button class="copy term-copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy the token-refresh correctness proof command">
+              <span class="copy-hint">copy</span>
+            </button>
           </div>
           <div class="run-body">
             <p class="tl dim">$ agent run --task "refund ord_42"</p>
