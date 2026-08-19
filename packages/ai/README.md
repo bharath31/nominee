@@ -179,7 +179,7 @@ const deleteRepo = nomineeTool({
 })
 ```
 
-For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditions, `max` budgets), put it in the policy instead — the decision and its resolution are sealed into the receipt chain either way.
+For rule-driven escalation (`ask('repo.delete')`, argument-level `when` conditions, `maxCalls` budgets), put it in the policy instead — the decision and its resolution are sealed into the receipt chain either way.
 
 ---
 

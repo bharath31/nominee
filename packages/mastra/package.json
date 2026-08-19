@@ -1,7 +1,7 @@
 {
   "name": "nominee-mastra",
   "version": "2.3.0",
-  "description": "Decision-bound Mastra tools for governed AI agents",
+  "description": "Maps nominee ask rules into Mastra's native pause/resume (default off); otherwise ask throws ActionPendingError for durable resume.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

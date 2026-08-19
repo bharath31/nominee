@@ -7,8 +7,10 @@ Guide for AI coding agents and contributors working in this repository.
 nominee is the authorization layer for AI agents. Every tool call is checked
 against a declarative allow/deny/ask policy (`nominee.authorize()` /
 `nominee.guard()`), risky calls pause for human approval, and every decision —
-including refusals — is sealed into a hash-chained, tamper-evident receipt log.
-Tools that act on third-party APIs call `nominee.token()` at execution time to
+including refusals — is sealed into a hash-chained, tamper-evident receipt log
+(tamper-evident against a downstream log editor, not non-repudiation against
+the agent host). Tools that act on third-party APIs call `nominee.token()` at
+execution time to
 get a fresh access token for a user and connection.
 
 The framework decides *when* to call a tool. nominee decides *whether the call

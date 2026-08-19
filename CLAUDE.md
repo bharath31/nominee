@@ -6,7 +6,9 @@ guide for coding agents and contributors.
 ## Quick Orientation
 
 nominee is the authorization layer for AI agents: allow/deny/ask policy on
-every tool call, human approvals, hash-chained tamper-evident receipts, and
+every tool call, human approvals, hash-chained tamper-evident receipts
+(tamper-evident against a downstream log editor, not non-repudiation against
+the agent host), and
 decision-bound execution that binds each authorization to the exact tool
 arguments. Credentials resolve at execution time via the `run()` path. ExecuteActionContext includes the bound input, and in-memory receipts retain a bounded window by default.
 
