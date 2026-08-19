@@ -288,12 +288,16 @@ if (mcpPage && /stops prompt injection/i.test(mcpPage)) {
 // 8. README API blocks must match the built Nominee class surface.
 // A `nominee.foo(...)` call must be a real method; a bare `nominee.foo`
 // reference must be a real getter. CI builds packages/core before this
-// runs; if dist is absent (local dev without a build), warn and skip.
+// runs; in CI a missing dist is a hard failure (the check must actually
+// run), while local dev without a build warns and skips.
 const coreDistEntry = join(root, 'packages/core/dist/index.cjs')
 if (!existsSync(coreDistEntry)) {
-  console.log(
-    '! packages/core/dist is absent — skipping README API surface check (run pnpm --filter nominee build)',
-  )
+  const msg = 'packages/core/dist is absent — README API surface check cannot run'
+  if (process.env.CI) {
+    errors.push(`${msg} (build first: pnpm -r build)`)
+  } else {
+    console.log(`! ${msg} — skipping (run pnpm --filter nominee build)`)
+  }
 } else {
   let Nominee = null
   try {

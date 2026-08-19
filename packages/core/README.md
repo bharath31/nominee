@@ -247,6 +247,7 @@ await nominee.executeCapability(resumed.capability, input, execute) // execute r
 
 // Authorization
 await nominee.authorize({ tool, input, user })   // allow | throws PolicyDeniedError / ApprovalDeniedError
+await nominee.assertUnchanged(authorization, input) // bind a manual authorize to execution
 await nominee.check({ tool, input, user })       // dry-run: the decision, no side effects
 nominee.guard(tools, { user })                   // wrap once, enforce everywhere
 
@@ -265,6 +266,8 @@ await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
 verifyReceipts(receipts, { key })
 
 // Observability
+const observed = nominee.observe(rawTools)        // report-only: never enforces
+nominee.observations()                            // JSON: tool inventory, cardinality + ranges
 // `onGovernedAction` is a constructor option, not a method:
 //   new Nominee({ onGovernedAction: (event) => metrics.record(event) })
 // or: usageReporter() for opt-in measurement — see docs/measurement.md
