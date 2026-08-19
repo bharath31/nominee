@@ -1,5 +1,81 @@
 # nominee
 
+## 3.0.0
+
+### Major Changes
+
+- 486f59d: Receipt delivery is now **strict by default**, and the policy budget option was
+  renamed to `maxCalls`. Both are breaking changes bundled into this release.
+
+  ## `receipts.delivery` defaults to `'strict'`
+
+  Previously the default was `'buffered'`: a receipt sink that threw or rejected
+  latched a flag and the tool still ran, with the audit silently lost. For a
+  product whose differentiator is evidence, that is a security bug. Now:
+
+  - A sink that throws or rejects **fails the call** — the tool does not run with
+    its audit lost.
+  - Pass `delivery: 'buffered'` explicitly to restore the legacy best-effort
+    behaviour (a failing sink defers the error to `flushReceipts()`; treat a
+    rejecting flush as lost audit evidence). `production: true` refuses
+    `'buffered'`.
+  - `nominee.verifyReceipts()` is now **async** and, when an atomic receipt store
+    is configured, verifies the durable stream together with the in-process
+    window — a production instance never gets a vacuous `{ ok: true, checked: 0 }`.
+
+  ## `max` is renamed to `maxCalls`
+
+  `allow('refund.issue', { max: 20 })` counts **calls**, not spend, with no time
+  window and no reset. The name invited the wrong reading. The option is now
+  `maxCalls`; the deprecated `max` alias keeps working (one warning per process)
+  and setting both throws. Durable budget counters are unaffected by the rename.
+
+### Patch Changes
+
+- f67b49a: Post-merge review fixes for the Wave-1 credibility PRs:
+
+  - **CI actually runs the API-surface gate now.** `ci.yml` builds before
+    `brand/check-surfaces.mjs`, and the check fails in CI when
+    `packages/core/dist` is absent instead of silently skipping — so a
+    reintroduced phantom method like `nominee.onGovernedAction()` fails the
+    pipeline, as the README audit intended.
+  - **`guardTools` documents its token boundary.** `connection` / `scopes`
+    on the one-liner authorize a fresh token through your strategy (policy,
+    external authorization, receipt log), but the wrapped tool's plain
+    `execute` never receives it — use `nomineeTool` when the tool itself
+    must call the third-party API, and note that `connection` on a
+    policy-only nominee fails closed at call time.
+  - **`guardTools` gets coverage for static `tenant` / `resource` values,
+    `ActionPendingError` when an ask outlives the request, and
+    `AuthorizationInputChangedError` when input mutates after approval.**
+  - **The CLI pause proof tightens its arg-swap criterion** to count only
+    `AuthorizationInputChangedError` — proof that the approval is bound to
+    the exact approved input, not a looser consumed-capability error.
+  - **`packages/core/README.md` Full API block gains `assertUnchanged`,
+    `observe()`, and `observations()`.**
+
+- 833a7af: Document the out-of-band approval path — the approval that outlives the request. New
+  site page at `nominee.dev/docs/approvals` with the four-step flow (catch
+  `ActionPendingError` and persist the action id and the original input,
+  `resolveActionApproval()`, `resumeAction()`, `executeCapability()`); a compressed
+  four-step section in the core README quickstart; a "What happens on `ask`"
+  subsection in every adapter README; and `examples/support-refund-agent` named as the
+  canonical reference implementation.
+- c53fc13: Repositioned the package surfaces around the pause narrative: npm package
+  descriptions now lead with the consequence of approvals that outlive the
+  request — a token minted at execution, bound to the arguments a human
+  reviewed, spendable once, sealed into a hash-chained receipt — instead of a
+  capability list. The core and adapter READMEs align with the same story,
+  budget examples use `maxCalls` (lifetime call count, no time window, never
+  resets, escalates to `ask` on exhaustion), and every tamper-evidence claim
+  now carries its trust boundary (tamper-evident against a downstream log
+  editor, not non-repudiation against the agent host).
+- 136561f: Fix the README "Full API" blocks: `onGovernedAction` is a constructor
+  option, not a method — it is now documented where it actually is, and
+  `nominee.receipts` is called out as a getter, not a method.
+  `brand/check-surfaces.mjs` now verifies every `nominee.<member>` named in
+  the two README API blocks against the built `Nominee` class.
+
 ## 2.8.0
 
 ### Minor Changes

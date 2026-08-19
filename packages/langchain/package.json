@@ -1,6 +1,6 @@
 {
   "name": "nominee-langchain",
-  "version": "2.7.0",
+  "version": "3.0.0",
   "description": "Decision-bound LangChain JS tools — an ask that outlives the request throws ActionPendingError, so a reviewed input is what runs.",
   "type": "module",
   "main": "./dist/index.cjs",

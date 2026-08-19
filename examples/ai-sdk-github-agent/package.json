@@ -1,6 +1,6 @@
 {
   "name": "ai-sdk-github-agent",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "type": "module",
   "description": "Flagship example: a Vercel AI SDK agent that merges a GitHub PR on your behalf — fresh token at merge time, human approval, full audit. No SaaS.",

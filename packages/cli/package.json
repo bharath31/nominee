@@ -1,6 +1,6 @@
 {
   "name": "nominee-cli",
-  "version": "2.8.0",
+  "version": "3.0.0",
   "description": "A terminal proof that approval is the easy part: pause a refund, watch the token expire, resume fresh, see the arg-swap bounce.",
   "type": "module",
   "main": "./dist/cli.js",
