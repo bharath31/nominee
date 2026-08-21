@@ -526,7 +526,7 @@ function approvalLandingPage(
 h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#8c2f2a}
 .back{font-family:ui-monospace,monospace;font-size:13px;color:#6b7488;margin-top:24px;display:inline-block;border-bottom:1px solid #e5e7ee;padding-bottom:2px}</style></head>
 <body><div class="card"><h1>${escapeHtml(head)}</h1><p>${body}</p>
-<a class="back" href="${ORIGIN}/agent/session-view?id=${escapeHtml(id)}">watch the full session timeline →</a></div></body></html>`
+<a class="back" href="${ORIGIN}/agent/session-view?id=${escapeHtml(id)}">watch the full session timeline →</a></div><script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script><script defer src="/_vercel/insights/script.js"></script><script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};</script><script defer src="/_vercel/speed-insights/script.js"></script></body></html>`
 }
 
 // The six visible stages of an agent run. This list is the single source of
@@ -682,7 +682,7 @@ function connectCodeShim() {
 const m=location.hash.match(/connect_code=([^&]+)/)||location.search.match(/connect_code=([^&]+)/);
 if(m){location.replace('/agent/connect/callback?connect_code='+encodeURIComponent(m[1]));}
 else{document.body.textContent='Missing connect_code - please reconnect.';}
-</script></body></html>`
+</script><script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script><script defer src="/_vercel/insights/script.js"></script><script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};</script><script defer src="/_vercel/speed-insights/script.js"></script></body></html>`
 }
 
 function html(inner: string, loggedIn: boolean) {
@@ -811,7 +811,7 @@ ${inner}
 <p class="foot" style="margin-top:32px;text-align:center"><a href="${ORIGIN}" style="color:var(--muted)">← nominee.dev</a> · <a href="https://github.com/bharath31/nominee" style="color:var(--muted)">source ↗</a></p>
 </div>
 ${loggedIn ? script() : viewerScript()}
-</body></html>`
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script><script defer src="/_vercel/insights/script.js"></script><script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};</script><script defer src="/_vercel/speed-insights/script.js"></script></body></html>`
 }
 
 // Shared client helpers: the flow renderer + formatters used by both the live
