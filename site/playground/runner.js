@@ -23,10 +23,10 @@ function receiptSnapshot(nominee) {
   }))
 }
 
-function proof(nominee) {
+async function proof(nominee) {
   return {
     receipts: receiptSnapshot(nominee),
-    verified: nominee.verifyReceipts().ok,
+    verified: (await nominee.verifyReceipts()).ok,
   }
 }
 
@@ -43,7 +43,7 @@ async function executeRefund({ nominee, runId, input }, capability) {
     type: 'complete',
     runId,
     text: 'Refund complete. The receipt chain proves the tool ran.',
-    ...proof(nominee),
+    ...(await proof(nominee)),
   })
 }
 
@@ -99,7 +99,7 @@ async function run({ runId, amount, source }) {
     })
     if (prepared.status === 'pending_approval') {
       pendingRuns.set(runId, { nominee, runId, input, actionId: prepared.action.id })
-      self.postMessage({ type: 'approval', runId, amount, ...proof(nominee) })
+      self.postMessage({ type: 'approval', runId, amount, ...(await proof(nominee)) })
       return
     }
     if (prepared.status !== 'ready') {
@@ -112,7 +112,7 @@ async function run({ runId, amount, source }) {
       type: 'blocked',
       runId,
       text: `Blocked before refund.issue ran: ${message}`,
-      ...proof(nominee),
+      ...(await proof(nominee)),
     })
   }
 }
@@ -137,7 +137,7 @@ async function decide({ runId, decision }) {
     type: 'denied',
     runId,
     text: 'You denied the refund. refund.issue never ran.',
-    ...proof(nominee),
+    ...(await proof(nominee)),
   })
 }
 

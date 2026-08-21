@@ -11,7 +11,6 @@
 <p align="center">
   <a href="https://nominee.dev">Website</a> ·
   <a href="https://nominee.dev/docs/">Docs</a> ·
-  <a href="https://nominee.dev/case-studies/">Case studies</a> ·
   <a href="https://nominee.dev/playground/">Playground</a> ·
   <a href="https://nominee.dev/agent">Security demo</a> ·
   <a href="https://www.npmjs.com/package/nominee">npm</a> ·
@@ -151,7 +150,7 @@ const nominee = new Nominee({
 })
 
 nominee.receipts          // the chain so far
-nominee.verifyReceipts()  // { ok: true, checked: 128 }
+await nominee.verifyReceipts()  // { ok: true, checked: 128 } — async; the exported verifyReceipts() below is sync
 await nominee.flushReceipts() // checkpoint buffered sinks before shutdown/resume
 
 // Later, offline, from your log sink:
@@ -415,7 +414,7 @@ nominee.resolveApproval(id, 'approved')          // settle from your webhook
 // Receipts
 // `nominee.receipts` is a getter — read the property, don't call it
 nominee.receipts                                 // the hash-chained record
-nominee.verifyReceipts()                         // tamper check
+await nominee.verifyReceipts()                   // tamper check (async; exported verifyReceipts() is sync)
 formatReceipts(nominee.receipts)                 // compact terminal printer
 await nominee.flushReceipts()                    // await buffered async sink writes
 await nominee.verifyDurableReceipts()            // verify durable stream + checkpoint

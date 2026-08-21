@@ -50,7 +50,6 @@
         <a href="/">Home</a>
         <a href="/#packages">Packages</a>
         <a href="/docs/mcp/">MCP</a>
-        <a href="/case-studies/">Case studies</a>
         <a href="/blog/">Blog</a>
         <a class="nav-cta" href="https://github.com/bharath31/nominee">GitHub ↗</a>
       </nav>
@@ -397,7 +396,7 @@ nominee.resolveApproval(req.id, 'approved') // or 'denied'</code></pre>
 })
 
 nominee.receipts          // the chain so far
-nominee.verifyReceipts()  // { ok: true, checked: 128 }
+await nominee.verifyReceipts()  // { ok: true, checked: 128 } — async; the exported verifyReceipts() below is sync
 
 // Later, offline, from your log sink:
 import { formatReceipts, verifyReceipts } from 'nominee'
