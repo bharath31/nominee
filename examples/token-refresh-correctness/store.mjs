@@ -3,6 +3,8 @@
 // like state in a hibernating DO. In-memory variables do not — that's the trap.
 // nominee reads the refresh token from here and writes the rotated one back.
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 export class DurableStore {
   constructor(path) {
@@ -18,8 +20,10 @@ export class DurableStore {
   }
 }
 
-/** A clean store for each scenario, so runs are reproducible. */
-export function fresh(path) {
+/** A clean store for each scenario, so runs are reproducible. Files land in the
+ * OS temp dir — running this demo never litters the working directory. */
+export function fresh(name) {
+  const path = join(tmpdir(), `nominee-token-refresh-${name}`)
   if (existsSync(path)) rmSync(path)
   return new DurableStore(path)
 }
