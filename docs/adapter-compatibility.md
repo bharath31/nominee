@@ -47,6 +47,15 @@ shipped in `eve@0.14.0` — well below the declared floor of `eve >=0.27.0` — 
 it is a backward-compatibility alias for nominee-eve's own callers, not stale
 handling of an Eve version this adapter no longer supports.
 
+**npm name collision on `eve` (verified 2026-08-21).** Bare `npm i eve`
+resolves to `eve@0.5.x` — an unrelated 2013-era "Simple custom events" library
+that still owns the low version numbers — even though the registry's `latest`
+dist-tag points at Vercel's Eve (`0.42.0` at time of verification). Only an
+explicit specifier (`eve@latest`, `eve@^0.42.0`) fetches the agent framework.
+npm auto-installs this adapter's `eve` peer at a satisfying version; pnpm does
+not install peers by default. Install Eve explicitly and pinned — see the
+warning in [`packages/eve/README.md`](../packages/eve/README.md).
+
 ## Compatibility table
 
 | Framework | Supported version range | Approval/resume mechanism nominee hooks | Last-verified date |

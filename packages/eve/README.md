@@ -23,6 +23,18 @@
 npm i nominee nominee-eve
 ```
 
+> **Install Eve explicitly, pinned.** On npm, bare `npm i eve` still resolves to
+> an unrelated 2013-era library (`eve@0.5.x`, "Simple custom events"). Vercel's
+> Eve agent framework is `eve@0.27+`. npm installs this adapter's `eve` peer
+> automatically, but pnpm does not — so the safe, explicit form is:
+>
+> ```bash
+> npm i eve@^0.42.0        # or your preferred 0.27+ version
+> ```
+>
+> If you see `Cannot find package 'eve/tools'` (or a peer warning about
+> `eve@0.5.x`), Eve itself was not installed at a compatible version.
+
 ---
 
 ## Observe Before Enforcing
