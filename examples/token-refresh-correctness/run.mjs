@@ -78,7 +78,7 @@ async function scenarioA() {
 // ── B. NOMINEE: resolve a fresh token at call time, across the pause ──────────
 async function scenarioB() {
   const rt = await seed()
-  const store = fresh('./.b.json')
+  const store = fresh('b.json')
   store.set('alice', { refreshToken: rt })
   const nominee = makeNominee(store, 'alice')
   const at1 = await nominee.token({ user: 'alice', connection: 'demo' })
@@ -92,7 +92,7 @@ async function scenarioB() {
 // ── C. NOMINEE under concurrency: single-flight means ONE network refresh ─────
 async function scenarioC() {
   const rt = await seed()
-  const store = fresh('./.c.json')
+  const store = fresh('c.json')
   store.set('alice', { refreshToken: rt })
   const nominee = makeNominee(store, 'alice')
   await nominee.token({ user: 'alice', connection: 'demo' }) // warm it
@@ -109,7 +109,7 @@ async function scenarioC() {
 // ── D. "Just refresh" WITHOUT single-flight: rotation makes concurrency break ─
 async function scenarioD() {
   const rt = await seed()
-  const store = fresh('./.d.json')
+  const store = fresh('d.json')
   store.set('alice', { refreshToken: rt })
   // The naive-but-refreshes version: every call independently reads the stored
   // refresh token and refreshes. No coalescing, no atomic rotation handling.
