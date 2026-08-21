@@ -52,8 +52,9 @@ resolves to `eve@0.5.x` — an unrelated 2013-era "Simple custom events" library
 that still owns the low version numbers — even though the registry's `latest`
 dist-tag points at Vercel's Eve (`0.42.0` at time of verification). Only an
 explicit specifier (`eve@latest`, `eve@^0.42.0`) fetches the agent framework.
-npm auto-installs this adapter's `eve` peer at a satisfying version; pnpm does
-not install peers by default. Install Eve explicitly and pinned — see the
+npm (7+) auto-installs this adapter's `eve` peer at a satisfying version; pnpm
+does too by default since v8 (`auto-install-peers`; pnpm 7 needs it enabled);
+Yarn does not install peers. Install Eve explicitly and pinned — see the
 warning in [`packages/eve/README.md`](../packages/eve/README.md).
 
 ## Compatibility table
