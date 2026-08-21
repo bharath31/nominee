@@ -608,11 +608,11 @@ importers:
         specifier: ^3.9.5
         version: 3.9.5(ws@8.21.0)
       nominee:
-        specifier: workspace:*
-        version: link:../packages/core
+        specifier: 3.0.0
+        version: 3.0.0
       nominee-auth0:
-        specifier: workspace:*
-        version: link:../packages/auth0
+        specifier: 3.0.0
+        version: 3.0.0(nominee@3.0.0)
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -3202,6 +3202,14 @@ packages:
         optional: true
       zephyr-agent:
         optional: true
+
+  nominee-auth0@3.0.0:
+    resolution: {integrity: sha512-Dw1KWrgn8dgTOZ9WLNg0QmfEGXBWQxbLjSbQ4yWogjmlHzRFP+7OFJgcfbuNst+WxoA2b5P26lNw5l4/mgHcwg==}
+    peerDependencies:
+      nominee: ^3.0.0
+
+  nominee@3.0.0:
+    resolution: {integrity: sha512-9zhKxFuOUfHmGPPTJi7eXICsqF8us9lhZi0Z2byWHF7cLb9yPEdPOSOlUogD41gTXTCgsXCCRFVp3NIGd6ZWOw==}
 
   npm-run-path@4.0.1:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
@@ -7145,6 +7153,13 @@ snapshots:
       - sqlite3
       - uploadthing
       - wrangler
+
+  nominee-auth0@3.0.0(nominee@3.0.0):
+    dependencies:
+      jose: 6.2.9
+      nominee: 3.0.0
+
+  nominee@3.0.0: {}
 
   npm-run-path@4.0.1:
     dependencies:
