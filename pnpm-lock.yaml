@@ -122,7 +122,7 @@ importers:
         version: 7.0.41(zod@4.4.3)
       eve:
         specifier: ^0.27.12
-        version: 0.27.12(@opentelemetry/api@1.9.1)(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1))
+        version: 0.27.12(@opentelemetry/api@1.9.1)(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1))
       nominee:
         specifier: workspace:*
         version: link:../../packages/core
@@ -423,7 +423,7 @@ importers:
         version: 22.19.21
       eve:
         specifier: ^0.27.12
-        version: 0.27.12(@opentelemetry/api@1.9.1)(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0)
+        version: 0.27.12(@opentelemetry/api@1.9.1)(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0)
       nominee:
         specifier: workspace:*
         version: link:../core
@@ -593,6 +593,34 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.1.5(@types/node@26.0.0)(esbuild@0.28.1)(tsx@4.22.4))
 
+  site:
+    dependencies:
+      '@agent404/next':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@upstash/ratelimit':
+        specifier: ^2.0.8
+        version: 2.0.8(@upstash/redis@1.38.2)
+      '@upstash/redis':
+        specifier: ^1.38.2
+        version: 1.38.2
+      '@vercel/functions':
+        specifier: ^3.9.5
+        version: 3.9.5(ws@8.21.0)
+      nominee:
+        specifier: workspace:*
+        version: link:../packages/core
+      nominee-auth0:
+        specifier: workspace:*
+        version: link:../packages/auth0
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@8.1.5(@types/node@26.0.0)(esbuild@0.28.1)(tsx@4.22.4))
+
   site/agent-worker:
     dependencies:
       nominee:
@@ -634,6 +662,14 @@ packages:
 
   '@agent404/cloudflare@0.1.0':
     resolution: {integrity: sha512-RB/SnWQ/pkDwc0R4+uwSOOuWSsmZBB5Pp0UApgEdQDE/6RXy6rFuN4/MSUXjYdCfWBAexKitP+DC9X62Qkmi7w==}
+
+  '@agent404/next@0.1.0':
+    resolution: {integrity: sha512-+5hjNxL5ZuhYRE4p1s8xMNGO/tAkQusaCnooGStEKQvd/MeiFxXimq0p+fCzPHuWAULQdmQBJtZZ3Kp32X8Qpg==}
+    peerDependencies:
+      next: '>=13'
+    peerDependenciesMeta:
+      next:
+        optional: true
 
   '@ai-sdk/gateway@3.0.133':
     resolution: {integrity: sha512-Ebs+7iS9zUgJu5B0RlxM2JmDWzq79Cpd6YdiqcCzB5qFdpfQJPUDiXutqlQP89F2XGjOdDeidulBTXUdXWzOxw==}
@@ -1857,6 +1893,18 @@ packages:
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
+  '@upstash/core-analytics@0.0.10':
+    resolution: {integrity: sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ==}
+    engines: {node: '>=16.0.0'}
+
+  '@upstash/ratelimit@2.0.8':
+    resolution: {integrity: sha512-YSTMBJ1YIxsoPkUMX/P4DDks/xV5YYCswWMamU8ZIfK9ly6ppjRnVOyBhMDXBmzjODm4UQKcxsJPvaeFAijp5w==}
+    peerDependencies:
+      '@upstash/redis': ^1.34.3
+
+  '@upstash/redis@1.38.2':
+    resolution: {integrity: sha512-RZ+JaRCVIS+ZTGnjOnDMr+/0aqDxsBb5rV6aW+Pys4SGELwr5lwE3UbLHRCHqMQ5Ulxj0b/CFBHfbmE175Otog==}
+
   '@vercel/analytics@2.0.1':
     resolution: {integrity: sha512-MTQG6V9qQrt1tsDeF+2Uoo5aPjqbVPys1xvnIftXSJYG2SrwXRHnqEvVoYID7BTruDz4lCd2Z7rM1BdkUehk2g==}
     peerDependencies:
@@ -1886,8 +1934,31 @@ packages:
       vue-router:
         optional: true
 
+  '@vercel/cli-config@0.2.4':
+    resolution: {integrity: sha512-kZ5SojbrV06GHoU6QIWGwDXLov+s9rWZ7QqdqKfJfBGCNUieGfgaCjeeenNy8Y+QC0bwC0dZ2B4l5Hvdmrgpdw==}
+
+  '@vercel/cli-exec@1.0.1':
+    resolution: {integrity: sha512-g9XerViJ/paZujufXYcu5XYI2vU2rtB4sgdpjUHde5RnOkdmpu0ngH46LCFGHoPXO/C+qDPSczIHIRN+8Q2YKQ==}
+    engines: {node: '>= 18'}
+
+  '@vercel/functions@3.9.5':
+    resolution: {integrity: sha512-EUfqlb7AzoEh7URlMNAO4jbJiLWz9grDBHvfjKTDvEP9c8y3DqX3SWPvfaQkUjtkm3b83flhaUUMuewdHa+qmw==}
+    engines: {node: '>= 20'}
+    peerDependencies:
+      '@aws-sdk/credential-provider-web-identity': '*'
+      ws: '>=8'
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-web-identity':
+        optional: true
+      ws:
+        optional: true
+
   '@vercel/oidc@3.2.0':
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
+    engines: {node: '>= 20'}
+
+  '@vercel/oidc@3.8.5':
+    resolution: {integrity: sha512-RwXYtnt6za+5UO4IaLywN/6B95AlLqynPRUWRJxeJ/qufwkcLUbZNUxYtzT0uMpuraWhlNcGqPNGkTnZr4BGBw==}
     engines: {node: '>= 20'}
 
   '@vitest/expect@1.6.1':
@@ -2375,6 +2446,10 @@ packages:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
 
+  execa@5.1.1:
+    resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
+    engines: {node: '>=10'}
+
   execa@8.0.1:
     resolution: {integrity: sha512-VyhnebXciFV2DESc+p6B+y0LjSm0krU4OgJN44qFAhBY0TJ+1V61tYD2+wHusZ6F9n5K+vl8k0sTy7PEfV4qpg==}
     engines: {node: '>=16.17'}
@@ -2501,6 +2576,10 @@ packages:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
 
+  get-stream@6.0.1:
+    resolution: {integrity: sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg==}
+    engines: {node: '>=10'}
+
   get-stream@8.0.1:
     resolution: {integrity: sha512-VaUJspBffn/LMCJVoMvSAdmscJyS1auj5Zulnn5UoYcY531UWmdwhRWkcGKnGU93m5HSXP9LP2usOryrBtQowA==}
     engines: {node: '>=16'}
@@ -2565,6 +2644,10 @@ packages:
 
   human-id@3.0.1:
     resolution: {integrity: sha512-ybmpj4dxA6492SkdUk0CE2Dg/O5KpByoai7UuTeUEtQK2YuR0OYlC9iUzEfj3ralha4ip8TV1ALq7mRJ2LadxA==}
+
+  human-signals@2.1.0:
+    resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
+    engines: {node: '>=10.17.0'}
 
   human-signals@5.0.0:
     resolution: {integrity: sha512-AXcZb6vzzrFAUE61HnN4mpLqd/cSIwNQjtNWR0euPm6y0iqx3G4gOXaIDdtdDwZmhwe82LA6+zinmW4UBWVePQ==}
@@ -2631,6 +2714,10 @@ packages:
   is-promise@4.0.0:
     resolution: {integrity: sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==}
 
+  is-stream@2.0.1:
+    resolution: {integrity: sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==}
+    engines: {node: '>=8'}
+
   is-stream@3.0.0:
     resolution: {integrity: sha512-LnQR4bZ9IADDRSkvpqMGvt/tEJWclzklNgSw48V5EAaAeDd6qGvN8ei6k5p0tvxSR171VmGyHuTiAOfxAbr8kA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -2656,6 +2743,9 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
   jose@6.2.4:
     resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
@@ -3019,6 +3109,10 @@ packages:
     engines: {node: '>=4'}
     hasBin: true
 
+  mimic-fn@2.1.0:
+    resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
+    engines: {node: '>=6'}
+
   mimic-fn@4.0.0:
     resolution: {integrity: sha512-vqiC06CuhBTUdZH+RYl8sFrL096vA45Ok5ISO6sE/Mr1jRbGH4Csnhi8f3wKVl7x8mO4Au7Ir9D3Oyv1VYMFJw==}
     engines: {node: '>=12'}
@@ -3109,6 +3203,10 @@ packages:
       zephyr-agent:
         optional: true
 
+  npm-run-path@4.0.1:
+    resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
+    engines: {node: '>=8'}
+
   npm-run-path@5.3.0:
     resolution: {integrity: sha512-ppwTtiJZq0O/ai0z7yfudtBpWIoxM8yE6nHi1X47eFR2EWORqfbu6CnPlNsjeN683eT0qG6H/Pyf9fCcvjnnnQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -3156,6 +3254,10 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
+  onetime@5.1.2:
+    resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
+    engines: {node: '>=6'}
+
   onetime@6.0.0:
     resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
     engines: {node: '>=12'}
@@ -3182,6 +3284,10 @@ packages:
 
   openid-client@6.8.5:
     resolution: {integrity: sha512-jNGC/5wnTYwCcEUe2ss0IRUmVRQcgxM0A1nLb3eX/9llqNbMWOQd2xd+qDAgfVCpA5Qh96Y1cdnkfbva6+bSdA==}
+
+  os-paths@4.4.0:
+    resolution: {integrity: sha512-wrAwOeXp1RRMFfQY8Sy7VaGVmPocaLwSFOYCGKSyo8qmJ+/yaafCl5BCA1IQZWqFSRBrKDYFeR9d/VyQzfH/jg==}
+    engines: {node: '>= 6.0'}
 
   outdent@0.5.0:
     resolution: {integrity: sha512-/jHxFIzoMXdqPzTaCpFzAAWhpkSjZPF4Vsn6jAfNpmbH/ymsmd7Qc6VE9BGn0L6YMj6uwpQLxCECpus4ukKS9Q==}
@@ -3614,6 +3720,9 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
+  signal-exit@3.0.7:
+    resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
+
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
@@ -3669,6 +3778,10 @@ packages:
   strip-bom@3.0.0:
     resolution: {integrity: sha512-vavAMRXOgBVNF6nyEEmL3DBK19iRpDcoIwW+swQ+CbGiu7lju6t+JklA1MHweoWtadgt4ISVUsXLyDq34ddcwA==}
     engines: {node: '>=4'}
+
+  strip-final-newline@2.0.0:
+    resolution: {integrity: sha512-BrpvfNAE3dcvq7ll3xVumzjKjZQ5tI1sEUIKr3Uoks0XUl45St3FlatVqef9prk4jRDzhW6WZg+3bk93y6pLjA==}
+    engines: {node: '>=6'}
 
   strip-final-newline@3.0.0:
     resolution: {integrity: sha512-dOESqjYr96iWYylGObzd39EuNTa5VJxyvVAEm5Jnh7KGo75V43Hk1odPQkNDyXNmUR6k+gEiDVXnjB8HJ3crXw==}
@@ -3794,6 +3907,9 @@ packages:
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
+
+  uncrypto@0.1.3:
+    resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
@@ -4135,6 +4251,14 @@ packages:
       utf-8-validate:
         optional: true
 
+  xdg-app-paths@5.5.1:
+    resolution: {integrity: sha512-hI3flOB4PLZIy5prbtTpirobtPE2ZtZ52szO+2mM9Efp6ErM398La+C1lIpNWDfNoQk+6Lsi6nMcCwVB7pxeMQ==}
+    engines: {node: '>= 6.0'}
+
+  xdg-portable@7.3.0:
+    resolution: {integrity: sha512-sqMMuL1rc0FmMBOzCpd0yuy9trqF2yTTVe+E9ogwCSWQCdDEtQUwrZPT6AxqtsFGRNxycgncbP/xmOOSPw5ZUw==}
+    engines: {node: '>= 6.0'}
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -4173,6 +4297,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.1.11:
+    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
+
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -4188,6 +4315,8 @@ snapshots:
       express: 5.2.1
 
   '@agent404/cloudflare@0.1.0': {}
+
+  '@agent404/next@0.1.0': {}
 
   '@ai-sdk/gateway@3.0.133(zod@4.4.3)':
     dependencies:
@@ -5400,9 +5529,43 @@ snapshots:
     dependencies:
       '@types/node': 22.19.21
 
+  '@upstash/core-analytics@0.0.10':
+    dependencies:
+      '@upstash/redis': 1.38.2
+
+  '@upstash/ratelimit@2.0.8(@upstash/redis@1.38.2)':
+    dependencies:
+      '@upstash/core-analytics': 0.0.10
+      '@upstash/redis': 1.38.2
+
+  '@upstash/redis@1.38.2':
+    dependencies:
+      uncrypto: 0.1.3
+
   '@vercel/analytics@2.0.1': {}
 
+  '@vercel/cli-config@0.2.4':
+    dependencies:
+      xdg-app-paths: 5.5.1
+      zod: 4.1.11
+
+  '@vercel/cli-exec@1.0.1':
+    dependencies:
+      execa: 5.1.1
+
+  '@vercel/functions@3.9.5(ws@8.21.0)':
+    dependencies:
+      '@vercel/oidc': 3.8.5
+    optionalDependencies:
+      ws: 8.21.0
+
   '@vercel/oidc@3.2.0': {}
+
+  '@vercel/oidc@3.8.5':
+    dependencies:
+      '@vercel/cli-config': 0.2.4
+      '@vercel/cli-exec': 1.0.1
+      jose: 5.10.0
 
   '@vitest/expect@1.6.1':
     dependencies:
@@ -5867,10 +6030,10 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eve@0.27.12(@opentelemetry/api@1.9.1)(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1)):
+  eve@0.27.12(@opentelemetry/api@1.9.1)(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1)):
     dependencies:
       ai: 7.0.41(zod@4.4.3)
-      nitro: 3.0.260610-beta(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1))
+      nitro: 3.0.260610-beta(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1))
       undici: 8.9.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
@@ -5914,10 +6077,10 @@ snapshots:
       - xml2js
       - zephyr-agent
 
-  eve@0.27.12(@opentelemetry/api@1.9.1)(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0):
+  eve@0.27.12(@opentelemetry/api@1.9.1)(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(ai@7.0.41(zod@4.4.3))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0):
     dependencies:
       ai: 7.0.41(zod@4.4.3)
-      nitro: 3.0.260610-beta(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0)
+      nitro: 3.0.260610-beta(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0)
       undici: 8.9.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
@@ -5970,6 +6133,18 @@ snapshots:
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.0
+
+  execa@5.1.1:
+    dependencies:
+      cross-spawn: 7.0.6
+      get-stream: 6.0.1
+      human-signals: 2.1.0
+      is-stream: 2.0.1
+      merge-stream: 2.0.0
+      npm-run-path: 4.0.1
+      onetime: 5.1.2
+      signal-exit: 3.0.7
+      strip-final-newline: 2.0.0
 
   execa@8.0.1:
     dependencies:
@@ -6194,6 +6369,8 @@ snapshots:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.2
 
+  get-stream@6.0.1: {}
+
   get-stream@8.0.1: {}
 
   get-stream@9.0.1:
@@ -6258,6 +6435,8 @@ snapshots:
 
   human-id@3.0.1: {}
 
+  human-signals@2.1.0: {}
+
   human-signals@5.0.0: {}
 
   human-signals@8.0.1: {}
@@ -6298,6 +6477,8 @@ snapshots:
 
   is-promise@4.0.0: {}
 
+  is-stream@2.0.1: {}
+
   is-stream@3.0.0: {}
 
   is-stream@4.0.1: {}
@@ -6313,6 +6494,8 @@ snapshots:
   isarray@2.0.5: {}
 
   isexe@2.0.0: {}
+
+  jose@5.10.0: {}
 
   jose@6.2.4: {}
 
@@ -6791,6 +6974,8 @@ snapshots:
 
   mime@1.6.0: {}
 
+  mimic-fn@2.1.0: {}
+
   mimic-fn@4.0.0: {}
 
   miniflare@4.20260722.1:
@@ -6857,7 +7042,7 @@ snapshots:
 
   nf3@0.3.17: {}
 
-  nitro@3.0.260610-beta(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1)):
+  nitro@3.0.260610-beta(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(miniflare@4.20260722.1)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.115.0(@cloudflare/workers-types@5.20260729.1)):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.6(srvx@0.11.17)
@@ -6872,7 +7057,7 @@ snapshots:
       rolldown: 1.1.2
       srvx: 0.11.17
       unenv: 2.0.0-rc.24
-      unstorage: 2.0.0-alpha.7(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
+      unstorage: 2.0.0-alpha.7(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
     optionalDependencies:
       dotenv: 17.4.2
       rollup: 4.62.2
@@ -6909,7 +7094,7 @@ snapshots:
       - uploadthing
       - wrangler
 
-  nitro@3.0.260610-beta(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0):
+  nitro@3.0.260610-beta(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(dotenv@17.4.2)(lru-cache@11.5.2)(rollup@4.62.2)(vite@8.1.5(@types/node@22.19.21)(esbuild@0.28.1)(tsx@4.22.4))(wrangler@4.123.0):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.6(srvx@0.11.17)
@@ -6924,7 +7109,7 @@ snapshots:
       rolldown: 1.1.2
       srvx: 0.11.17
       unenv: 2.0.0-rc.24
-      unstorage: 2.0.0-alpha.7(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
+      unstorage: 2.0.0-alpha.7(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3)
     optionalDependencies:
       dotenv: 17.4.2
       rollup: 4.62.2
@@ -6960,6 +7145,10 @@ snapshots:
       - sqlite3
       - uploadthing
       - wrangler
+
+  npm-run-path@4.0.1:
+    dependencies:
+      path-key: 3.1.1
 
   npm-run-path@5.3.0:
     dependencies:
@@ -6998,6 +7187,10 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
+  onetime@5.1.2:
+    dependencies:
+      mimic-fn: 2.1.0
+
   onetime@6.0.0:
     dependencies:
       mimic-fn: 4.0.0
@@ -7017,6 +7210,8 @@ snapshots:
     dependencies:
       jose: 6.2.9
       oauth4webapi: 3.8.7
+
+  os-paths@4.4.0: {}
 
   outdent@0.5.0: {}
 
@@ -7518,6 +7713,8 @@ snapshots:
 
   siginfo@2.0.0: {}
 
+  signal-exit@3.0.7: {}
+
   signal-exit@4.1.0: {}
 
   slash@3.0.0: {}
@@ -7552,6 +7749,8 @@ snapshots:
   strip-bom-string@1.0.0: {}
 
   strip-bom@3.0.0: {}
+
+  strip-final-newline@2.0.0: {}
 
   strip-final-newline@3.0.0: {}
 
@@ -7668,6 +7867,8 @@ snapshots:
 
   ufo@1.6.4: {}
 
+  uncrypto@0.1.3: {}
+
   undici-types@6.21.0: {}
 
   undici-types@8.3.0:
@@ -7718,8 +7919,10 @@ snapshots:
 
   unpipe@1.0.0: {}
 
-  unstorage@2.0.0-alpha.7(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3):
+  unstorage@2.0.0-alpha.7(@upstash/redis@1.38.2)(@vercel/functions@3.9.5(ws@8.21.0))(chokidar@4.0.3)(db0@0.3.4)(lru-cache@11.5.2)(ofetch@2.0.0-alpha.3):
     optionalDependencies:
+      '@upstash/redis': 1.38.2
+      '@vercel/functions': 3.9.5(ws@8.21.0)
       chokidar: 4.0.3
       db0: 0.3.4
       lru-cache: 11.5.2
@@ -8009,6 +8212,15 @@ snapshots:
 
   ws@8.21.0: {}
 
+  xdg-app-paths@5.5.1:
+    dependencies:
+      os-paths: 4.4.0
+      xdg-portable: 7.3.0
+
+  xdg-portable@7.3.0:
+    dependencies:
+      os-paths: 4.4.0
+
   xtend@4.0.2: {}
 
   xxhash-wasm@1.1.0: {}
@@ -8049,6 +8261,8 @@ snapshots:
       zod: 4.4.3
 
   zod@3.25.76: {}
+
+  zod@4.1.11: {}
 
   zod@4.4.3: {}
 
