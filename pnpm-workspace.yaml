@@ -6,6 +6,10 @@ packages:
   - "security-contract"
   # The deployed nominee.dev/agent worker lives here so it ships with the site.
   - "site/agent-worker"
+  # The Vercel-side port of the static site + /agent Edge Function (middleware,
+  # api/agent/*). Cloudflare's agent-worker above stays untouched and deployed
+  # in parallel until DNS actually flips.
+  - "site"
 
 onlyBuiltDependencies:
   - "@biomejs/biome"
