@@ -172,7 +172,13 @@ function decodeJwt(jwt: string): {
 export default async function handler(request: Request): Promise<Response> {
   const env = loadEnv()
   const url = new URL(request.url)
-  const path = url.pathname.replace(/\/+$/, '') || '/agent'
+  // The /agent/* rewrite passes the original path as `p` (Vercel's builder
+  // only routes single segments into an optional catch-all under the "Other"
+  // preset), so prefer it over the rewritten pathname.
+  const p = url.searchParams.get('p')
+  const path = p
+    ? '/' + p
+    : url.pathname.replace(/\/+$/, '') || '/agent'
 
   // Explicitly allowlisted, anonymous product-funnel collector. It accepts no
   // arbitrary properties: just an event name and, for CLI trial/activation

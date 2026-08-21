@@ -12,8 +12,8 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "@vercel/functions": "^3.9.5",
-    "nominee": "workspace:*",
-    "nominee-auth0": "workspace:*"
+    "nominee": "3.0.0",
+    "nominee-auth0": "3.0.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install --frozen-lockfile",
   "headers": [
     {
       "source": "/(.*)",
@@ -14,6 +15,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/agent/:path*", "destination": "/api/agent/:path*" }
+    { "source": "/agent", "destination": "/api/agent/index" },
+    { "source": "/agent/:path*", "destination": "/api/agent/index?p=:path*" }
   ]
 }
