@@ -293,12 +293,12 @@ nominee.resolveApproval(id, 'approved' | 'denied')
 // Receipts
 // `nominee.receipts` is a getter — read the property, don't call it
 nominee.receipts
-nominee.verifyReceipts()
+await nominee.verifyReceipts()        // tamper check (async)
 formatReceipts(nominee.receipts)
 formatReceiptsCsv(nominee.receipts)
 await nominee.flushReceipts()
 await nominee.verifyDurableReceipts() // verify durable stream + checkpoint
-verifyReceipts(receipts, { key })
+verifyReceipts(receipts, { key })     // offline / exported verification (sync)
 
 // Observability
 const observed = nominee.observe(rawTools)        // report-only: never enforces
