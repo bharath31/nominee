@@ -41,7 +41,7 @@ None required. Optional:
 3. **Delete escalated and denied** — `email.delete` hits `ask`; the demo's
    `onApprovalRequest` auto-denies (nobody asked for a deletion).
 4. **Legitimate work still flows** — forwarding to `boss@acme.com` succeeds.
-5. **Receipt verification** — `nominee.verifyReceipts()` reports the chain intact
+5. **Receipt verification** — `await nominee.verifyReceipts()` reports the chain intact
    (`chain verifies: ✓ N receipts intact`).
 6. **Tamper detection** — the demo removes deny receipts from a copy of the log
    and re-checks with `verifyReceipts()`; the break is detected

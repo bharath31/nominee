@@ -113,7 +113,7 @@ await nominee.executeCapability(resumed.capability, input, execute) // execute r
 
 // Receipts
 nominee.receipts
-nominee.verifyReceipts()
+await nominee.verifyReceipts() // async; the exported verifyReceipts() below is sync
 formatReceipts(nominee.receipts)
 await nominee.flushReceipts()        // await buffered async sinks before shutdown
 await nominee.verifyDurableReceipts() // verify the durable stream + checkpoint
