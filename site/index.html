@@ -9,7 +9,7 @@
       content="When agent approvals outlive a request, nominee mints fresh credentials at execution, binds reviewed arguments, and records a tamper-evident receipt."
     />
     <link rel="canonical" href="https://nominee.dev/" />
-    <meta name="theme-color" content="#faf9f5" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:title" content="Your agent got approval at 2:14. It executed at 2:31 with a dead token." />
     <meta
       property="og:description"
@@ -34,34 +34,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/home.css" />
-    <style>
-      /* Landing-only bits (home.css is shared; keep additions here). */
-      .breaks-grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px;
-        max-width: var(--maxw); margin: 22px auto 0;
-      }
-      .breaks-card {
-        border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--surface);
-      }
-      .breaks-card h3 { font-family: var(--display); font-size: 15px; letter-spacing: -0.01em; margin-bottom: 6px; }
-      .breaks-card h3 code { color: var(--seal); }
-      .breaks-card p { color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
-      .breaks-card p code { color: var(--ink); font-size: 12px; }
-      .snippet {
-        background: var(--code-bg); border: 1px solid var(--code-line); border-radius: 10px;
-        padding: 14px 16px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
-        color: var(--code-text); overflow-x: auto;
-      }
-      .snippet .k { color: #9db4ff; }
-      .snippet .fn { color: #e0a96d; }
-      .snippet .c { color: var(--code-dim); }
-      .proof-link { margin-top: 12px; font-size: 15px; color: var(--ink-soft); line-height: 1.6; }
-      .proof-link a { color: var(--seal); border-bottom: 1px solid var(--seal-line); }
-    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -207,28 +183,30 @@
     </header>
 
     <main>
-      <!-- 1. Hero — concede → gap → proof. Exactly one lead: post-pause correctness. -->
+      <!-- Hero — the pause is visible as an authorization trace, not a generic terminal. -->
       <section class="hero">
         <div class="hero-copy">
-          <p class="hero-tag">Approval is the easy part <span class="ref">· MIT</span></p>
-          <h1>Your agent got approval at 2:14.<br />It executed at 2:31 with a dead token.</h1>
+          <p class="hero-tag"><span class="status-dot" aria-hidden="true"></span> Approval is the easy part <span class="ref">Open source · MIT</span></p>
+          <h1>
+            <span class="hero-line">Your agent got approval at 2:14.</span>
+            <span class="hero-line hero-line-muted">It executed at 2:31 with a dead token.</span>
+          </h1>
           <p class="lede">
-            Pausing for approval is the easy part. Tokens expire, arguments drift, and
-            permissions change while you wait. nominee checks all three the moment the call
-            actually runs, and writes a receipt.
-          </p>
-          <p class="hero-ledger" aria-label="What nominee guarantees across the pause">
-            token minted at execution · bound to the args a human saw · spendable once
+            Your framework can pause a tool call. It cannot catch what changes while it waits:
+            tokens expire, arguments drift, permissions change, or approvals get replayed.
+            nominee makes the moment after "approve" correct and leaves a receipt.
           </p>
           <div class="hero-actions">
-            <a class="btn btn-seal" href="#proof">Run the proof →</a>
-            <a class="btn-text" href="#install">Add it to your agent →</a>
+            <button class="copy hero-install" data-copy="npm i nominee" aria-label="Copy: npm i nominee">
+              <span class="prompt">$</span><span class="cmd">npm i nominee</span><span class="copy-hint">copy</span>
+            </button>
+            <a class="btn btn-quiet" href="/docs/">Read the docs <span aria-hidden="true">→</span></a>
           </div>
-          <p class="hero-note">No signup · no API key · runs offline</p>
-          <a class="hero-next" href="#proof">
-            <span class="hero-next-arrow" aria-hidden="true">↓</span>
-            the proof: nominee 8/8, naive refresh 1/8
-          </a>
+          <ul class="hero-ledger" aria-label="What nominee guarantees across the pause">
+            <li>Fresh token at execution</li>
+            <li>Exact-input bound</li>
+            <li>Single-use capability</li>
+          </ul>
         </div>
 
         <div
@@ -237,27 +215,57 @@
           aria-label="Pause narrative terminal: approval requested, request returns, token expires mid-pause, approval comes back out of band, fresh token minted at execution"
         >
           <div class="run-top">
-            <span class="td-dot"></span><span class="td-dot"></span><span class="td-dot"></span>
-            <span class="run-title">pause-narrative — out-of-band approval</span>
+            <span class="run-status"><span class="run-live" aria-hidden="true"></span> Live authorization trace</span>
+            <span class="run-title">act_01J8Y2A7 · refund.issue</span>
             <button class="copy term-copy" data-copy="node examples/token-refresh-correctness/run.mjs" aria-label="Copy the token-refresh correctness proof command">
               <span class="copy-hint">copy</span>
             </button>
           </div>
-          <div class="run-body">
-            <p class="tl dim">$ agent run --task "refund ord_42"</p>
-            <p class="tl"><span class="str">→</span> refund.issue({ orderId: <span class="str">'ord_42'</span>, amount: <span class="acc">200</span> })</p>
-            <p class="tl"><span class="acc">⏸</span> ask rule: approval requested</p>
-            <p class="tl">→ request returns — <span class="hl">ActionPendingError</span> (2:14)</p>
-            <p class="tl dim">… Slack card to alice · access-token TTL: 10 min</p>
-            <p class="tl dim" data-d="2400">⏳ the gap — 17 minutes with nothing happening</p>
-            <p class="tl bad"><span>✗</span> token expired during the pause (2:31)</p>
-            <p class="tl"><span class="ok">✓</span> alice approves out of band — Slack (2:29)</p>
-            <p class="tl">→ <span class="hl">resumeAction()</span> → single-use capability issued</p>
-            <p class="tl"><span class="ok">✓</span> fresh token minted at execution — not the dead one</p>
-            <p class="tl bad"><span>✗</span> mutated args bounce — <span class="hl">AuthorizationInputChangedError</span></p>
-            <p class="tl"><span class="ok">✓</span> executed once · receipt sealed</p>
+          <div class="trace-stages" aria-hidden="true">
+            <div class="trace-stage complete"><span>01</span><strong>Policy checked</strong><small>ask</small></div>
+            <div class="trace-link"><i></i></div>
+            <div class="trace-stage complete"><span>02</span><strong>Human approved</strong><small>2:29</small></div>
+            <div class="trace-link"><i></i></div>
+            <div class="trace-stage active"><span>03</span><strong>Execution bound</strong><small>2:31</small></div>
+            <div class="trace-link"><i></i></div>
+            <div class="trace-stage complete"><span>04</span><strong>Receipt sealed</strong><small>sha256</small></div>
+          </div>
+          <div class="trace-body">
+            <div class="run-body">
+              <p class="tl dim">$ agent run --task "refund ord_42"</p>
+              <p class="tl"><span class="str">→</span> refund.issue({ orderId: <span class="str">'ord_42'</span>, amount: <span class="acc">200</span> })</p>
+              <p class="tl"><span class="acc">◇</span> ask rule matched · approval requested</p>
+              <p class="tl">→ request returned · <span class="hl">ActionPendingError</span> <span class="dim">2:14</span></p>
+              <p class="tl dim" data-d="2200">··· 17 minute approval gap · token expires · access can change</p>
+              <p class="tl"><span class="ok">✓</span> alice approved out of band <span class="dim">2:29</span></p>
+              <p class="tl">→ <span class="hl">resumeAction()</span> · capability issued once</p>
+              <p class="tl"><span class="ok">✓</span> permission rechecked · fresh token minted</p>
+              <p class="tl"><span class="ok">✓</span> exact input executed · receipt appended</p>
+            </div>
+            <aside class="trace-receipt" aria-label="Sealed action receipt">
+              <div class="receipt-head"><span>receipt_00842</span><strong>verified</strong></div>
+              <dl>
+                <div><dt>effect</dt><dd>ask → allow</dd></div>
+                <div><dt>action</dt><dd>refund.issue</dd></div>
+                <div><dt>input</dt><dd>sha256:9f31…a4e8</dd></div>
+                <div><dt>token</dt><dd>fresh @ 2:31</dd></div>
+                <div><dt>execution</dt><dd>1 / 1</dd></div>
+              </dl>
+              <div class="receipt-seal" aria-hidden="true">
+                <svg viewBox="0 0 40 40">
+                  <g fill="none" stroke="currentColor" stroke-width="1">
+                    <circle cx="20" cy="20" r="15" />
+                    <circle cx="20" cy="20" r="11" opacity=".45" />
+                    <path d="m14.2 20.4 3.5 3.5 8.4-8.4" stroke-width="1.8" />
+                  </g>
+                </svg>
+                chain intact
+              </div>
+            </aside>
           </div>
         </div>
+
+        <p class="hero-note">No signup · no API key · zero runtime dependencies in core</p>
       </section>
 
       <!-- 2. The proof — the number a skeptic cannot argue with. -->

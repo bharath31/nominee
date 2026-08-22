@@ -1123,14 +1123,14 @@ const escapeHtml = (s: string) =>
 
 function approvalEmail(s: SessionState, approve: string, deny: string): string {
   const who = s.ghLogin ? `@${s.ghLogin}` : escapeHtml(s.name)
-  return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#0a1020">
-  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#8c2f2a">nominee · approval required</p>
+  return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#0a0a0a">
+  <p style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#635bff">nominee · approval required</p>
   <h2 style="font-size:20px;margin:8px 0 4px">Your agent paused for you, ${who}.</h2>
   <p style="color:#444;line-height:1.5">An autonomous agent wants to <b>publish a gist on your GitHub</b>:</p>
   <p style="background:#f4f4f5;border-radius:8px;padding:12px 14px;color:#222;font-size:15px">${escapeHtml(s.topic)}</p>
   <p style="color:#444;line-height:1.5;font-size:14px">It's <b>hibernating</b> until you decide. Approve and it resumes - nominee fetches a fresh token from Auth0 Token Vault <i>at that moment</i>, never a stale one.</p>
   <div style="margin:24px 0">
-    <a href="${approve}" style="background:#0a1020;color:#fff;font-weight:600;text-decoration:none;padding:13px 22px;border-radius:9px;display:inline-block;margin-right:10px">✓ Approve &amp; publish</a>
+    <a href="${approve}" style="background:#0a0a0a;color:#fff;font-weight:600;text-decoration:none;padding:13px 22px;border-radius:9px;display:inline-block;margin-right:10px">✓ Approve &amp; publish</a>
     <a href="${deny}" style="color:#666;text-decoration:none;padding:13px 18px;border-radius:9px;border:1px solid #ddd;display:inline-block">Deny</a>
   </div>
   <p style="color:#999;font-size:12px;line-height:1.5">You're receiving this because you started a session at nominee.dev/agent. The agent never saw your password or a stored token.</p>
@@ -1150,7 +1150,7 @@ function approvalLandingPage(
       ? 'Denied - nothing was published'
       : 'Could not complete'
   const body = ok
-    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#8c2f2a">View it ↗</a>` : ''}`
+    ? `nominee fetched a fresh GitHub token from Token Vault at action time and the agent published your gist.${out.gistUrl ? ` <a href="${escapeHtml(out.gistUrl)}" style="color:#635bff">View it ↗</a>` : ''}`
     : decision === 'denied'
       ? 'The agent stayed paused and took no action on your account.'
       : 'This approval link may have already been used, or the session expired.'
@@ -1160,9 +1160,9 @@ function approvalLandingPage(
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>nominee · ${escapeHtml(head)}</title>
 ${beacon}
-<style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(140,47,42,.05),transparent 60%),#fff;color:#0a1020;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
+<style>body{font-family:'Geist',system-ui,-apple-system,sans-serif;background:radial-gradient(800px 400px at 50% -20%,rgba(99,91,255,.05),transparent 60%),#fff;color:#0a0a0a;min-height:100vh;display:grid;place-items:center;margin:0;padding:24px;-webkit-font-smoothing:antialiased}
 .card{max-width:440px;text-align:center;background:#fbfbfc;border:1px solid #e5e7ee;border-radius:16px;padding:40px 28px;box-shadow:0 1px 2px rgba(10,16,32,.04),0 24px 60px -42px rgba(10,16,32,.3)}
-h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#8c2f2a}
+h1{font-size:24px;margin:0 0 12px;letter-spacing:-.025em}p{color:#38414f;line-height:1.6}a{color:#635bff}
 .back{font-family:ui-monospace,monospace;font-size:13px;color:#6b7488;margin-top:24px;display:inline-block;border-bottom:1px solid #e5e7ee;padding-bottom:2px}</style></head>
 <body><div class="card"><h1>${escapeHtml(head)}</h1><p>${body}</p>
 <a class="back" href="${ORIGIN}/agent/session-view?id=${escapeHtml(id)}">watch the full session timeline →</a></div></body></html>`
@@ -1336,15 +1336,15 @@ function html(inner: string, loggedIn: boolean, beaconToken?: string) {
 <title>nominee · live agent session</title>
 <link rel="icon" href="${ORIGIN}/assets/icon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 ${beacon}
 <style>
-:root{--bg:#faf9f5;--surface:#ffffff;--surface-2:#f2f0e8;--ink:#0a1020;--ink-soft:#3a4154;--muted:#71798c;--line:#e7e3d8;--seal:#8c2f2a;--seal-tint:rgba(140,47,42,.08);--navy:#0b1020;--navy-hover:#1b2438;--ok:#1f6b4a;--err:#cf3520;--code-bg:#0b1226;--code-text:#cdd5e6;--sans:'Schibsted Grotesk',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
-*{margin:0;box-sizing:border-box}[hidden]{display:none!important}body{font-family:var(--sans);background:radial-gradient(1100px 540px at 85% -14%,rgba(140,47,42,.05),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+:root{--bg:#ffffff;--surface:#ffffff;--surface-2:#fafafa;--ink:#0a0a0a;--ink-soft:#525252;--muted:#737373;--line:#ebebeb;--seal:#635bff;--seal-tint:rgba(99,91,255,.08);--navy:#0a0a0a;--navy-hover:#262626;--ok:#16a34a;--err:#dc2626;--code-bg:#0a0a0a;--code-text:#ededed;--sans:'Geist',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,monospace}
+*{margin:0;box-sizing:border-box}[hidden]{display:none!important}body{font-family:var(--sans);background:radial-gradient(1100px 540px at 85% -14%,rgba(99,91,255,.05),transparent 60%),var(--bg);color:var(--ink);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.bar{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);z-index:5}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:14px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.84);backdrop-filter:blur(18px) saturate(150%);z-index:5}
 .bar .brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.02em}
-.bar .brand svg{width:24px;height:24px;color:var(--seal)}
+.bar .brand svg{width:26px;height:26px;padding:4px;border-radius:7px;background:var(--ink);color:#fff}
 .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
 .wrap{max-width:1040px;margin:0 auto;padding:clamp(30px,5vw,56px) 22px 72px}
 .solo{max-width:560px;margin:0 auto;text-align:center}
@@ -1393,7 +1393,7 @@ button:disabled{opacity:.45;cursor:default;transform:none}
 .device-body{flex:1}.device-name{font-size:14px;font-weight:600;color:var(--ink);margin:0}
 .device-remove{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 1px;white-space:nowrap;margin-top:3px}.device-remove:hover{color:var(--err);border-color:var(--err)}
 /* not-enrolled setup */
-.setup{background:var(--seal-tint);border:1px solid rgba(140,47,42,.22);border-radius:11px;padding:16px 18px;animation:fade .3s ease}
+.setup{background:var(--seal-tint);border:1px solid rgba(99,91,255,.22);border-radius:11px;padding:16px 18px;animation:fade .3s ease}
 .setup-lede{font-size:14px;color:var(--ink-soft);line-height:1.55;margin:0 0 14px}.setup-lede strong{color:var(--ink)}
 .setup-row{display:flex;align-items:center;gap:12px}
 .setup-status{font-family:var(--mono);font-size:12px;color:var(--seal)}
@@ -1403,7 +1403,7 @@ button:disabled{opacity:.45;cursor:default;transform:none}
 /* flow stepper */
 .flow-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .flow-title{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.tl-clock{font-family:var(--mono);font-size:12px;color:var(--seal);background:var(--seal-tint);border:1px solid rgba(140,47,42,.25);border-radius:999px;padding:4px 11px;white-space:nowrap}
+.tl-clock{font-family:var(--mono);font-size:12px;color:var(--seal);background:var(--seal-tint);border:1px solid rgba(99,91,255,.25);border-radius:999px;padding:4px 11px;white-space:nowrap}
 .flow{position:relative}
 .fnode{position:relative;display:grid;grid-template-columns:28px 1fr auto;gap:13px;align-items:start;padding:9px 0}
 .fnode:not(:last-child)::before{content:'';position:absolute;left:13px;top:28px;bottom:-9px;width:2px;transform:translateX(-50%);background:var(--line);transition:background .4s}
@@ -1413,7 +1413,7 @@ button:disabled{opacity:.45;cursor:default;transform:none}
 .fnode-main{padding-top:3px}
 .fnode-label{font-size:14px;color:var(--ink);font-weight:500;line-height:1.35}
 .fnode-detail{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:3px;word-break:break-word}
-.fnode-detail a{color:var(--seal);border-bottom:1px solid rgba(140,47,42,.3)}
+.fnode-detail a{color:var(--seal);border-bottom:1px solid rgba(99,91,255,.3)}
 .fnode-ts{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:5px}
 .fnode.is-pending .fnode-mark{opacity:.55}.fnode.is-pending .fnode-label{color:var(--muted);font-weight:400}
 .fnode.is-done .fnode-mark{background:var(--ok);border-color:var(--ok);color:#fff;animation:pop .34s ease}
@@ -1436,16 +1436,16 @@ button:disabled{opacity:.45;cursor:default;transform:none}
 .r-hash{color:var(--muted);letter-spacing:.02em}
 .r-table tr.r-deny td{color:var(--err)}
 .r-table tr.r-ask td{color:var(--seal)}
-.gist-link{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px;color:var(--seal);margin-top:14px;border:1px solid rgba(140,47,42,.3);border-radius:8px;padding:9px 13px;transition:.15s}.gist-link:hover{background:var(--seal-tint)}
+.gist-link{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px;color:var(--seal);margin-top:14px;border:1px solid rgba(99,91,255,.3);border-radius:8px;padding:9px 13px;transition:.15s}.gist-link:hover{background:var(--seal-tint)}
 .jsontoggle{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:none;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 2px;margin-top:16px;cursor:pointer}
 pre{font-family:var(--mono);font-size:12px;color:var(--code-text);background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;margin-top:10px}
 .banner{font-family:var(--mono);font-size:12.5px;border-radius:10px;padding:12px 14px;margin-bottom:16px;animation:fade .3s ease}
-.banner.wait{background:var(--seal-tint);border:1px solid rgba(140,47,42,.28);color:var(--seal)}
+.banner.wait{background:var(--seal-tint);border:1px solid rgba(99,91,255,.28);color:var(--seal)}
 .banner.ok{background:rgba(31,107,74,.07);border:1px solid rgba(31,107,74,.25);color:var(--ok)}
 .banner.er{background:rgba(207,53,32,.06);border:1px solid rgba(207,53,32,.25);color:var(--err)}
 .foot{font-family:var(--mono);font-size:12px;color:var(--muted)}
 @keyframes pop{0%{transform:scale(.5)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
-@keyframes ring{0%{box-shadow:0 0 0 0 rgba(140,47,42,.34)}70%{box-shadow:0 0 0 8px rgba(140,47,42,0)}100%{box-shadow:0 0 0 0 rgba(140,47,42,0)}}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(99,91,255,.34)}70%{box-shadow:0 0 0 8px rgba(99,91,255,0)}100%{box-shadow:0 0 0 0 rgba(99,91,255,0)}}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @keyframes glow{0%,100%{box-shadow:0 1px 2px rgba(10,16,32,.04),0 20px 46px -36px rgba(10,16,32,.3)}40%{box-shadow:0 0 0 3px rgba(31,107,74,.18),0 20px 46px -30px rgba(31,107,74,.4)}}
 :focus-visible{outline:2px solid var(--seal);outline-offset:2px}
