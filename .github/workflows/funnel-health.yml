@@ -1,0 +1,24 @@
+name: Activation funnel health
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify the production collector can write
+        env:
+          FUNNEL_ADMIN_TOKEN: ${{ secrets.FUNNEL_ADMIN_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --max-time 15 \
+            -X POST \
+            -H "Authorization: Bearer ${FUNNEL_ADMIN_TOKEN}" \
+            https://www.nominee.dev/agent/funnel/health

@@ -88,8 +88,9 @@ HMAC-pseudonymized with `FUNNEL_HASH_KEY` and deduplicated before their counters
 are incremented. A protected aggregate-only report is available from
 `/agent/funnel/report?start=YYYY-MM-DD&end=YYYY-MM-DD`; access requires the
 `FUNNEL_ADMIN_TOKEN` bearer token. The same token protects `/agent/funnel/health`,
-which performs a write-and-delete storage probe. Neither secret belongs in a
-browser or a committed file.
+which performs a write-and-delete storage probe. A scheduled GitHub Actions
+workflow runs that probe daily so a broken collector cannot silently erase the
+activation baseline. Neither secret belongs in a browser or a committed file.
 
 ## Activated developer (phase 0)
 
