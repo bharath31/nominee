@@ -1,7 +1,12 @@
 import { ipAddress } from '@vercel/functions'
 import { Ratelimit } from '@upstash/ratelimit'
 import { getSessionState, resolveSession, startSession } from './_session-store.js'
-import { parsePublicFunnelEvent, trackFunnel } from './_funnel.js'
+import {
+  checkFunnel,
+  parsePublicFunnelEvent,
+  readFunnelAggregate,
+  trackFunnel,
+} from './_funnel.js'
 import { redis } from './_redis.js'
 import { type Env, ORIGIN, escapeHtml, json, loadEnv, short } from './_shared.js'
 
@@ -18,6 +23,23 @@ const CA_SCOPES =
 // Same limit as the Cloudflare `[[ratelimits]]` binding it replaces: 5
 // sessions / 60s / IP.
 const ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '60 s') })
+const funnelRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, '60 s'),
+  prefix: 'nominee:funnel:ratelimit',
+  analytics: false,
+})
+
+function hasBearer(request: Request, expected: string): boolean {
+  if (!expected) return false
+  const actual = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
+  if (actual.length !== expected.length) return false
+  let mismatch = 0
+  for (let index = 0; index < expected.length; index++) {
+    mismatch |= actual.charCodeAt(index) ^ expected.charCodeAt(index)
+  }
+  return mismatch === 0
+}
 
 const cleanTopic = (s: unknown): string | null => {
   const t = String(s ?? '')
@@ -180,13 +202,33 @@ export default async function handler(request: Request): Promise<Response> {
     ? '/' + p
     : url.pathname.replace(/\/+$/, '') || '/agent'
 
+  if (path.endsWith('/funnel/health') && request.method === 'POST') {
+    if (!hasBearer(request, env.FUNNEL_ADMIN_TOKEN)) return json({ ok: false }, 401)
+    return (await checkFunnel())
+      ? json({ ok: true, storage: 'redis' })
+      : json({ ok: false, error: 'analytics unavailable' }, 503)
+  }
+
+  if (path.endsWith('/funnel/report') && request.method === 'GET') {
+    if (!hasBearer(request, env.FUNNEL_ADMIN_TOKEN)) return json({ ok: false }, 401)
+    try {
+      const start = url.searchParams.get('start') ?? ''
+      const end = url.searchParams.get('end') ?? ''
+      return json(await readFunnelAggregate(start, end))
+    } catch (error) {
+      return json({ ok: false, error: short(error) }, 400)
+    }
+  }
+
   // Explicitly allowlisted, anonymous product-funnel collector. It accepts no
   // arbitrary properties: just an event name and, for CLI trial/activation
   // reports, a validated installation UUID and installed package version.
   if (path.endsWith('/funnel') && request.method === 'POST') {
     const event = parsePublicFunnelEvent(await request.json().catch(() => null))
     if (!event) return json({ ok: false }, 400)
-    if (!trackFunnel({}, event.event, event.detail, event.cliVersion)) {
+    const ip = ipAddress(request) ?? 'anon'
+    if (!(await funnelRatelimit.limit(ip)).success) return json({ ok: false }, 429)
+    if (!(await trackFunnel(event.event, event.detail, event.cliVersion))) {
       // Do not acknowledge an opt-in activation that was not durably handed
       // to the funnel sink. The CLI will say it was not sent.
       return json({ ok: false, error: 'analytics unavailable' }, 503)
@@ -492,7 +534,7 @@ export default async function handler(request: Request): Promise<Response> {
       method,
       refreshToken: session.refreshToken,
     })
-    if (result.ok) trackFunnel({}, 'session_start', method)
+    if (result.ok) void trackFunnel('session_start', method)
     return json({ ok: result.ok, id, ...result.state }, result.httpStatus)
   }
 

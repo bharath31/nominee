@@ -4,9 +4,8 @@ import { DurableObjectActionStore } from './_action-store.js'
 import { RedisActionStorage } from './_redis-action-storage.js'
 import { redis } from './_redis.js'
 import { type Env, ORIGIN, escapeHtml, json, short } from './_shared.js'
-// No Cloudflare-specific logic in here either - reused unchanged. `trackFunnel`
-// no-ops (returns false) since this Env never has a `FUNNEL` field, same as
-// the Cloudflare side with the binding commented out in wrangler.toml.
+// Session outcomes are persisted as aggregate counters. They stay best-effort
+// so analytics cannot turn a denied or successful action into an application error.
 import { trackFunnel } from './_funnel.js'
 
 // The payload the agent "reads" mid-run - a fixed fixture, like the
@@ -220,11 +219,11 @@ export async function startSession(
           at: Date.now(),
           text: `blocked before the call ran (${err.decision.ruleId}) - ${err.decision.reason}`,
         })
-        trackFunnel({}, 'blocked', s.method)
+        void trackFunnel('blocked', s.method)
       } else {
         s.status = 'error'
         s.steps.push({ kind: 'error', at: Date.now(), text: short(err) })
-        trackFunnel({}, 'error', 'block_failed')
+        void trackFunnel('error', 'block_failed')
         await saveSession(s)
         return { ok: false, httpStatus: 500, state: { status: s.status } }
       }
@@ -264,7 +263,7 @@ export async function startSession(
       at: Date.now(),
       text: `unexpected policy outcome for gist.publish: ${prepared.status}`,
     })
-    trackFunnel({}, 'error', 'prepare_failed')
+    void trackFunnel('error', 'prepare_failed')
     await saveSession(s)
     return { ok: false, httpStatus: 500, state: { status: s.status } }
   }
@@ -327,11 +326,11 @@ export async function resolveSession(
   if (decision === 'denied') {
     s.status = 'denied'
     await saveSession(s)
-    trackFunnel({}, 'denied', s.method)
+    void trackFunnel('denied', s.method)
     return { status: 200, body: { ok: false, decision } }
   }
 
-  trackFunnel({}, 'approved', s.method)
+  void trackFunnel('approved', s.method)
   const ok = await act(env, s)
   if (ok) return { status: 200, body: { ok: true, decision, gistUrl: s.gistUrl } }
   return { status: 502, body: { ok: false, reason: 'action_failed' } }
@@ -368,7 +367,7 @@ async function act(env: Env, s: SessionState): Promise<boolean> {
     if (!gist.ok) {
       s.status = 'error'
       s.steps.push({ kind: 'error', at: Date.now(), text: `publish failed (${gist.status})` })
-      trackFunnel({}, 'error', 'publish_failed')
+      void trackFunnel('error', 'publish_failed')
     } else {
       s.gistUrl = gist.url
       s.status = 'done'
@@ -377,12 +376,12 @@ async function act(env: Env, s: SessionState): Promise<boolean> {
         at: Date.now(),
         text: 'nominee approved the write, then published a gist to your GitHub',
       })
-      trackFunnel({}, 'published', s.method)
+      void trackFunnel('published', s.method)
     }
   } catch (err) {
     s.status = 'error'
     s.steps.push({ kind: 'error', at: Date.now(), text: short(err) })
-    trackFunnel({}, 'error', 'act_failed')
+    void trackFunnel('error', 'act_failed')
   }
   await saveSession(s)
   return s.status === 'done'
@@ -465,7 +464,7 @@ async function pollCibaIfDue(env: Env, s: SessionState): Promise<SessionState> {
           via: 'ciba',
         })
       }
-      trackFunnel({}, 'approved', s.method)
+      void trackFunnel('approved', s.method)
       await act(env, s)
       return s
     }
@@ -490,7 +489,7 @@ async function pollCibaIfDue(env: Env, s: SessionState): Promise<SessionState> {
           via: 'ciba',
         })
       }
-      trackFunnel({}, 'denied', s.method)
+      void trackFunnel('denied', s.method)
       await saveSession(s)
       return s
     }
@@ -501,7 +500,7 @@ async function pollCibaIfDue(env: Env, s: SessionState): Promise<SessionState> {
         at: Date.now(),
         text: 'CIBA request expired - Guardian notification went unanswered',
       })
-      trackFunnel({}, 'error', 'ciba_expired')
+      void trackFunnel('error', 'ciba_expired')
       await saveSession(s)
       return s
     }
