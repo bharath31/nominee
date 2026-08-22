@@ -10,6 +10,7 @@ export interface Env {
   RESEND_API_KEY: string
   FROM: string
   NOMINEE_RECEIPT_KEY: string
+  FUNNEL_ADMIN_TOKEN: string
 }
 
 export function loadEnv(): Env {
@@ -23,6 +24,7 @@ export function loadEnv(): Env {
     // not a secret, same default wrangler.toml ships as a plain [vars] entry.
     FROM: process.env.FROM ?? 'nominee <agent@email.nominee.dev>',
     NOMINEE_RECEIPT_KEY: process.env.NOMINEE_RECEIPT_KEY ?? '',
+    FUNNEL_ADMIN_TOKEN: process.env.FUNNEL_ADMIN_TOKEN ?? '',
   }
 }
 

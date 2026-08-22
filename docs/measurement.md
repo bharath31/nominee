@@ -77,30 +77,19 @@ write that down from partner interviews.
 
 ## Launch-site analytics
 
-The static site uses Cloudflare Web Analytics for privacy-first page views,
-visitors, and Web Vitals. Before each Pages deployment,
-`scripts/configure-cloudflare-web-analytics.mjs` reuses or creates the
-`nominee.dev` analytics site and attaches its public tag and token to the
-`nominee-dev` Pages project. Cloudflare injects the beacon into the next
-deployment, so analytics markup and tokens do not need to be copied into every
-HTML file.
+The production site uses Vercel Web Analytics for privacy-first page views and
+visitors. Web Analytics measures acquisition, not product activation. Outbound
+npm/GitHub clicks, CLI copy actions, demo outcomes, and explicitly opted-in CLI
+reports go to nominee's aggregate funnel collector at `/agent/funnel`.
 
-The `CLOUDFLARE_API_TOKEN` repository secret needs **Pages Write**. Its first
-analytics run also needs the account-level **Account Analytics** permission
-(Read to reuse an existing site, Edit to create one) to list or create the Web
-Analytics site; subsequent runs return immediately once the Pages project is
-configured.
-
-Analytics is advisory, so a token without that permission logs a warning and
-the deployment continues — the site publishes with or without the beacon.
-Anything else (an unreadable Pages project, a half-applied build config) still
-fails the run.
-
-Web Analytics measures acquisition and page performance, not product
-activation. It does not support custom events. Outbound npm/GitHub clicks, CLI
-copy actions, playground outcomes, and explicitly opted-in CLI reports go to the
-agent Worker's optional Analytics Engine `FUNNEL` binding described in
-`site/agent-worker/README.md`.
+The collector stores daily counters in the site's existing Redis database. It
+never stores raw installation IDs: the two installation-scoped CLI events are
+HMAC-pseudonymized with `FUNNEL_HASH_KEY` and deduplicated before their counters
+are incremented. A protected aggregate-only report is available from
+`/agent/funnel/report?start=YYYY-MM-DD&end=YYYY-MM-DD`; access requires the
+`FUNNEL_ADMIN_TOKEN` bearer token. The same token protects `/agent/funnel/health`,
+which performs a write-and-delete storage probe. Neither secret belongs in a
+browser or a committed file.
 
 ## Activated developer (phase 0)
 
@@ -129,9 +118,9 @@ only when both standard input and output are terminals. The optional request is
 capped at three seconds and cannot change a successful local proof's exit code.
 No reporting code exists in the core library.
 
-The Worker validates both CLI events' UUID and semantic version. It returns
-`503` instead of claiming success when the `FUNNEL` binding is unavailable. Do
-not count an event the Worker did not accept, and never relabel
+The collector validates both CLI events' UUID and semantic version. It returns
+`503` instead of claiming success when Redis is unavailable. Do not count an
+event the collector did not accept, and never relabel
 `cli_proof_completed` as activation.
 
 The playground records the exact anonymous path `viewed` → `edited_policy` →
@@ -159,9 +148,9 @@ automated floor remain diagnostic fields, never headline adoption numbers.
 Series are joined by their explicit `day` field; missing coverage fails instead
 of silently substituting zero.
 
-Analytics Engine access is deliberately not built into this repository script.
-Export only these aggregate counts from the `FUNNEL` dataset—never installation
-IDs or raw event rows:
+The protected report endpoint returns aggregate counts only—never installation
+IDs or raw event rows. Combine the current and previous periods into this local
+input for the repository script:
 
 ```json
 {
